@@ -1,0 +1,107 @@
+{
+	"owner": "spencerbeggs",
+	"repos": [
+		"claude-binary-plugin",
+		"claude-design-coordinator",
+		"pnpm-monorepo-template",
+		"pnpm-module-template",
+		"github-repo-sync",
+		"runtime-resolver",
+		"type-registry-effect",
+		"workspaces-effect",
+		"jsonc-effect",
+		"semver-effect",
+		"rspress-plugin-api-extractor",
+		"claude-plugin-template",
+		"design-docs-plugin",
+		"vitest-llm-reporter",
+		"effect-playground",
+		"package-json-effect",
+		"yaml-effect",
+		".github",
+		".github-private"
+	],
+	"secrets": [
+		{
+			"name": "APP_ID",
+			"file": "private/APP_ID",
+			"dependabot": true
+		},
+		{
+			"name": "APP_CLIENT_ID",
+			"file": "private/APP_CLIENT_ID",
+			"dependabot": true
+		},
+		{
+			"name": "APP_PRIVATE_KEY",
+			"file": "private/APP_PRIVATE_KEY",
+			"dependabot": true
+		},
+		{
+			"name": "CLAUDE_REVIEW_PAT",
+			"file": "private/CLAUDE_REVIEW_PAT"
+		},
+		{
+			"name": "CUSTOM_REGISTRIES",
+			"file": "private/CUSTOM_REGISTRIES"
+		},
+		{
+			"name": "NPM_TOKEN",
+			"file": "private/NPM_TOKEN"
+		}
+	],
+	"variables": [
+		{
+			"name": "FORCE_JAVASCRIPT_ACTIONS_TO_NODE24",
+			"value": "true"
+		},
+		{
+			"name": "APP_BOT_ID",
+			"value": "2527309"
+		},
+		{
+			"name": "APP_BOT_NAME",
+			"value": "spencerbeggs[bot]"
+		},
+		{
+			"name": "DO_NOT_TRACK",
+			"value": "1"
+		},
+		{
+			"name": "TURBO_TELEMETRY_DISABLED",
+			"value": "1"
+		},
+		{
+			"name": "SILK_RELEASE_SBOM_TEMPLATE",
+			"file": "private/sbom.json"
+		}
+	],
+	"cleanup": {
+		"secrets": true,
+		"variables": true,
+		"dependabot_secrets": true,
+		"rulesets": false,
+		"preserve": {
+			"secrets": ["CLAUDE_CODE_OAUTH_TOKEN"],
+			"variables": [],
+			"dependabot_secrets": [],
+			"rulesets": []
+		}
+	},
+	"settings": {
+		"has_wiki": false,
+		"has_issues": true,
+		"has_projects": true,
+		"has_discussions": false,
+		"allow_merge_commit": false,
+		"allow_auto_merge": true,
+		"allow_squash_merge": true,
+		"squash_merge_commit_title": "PR_TITLE",
+		"squash_merge_commit_message": "BLANK",
+		"allow_rebase_merge": true,
+		"allow_update_branch": true,
+		"delete_branch_on_merge": true,
+		"web_commit_signoff_required": true
+	},
+	"rulesets": ["rulesets/workflow.json", "rulesets/release.json"]
+}

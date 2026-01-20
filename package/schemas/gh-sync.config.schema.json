@@ -1,0 +1,400 @@
+{
+	"$schema": "http://json-schema.org/draft-07/schema#",
+	"type": "object",
+	"required": ["repos"],
+	"properties": {
+		"owner": {
+			"type": "string",
+			"description": "Default GitHub user or organization for all repo groups. Can be overridden per group.",
+			"title": "Default owner",
+			"examples": ["spencerbeggs", "savvy-web"]
+		},
+		"settings": {
+			"type": "object",
+			"required": [],
+			"properties": {},
+			"additionalProperties": {
+				"type": "object",
+				"required": [],
+				"properties": {},
+				"additionalProperties": {
+					"$id": "/schemas/unknown",
+					"title": "unknown"
+				}
+			},
+			"description": "Named groups of GitHub repository settings (passed to the repos.update API)",
+			"title": "Settings groups",
+			"x-tombi-additional-key-label": "setting_group"
+		},
+		"secrets": {
+			"type": "object",
+			"required": [],
+			"properties": {},
+			"additionalProperties": {
+				"type": "object",
+				"required": [],
+				"properties": {},
+				"additionalProperties": {
+					"$ref": "#/$defs/ValueSource"
+				},
+				"description": "Named secrets with their value sources",
+				"title": "Secret entries",
+				"x-tombi-additional-key-label": "secret_name"
+			},
+			"description": "Named groups of secrets. Each entry maps a secret name to a value source (file, value, json, or op).",
+			"title": "Secret groups",
+			"x-tombi-additional-key-label": "secret_group"
+		},
+		"variables": {
+			"type": "object",
+			"required": [],
+			"properties": {},
+			"additionalProperties": {
+				"type": "object",
+				"required": [],
+				"properties": {},
+				"additionalProperties": {
+					"$ref": "#/$defs/ValueSource"
+				},
+				"description": "Named variables with their value sources",
+				"title": "Variable entries",
+				"x-tombi-additional-key-label": "variable_name"
+			},
+			"description": "Named groups of variables. Each entry maps a variable name to a value source (file, value, json, or op).",
+			"title": "Variable groups",
+			"x-tombi-additional-key-label": "variable_group"
+		},
+		"rulesets": {
+			"type": "object",
+			"required": [],
+			"properties": {},
+			"additionalProperties": {
+				"type": "object",
+				"required": [],
+				"properties": {},
+				"additionalProperties": {
+					"$ref": "#/$defs/ValueSource"
+				},
+				"description": "Named rulesets with their value sources (typically file references to JSON)",
+				"title": "Ruleset entries",
+				"x-tombi-additional-key-label": "ruleset_name"
+			},
+			"description": "Named groups of rulesets. Each entry maps a ruleset name to a value source (file, value, json, or op).",
+			"title": "Ruleset groups",
+			"x-tombi-additional-key-label": "ruleset_group"
+		},
+		"cleanup": {
+			"allOf": [
+				{
+					"$ref": "#/$defs/Cleanup"
+				}
+			],
+			"title": "Cleanup defaults",
+			"description": "Default cleanup behavior for all repo groups. Can be overridden per group."
+		},
+		"repos": {
+			"type": "object",
+			"required": [],
+			"properties": {},
+			"additionalProperties": {
+				"$ref": "#/$defs/RepoGroup"
+			},
+			"description": "Named groups of repositories with their settings, secrets, variables, and ruleset assignments",
+			"title": "Repository groups",
+			"x-tombi-additional-key-label": "repo_group"
+		}
+	},
+	"additionalProperties": false,
+	"description": "Configuration for syncing GitHub repository settings, secrets, variables, and rulesets",
+	"title": "gh-sync Configuration",
+	"x-tombi-table-keys-order": "schema",
+	"$defs": {
+		"ValueSource": {
+			"anyOf": [
+				{
+					"type": "object",
+					"required": ["file"],
+					"properties": {
+						"file": {
+							"type": "string",
+							"description": "Path to a file containing the value, resolved relative to the config directory",
+							"title": "File path",
+							"examples": ["./private/my-secret", "./rulesets/workflow.json"]
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["value"],
+					"properties": {
+						"value": {
+							"type": "string",
+							"description": "A literal string value",
+							"title": "Inline value",
+							"examples": ["my-secret-value", "production"]
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["json"],
+					"properties": {
+						"json": {
+							"type": "object",
+							"required": [],
+							"properties": {},
+							"additionalProperties": {
+								"$id": "/schemas/unknown",
+								"title": "unknown"
+							},
+							"description": "An inline object that will be serialized to a JSON string",
+							"title": "JSON object",
+							"examples": [
+								{
+									"github": "https://npm.pkg.github.com",
+									"npm": "https://registry.npmjs.org"
+								}
+							]
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["op"],
+					"properties": {
+						"op": {
+							"type": "string",
+							"description": "A 1Password secret reference resolved at runtime via the 1Password SDK",
+							"title": "1Password reference",
+							"examples": ["op://Private/npm-token/credential", "op://Work/api-key/password"]
+						}
+					},
+					"additionalProperties": false
+				}
+			],
+			"description": "A value source: file path, inline string, JSON object, or 1Password reference",
+			"title": "Value source"
+		},
+		"Cleanup": {
+			"type": "object",
+			"required": [],
+			"properties": {
+				"secrets": {
+					"type": "boolean",
+					"title": "Clean up action secrets",
+					"description": "Delete action secrets not declared in any referenced secret group",
+					"default": false
+				},
+				"variables": {
+					"type": "boolean",
+					"title": "Clean up action variables",
+					"description": "Delete action variables not declared in any referenced variable group",
+					"default": false
+				},
+				"dependabot_secrets": {
+					"type": "boolean",
+					"title": "Clean up Dependabot secrets",
+					"description": "Delete Dependabot secrets not declared in any referenced secret group",
+					"default": false
+				},
+				"codespaces_secrets": {
+					"type": "boolean",
+					"title": "Clean up Codespaces secrets",
+					"description": "Delete Codespaces secrets not declared in any referenced secret group",
+					"default": false
+				},
+				"rulesets": {
+					"type": "boolean",
+					"title": "Clean up rulesets",
+					"description": "Delete repository rulesets not declared in any referenced ruleset group",
+					"default": false
+				},
+				"preserve": {
+					"allOf": [
+						{
+							"$ref": "#/$defs/CleanupPreserve"
+						}
+					],
+					"title": "Preserve lists",
+					"description": "Resource names to never delete during cleanup"
+				}
+			},
+			"additionalProperties": false,
+			"description": "Controls deletion of resources not declared in config. All disabled by default.",
+			"title": "Cleanup configuration"
+		},
+		"CleanupPreserve": {
+			"type": "object",
+			"required": [],
+			"properties": {
+				"secrets": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"title": "Preserved secrets",
+					"description": "Action secret names that should never be deleted during cleanup",
+					"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+					"default": []
+				},
+				"variables": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"title": "Preserved variables",
+					"description": "Action variable names that should never be deleted during cleanup",
+					"examples": [["LEGACY_VAR"]],
+					"default": []
+				},
+				"dependabot_secrets": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"title": "Preserved Dependabot secrets",
+					"description": "Dependabot secret names that should never be deleted during cleanup",
+					"default": []
+				},
+				"codespaces_secrets": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"title": "Preserved Codespaces secrets",
+					"description": "Codespaces secret names that should never be deleted during cleanup",
+					"default": []
+				},
+				"rulesets": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"title": "Preserved rulesets",
+					"description": "Ruleset names that should never be deleted during cleanup",
+					"default": []
+				}
+			},
+			"additionalProperties": false,
+			"description": "Resource names to preserve during cleanup (never delete)",
+			"title": "Preserve lists"
+		},
+		"RepoGroup": {
+			"type": "object",
+			"required": ["names"],
+			"properties": {
+				"owner": {
+					"type": "string",
+					"description": "GitHub user or organization that owns these repos. Overrides the top-level owner.",
+					"title": "Owner override",
+					"examples": ["savvy-web"]
+				},
+				"names": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "List of repository names (without owner prefix) to sync in this group",
+					"title": "Repository names",
+					"examples": [["repo-one", "repo-two", "repo-three"]],
+					"x-tombi-array-values-order": "ascending"
+				},
+				"credentials": {
+					"type": "string",
+					"description": "Name of the credential profile to use. If only one profile exists, it is used automatically.",
+					"title": "Credential profile",
+					"examples": ["personal", "work"]
+				},
+				"settings": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Names of settings groups to apply to these repos",
+					"title": "Settings groups",
+					"examples": [["oss-defaults"]]
+				},
+				"secrets": {
+					"$ref": "#/$defs/SecretScopes"
+				},
+				"variables": {
+					"$ref": "#/$defs/VariableScopes"
+				},
+				"rulesets": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Names of ruleset groups to apply to these repos",
+					"title": "Ruleset groups",
+					"examples": [["standard"]]
+				},
+				"cleanup": {
+					"$ref": "#/$defs/Cleanup"
+				}
+			},
+			"additionalProperties": false,
+			"description": "A named group of repositories with their resource assignments",
+			"title": "Repository group",
+			"x-tombi-table-keys-order": "schema"
+		},
+		"SecretScopes": {
+			"type": "object",
+			"required": [],
+			"properties": {
+				"actions": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Secret groups to sync as GitHub Actions repository secrets",
+					"title": "Action secret groups",
+					"examples": [["deploy", "app"]]
+				},
+				"dependabot": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Secret groups to sync as Dependabot secrets",
+					"title": "Dependabot secret groups",
+					"examples": [["deploy"]]
+				},
+				"codespaces": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Secret groups to sync as Codespaces secrets",
+					"title": "Codespaces secret groups",
+					"examples": [["deploy"]]
+				}
+			},
+			"additionalProperties": false,
+			"description": "Assign secret groups to GitHub secret scopes (actions, dependabot, codespaces)",
+			"title": "Secret scopes"
+		},
+		"VariableScopes": {
+			"type": "object",
+			"required": [],
+			"properties": {
+				"actions": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Variable groups to sync as GitHub Actions repository variables",
+					"title": "Action variable groups",
+					"examples": [["common"]]
+				}
+			},
+			"additionalProperties": false,
+			"description": "Assign variable groups to GitHub variable scopes",
+			"title": "Variable scopes"
+		}
+	},
+	"x-tombi-toml-version": "v1.0.0"
+}

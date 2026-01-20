@@ -1,5 +1,54 @@
-node_modules/
-dist/
+**/.DS_Store
+**/node_modules
+**/*.tsbuildinfo
+# Generated TypeScript declaration files for config files
+*.config.d.ts
+**/build
+**/dist
+**/.rslib
+**/.artifacts
+**/.turbo
+**/.coverage
+**/.vitest
+**/.cache
+coverage/
+**/*.asc
+pnpm-publish-summary.json
+pnpm-release.json
+.changeset/status.json
+# Auto-generated API documentation
+docs/src/**/api/**/*.md
+!docs/src/**/api/_meta.json
+# Environment files (keep .example files committed)
 .env
-config.json
-*.log
+.env.local
+.env.development
+.env.production
+.env.test
+.env.workflow
+.env.workflow-cli
+!.env.example
+!.env.*.example
+
+.pnpm-release.json
+**/*.api.json
+**/yo-rc.json
+**/savvy.config.toml
+pkgs/generators/test.ts
+# Temporary api-extractor files created during build
+**/src/api-extractor-*.ts
+test.ts
+.claude/settings.local.json
+.claude/plans/
+**/coverage-debug
+.claude/plugins-debug.log
+.playwright-mcp
+website/lib/packages/*/*.api.json
+website/lib/packages/*/package.json
+private/**
+docs/superpowers
+
+# Local configuration and credentials files (keep them out of version control)
+gh-sync.config.toml
+gh-sync.credentials.toml
+tombi.toml
