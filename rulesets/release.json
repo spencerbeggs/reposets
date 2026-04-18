@@ -1,0 +1,35 @@
+{
+	"id": 11354894,
+	"name": "release",
+	"target": "branch",
+	"source_type": "Repository",
+	"source": "spencerbeggs/claude-binary-plugin",
+	"enforcement": "active",
+	"conditions": {
+		"ref_name": {
+			"exclude": [],
+			"include": ["refs/heads/changesets-release/main"]
+		}
+	},
+	"rules": [
+		{
+			"type": "deletion"
+		},
+		{
+			"type": "non_fast_forward"
+		},
+		{
+			"type": "required_linear_history"
+		},
+		{
+			"type": "required_signatures"
+		}
+	],
+	"bypass_actors": [
+		{
+			"actor_id": 2527309,
+			"actor_type": "Integration",
+			"bypass_mode": "always"
+		}
+	]
+}

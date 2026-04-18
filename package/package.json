@@ -1,0 +1,66 @@
+{
+	"name": "gh-sync",
+	"version": "0.0.0",
+	"description": "CLI tool to sync GitHub repo settings, secrets, and rulesets across personal repositories",
+	"keywords": ["github", "sync", "cli", "secrets", "rulesets"],
+	"license": "MIT",
+	"author": {
+		"name": "C. Spencer Beggs",
+		"email": "spencer@beggs.codes",
+		"url": "https://spencerbeg.gs"
+	},
+	"type": "module",
+	"exports": {
+		".": "./src/index.ts"
+	},
+	"bin": {
+		"gh-sync": "./src/cli/index.ts"
+	},
+	"scripts": {
+		"build:dev": "rslib build --config-loader native --env-mode dev",
+		"build:inspect": "rslib inspect --config-loader native --env-mode npm --verbose",
+		"build:prod": "rslib build --config-loader native --env-mode npm",
+		"generate:json-schema": "tsx lib/scripts/generate-json-schema.ts",
+		"types:check": "tsgo --noEmit"
+	},
+	"dependencies": {
+		"@1password/sdk": "^0.1.6",
+		"@effect/cli": "^0.75.1",
+		"@effect/platform": "^0.96.0",
+		"@effect/platform-node": "^0.106.0",
+		"@octokit/rest": "^22.0.1",
+		"blakejs": "^1.2.1",
+		"effect": "^3.21.1",
+		"smol-toml": "^1.6.1",
+		"tweetnacl": "^1.0.3"
+	},
+	"devDependencies": {
+		"@savvy-web/rslib-builder": "^0.20.1",
+		"@types/node": "catalog:silk",
+		"@typescript/native-preview": "catalog:silk",
+		"tsx": "catalog:silk",
+		"typescript": "catalog:silk"
+	},
+	"engines": {
+		"node": ">=20.0.0"
+	},
+	"publishConfig": {
+		"access": "public",
+		"targets": [
+			{
+				"protocol": "npm",
+				"registry": "https://npm.pkg.github.com/",
+				"directory": "dist/github",
+				"access": "public",
+				"provenance": true
+			},
+			{
+				"protocol": "npm",
+				"registry": "https://registry.npmjs.org/",
+				"directory": "dist/npm",
+				"access": "public",
+				"provenance": true
+			}
+		]
+	}
+}

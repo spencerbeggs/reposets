@@ -1,0 +1,76 @@
+{
+	"id": 11354914,
+	"name": "workflow",
+	"target": "branch",
+	"source_type": "Repository",
+	"source": "spencerbeggs/claude-binary-plugin",
+	"enforcement": "active",
+	"conditions": {
+		"ref_name": {
+			"exclude": [],
+			"include": ["~DEFAULT_BRANCH"]
+		}
+	},
+	"rules": [
+		{
+			"type": "deletion"
+		},
+		{
+			"type": "non_fast_forward"
+		},
+		{
+			"type": "required_linear_history"
+		},
+		{
+			"type": "required_signatures"
+		},
+		{
+			"type": "pull_request",
+			"parameters": {
+				"required_approving_review_count": 0,
+				"dismiss_stale_reviews_on_push": false,
+				"required_reviewers": [],
+				"require_code_owner_review": false,
+				"require_last_push_approval": false,
+				"required_review_thread_resolution": false,
+				"allowed_merge_methods": ["squash"]
+			}
+		},
+		{
+			"type": "required_status_checks",
+			"parameters": {
+				"strict_required_status_checks_policy": true,
+				"do_not_enforce_on_create": true,
+				"required_status_checks": [
+					{
+						"context": "Code Quality",
+						"integration_id": 2527309
+					},
+					{
+						"context": "Claude Code Review",
+						"integration_id": 2527309
+					},
+					{
+						"context": "Conventional Commits",
+						"integration_id": 2527309
+					},
+					{
+						"context": "Tests",
+						"integration_id": 2527309
+					},
+					{
+						"context": "PR Title Validation",
+						"integration_id": 2527309
+					}
+				]
+			}
+		}
+	],
+	"bypass_actors": [
+		{
+			"actor_id": 5,
+			"actor_type": "RepositoryRole",
+			"bypass_mode": "always"
+		}
+	]
+}
