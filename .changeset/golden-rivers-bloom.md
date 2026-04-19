@@ -8,8 +8,8 @@
 
 A new `SyncLogger` service instruments the entire sync pipeline with structured, tiered output.
 
-- Added a `--verbosity` flag to the root `gh-sync` command. Accepted values: `silent`, `info`, `verbose`, `debug`.
-- Added a `log_level` field to `gh-sync.config.toml` that sets the default verbosity. The `--verbosity` flag overrides it at runtime.
+- Added a `--log-level` flag to the root `gh-sync` command. Accepted values: `silent`, `info`, `verbose`, `debug`.
+- Added a `log_level` field to `gh-sync.config.toml` that sets the default verbosity. The `--log-level` flag overrides it at runtime.
 - `info` (default) prints per-group and per-repo summaries with counts of synced resources.
 - `verbose` adds per-operation lines showing exactly which secret, variable, or ruleset was created or updated.
 - `debug` extends `verbose` output with the source of each resolved value (file path, credential label, or 1Password reference).

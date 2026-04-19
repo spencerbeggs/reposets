@@ -19,13 +19,13 @@ last-synced: 2026-04-18
 
 ## Global Options
 
-`--verbosity silent|info|verbose|debug` (default: `info`) - sets output
+`--log-level silent|info|verbose|debug` (default: `info`) - sets output
 verbosity. Overrides `log_level` in config.
 
 ## Command Tree
 
 ```text
-gh-sync [--verbosity]
+gh-sync [--log-level]
   sync [--config] [--group] [--repo] [--dry-run] [--no-cleanup]
   list [--config]
   validate [--config]

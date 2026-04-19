@@ -16,7 +16,7 @@ credential profiles at runtime.
 ## Service Graph
 
 ```text
-CLI Commands (--verbosity flag)
+CLI Commands (--log-level flag)
   |
   v
 ConfigLoader (TOML parsing + Schema validation)
@@ -44,7 +44,7 @@ Layers are composed at the CLI entrypoint, not inside services:
 
 ## Data Flow
 
-1. CLI parses args via @effect/cli (global `--verbosity` flag)
+1. CLI parses args via @effect/cli (global `--log-level` flag)
 2. Config path resolved: --config flag > directory walk > XDG fallback
 3. TOML files read from disk, parsed by smol-toml, validated by Effect Schema
 4. SyncEngine iterates groups (`config.groups`), resolving credential

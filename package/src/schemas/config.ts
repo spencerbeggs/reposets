@@ -115,7 +115,7 @@ export const ConfigSchema = Schema.Struct({
 	),
 	log_level: Schema.optionalWith(LogLevelSchema, { default: () => "info" as const }).annotations({
 		title: "Log level",
-		description: "Default output verbosity. Can be overridden with --verbosity CLI flag.",
+		description: "Default output verbosity. Can be overridden with --log-level CLI flag.",
 	}),
 	settings: Schema.optionalWith(
 		Schema.Record({ key: Schema.String, value: SettingsGroupSchema }).annotations({

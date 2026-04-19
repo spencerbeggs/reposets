@@ -80,7 +80,7 @@ rulesets across personal repos.
 
 #### CLI Commands
 
-Global option: `--verbosity silent|info|verbose|debug` (overrides
+Global option: `--log-level silent|info|verbose|debug` (overrides
 `log_level` in config, defaults to `info`)
 
 - `sync` - Apply config to all repos in a group (or all groups)

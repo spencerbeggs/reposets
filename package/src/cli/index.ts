@@ -10,12 +10,12 @@ import { listCommand } from "./commands/list.js";
 import { syncCommand } from "./commands/sync.js";
 import { validateCommand } from "./commands/validate.js";
 
-export const verbosityOption = Options.choice("verbosity", ["silent", "info", "verbose", "debug"]).pipe(
+export const logLevelOption = Options.choice("log-level", ["silent", "info", "verbose", "debug"]).pipe(
 	Options.withDescription("Set output verbosity"),
 	Options.withDefault("info" as const),
 );
 
-const rootCommand = Command.make("gh-sync", { verbosity: verbosityOption }).pipe(
+const rootCommand = Command.make("gh-sync", { logLevel: logLevelOption }).pipe(
 	Command.withSubcommands([syncCommand, listCommand, validateCommand, doctorCommand, initCommand, credentialsCommand]),
 );
 
