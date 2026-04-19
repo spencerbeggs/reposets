@@ -4,7 +4,7 @@ import { configDir } from "./xdg.js";
 
 const CONFIG_FILE = "gh-sync.config.toml";
 
-interface ResolveOptions {
+export interface ResolveOptions {
 	configFlag?: string | undefined;
 	cwd?: string | undefined;
 	stopAt?: string | undefined;

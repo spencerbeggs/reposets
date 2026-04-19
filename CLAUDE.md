@@ -16,7 +16,7 @@ pnpm run typecheck         # Type-check all workspaces via Turbo
 pnpm sync                  # Alias: tsx package/src/cli/index.ts
 
 # Testing
-pnpm run test              # Run all tests (61 passing)
+pnpm run test              # Run all tests (108 passing)
 pnpm run test:watch        # Run tests in watch mode
 pnpm run test:coverage     # Run tests with coverage report
 
@@ -38,7 +38,7 @@ at `package/` (workspace name: `gh-sync`).
 package/                   # gh-sync CLI package
 package/src/cli/           # CLI entrypoint and commands
 package/src/services/      # Effect services
-package/src/schemas/       # Effect Schema definitions + JSON schema generation
+package/src/schemas/       # Effect Schema definitions (config, credentials, ruleset) + JSON schema generation
 package/src/lib/           # Utilities (XDG paths, config resolution, crypto)
 package/__test__/          # Tests mirroring src/ structure
 lib/configs/               # Shared config files (commitlint, lint-staged, markdownlint)
@@ -80,6 +80,9 @@ rulesets across personal repos.
 
 #### CLI Commands
 
+Global option: `--log-level silent|info|verbose|debug` (overrides
+`log_level` in config, defaults to `info`)
+
 - `sync` - Apply config to all repos in a group (or all groups)
 - `list` - List repos, secrets, variables, or rulesets for a repo
 - `validate` - Validate `gh-sync.config.toml` against schema
@@ -90,16 +93,18 @@ rulesets across personal repos.
 
 #### Effect Services
 
-Five services compose the sync pipeline:
+Six services compose the sync pipeline:
 
 - `ConfigLoader` — Parses and validates TOML config/credentials via
   Effect Schema
-- `ValueResolver` — Resolves secret values from `{ value }`, `{ file }`, or
-  `{ op }` (1Password) sources
+- `CredentialResolver` — Resolves named values from credential profile
+  `[resolve]` sections (value, file, and op sub-groups)
 - `OnePasswordClient` — Wraps `@1password/sdk` for 1Password secret references
 - `GitHubClient` — Octokit wrapper; handles settings, secrets, variables,
-  rulesets
-- `SyncEngine` — Orchestrates the full sync lifecycle across repos and groups
+  rulesets (accepts `Ruleset` schema type directly)
+- `SyncEngine` — Orchestrates the full sync lifecycle across groups and repos
+- `SyncLogger` — Tiered output (silent/info/verbose/debug) with dry-run
+  awareness; all sync output flows through this service
 
 #### Configuration Files
 
@@ -112,11 +117,17 @@ Config lookup order (first match wins):
 
 | File | Purpose |
 | :--- | :------ |
-| `gh-sync.config.toml` | Owner, repos, settings groups, secret groups, variable groups, ruleset groups, cleanup config |
-| `gh-sync.credentials.toml` | Named credential profiles (`[profiles.<name>]`) with `github_token` and optional `op_service_account_token` |
+| `gh-sync.config.toml` | Owner, `log_level`, settings groups, secret groups (file/value/resolved kinds), variable groups, ruleset groups (22 rule types inline), cleanup config, and `[groups.*]` sections mapping repos to resources |
+| `gh-sync.credentials.toml` | Named credential profiles (`[profiles.<name>]`) with `github_token`, optional `op_service_account_token`, and optional `[resolve]` section (op/file/value sub-groups for named values) |
 
 Credentials are stored in the XDG config dir (`~/.config/gh-sync/`) by
 default. Keep `gh-sync.credentials.toml` out of version control.
+
+Key naming: config top-level uses `[groups.<name>]` (not `repos`). Each
+group has a `repos` array (not `names`). Secret/variable groups are
+discriminated unions of exactly one kind: `{ file }`, `{ value }`, or
+`{ resolved }`. Resolved entries map names to credential labels from the
+active profile's `[resolve]` section.
 
 #### JSON Schema
 

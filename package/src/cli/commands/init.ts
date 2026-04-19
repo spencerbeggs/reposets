@@ -12,7 +12,7 @@ const projectOption = Options.boolean("project").pipe(
 const CONFIG_TEMPLATE = `# gh-sync configuration
 # See: https://github.com/spencerbeggs/gh-sync
 
-# Default owner for all repo groups (can be overridden per group)
+# Default owner for all groups (can be overridden per group)
 # owner = "your-github-username"
 
 # --- Settings groups ---
@@ -22,18 +22,37 @@ const CONFIG_TEMPLATE = `# gh-sync configuration
 # delete_branch_on_merge = true
 
 # --- Secret groups ---
-# [secrets.deploy]
-# NPM_TOKEN = { op = "op://vault/item/field" }
-# API_KEY = { file = "./private/api-key" }
-# INLINE_SECRET = { value = "my-secret" }
+# Secrets can be file, value, or resolved kind:
+#
+# [secrets.from-files.file]
+# APP_KEY = "./private/app-key"
+#
+# [secrets.inline.value]
+# STATIC_SECRET = "my-secret"
+#
+# [secrets.from-creds.resolved]
+# NPM_TOKEN = "MY_NPM_TOKEN"
 
 # --- Variable groups ---
-# [variables.common]
-# NODE_ENV = { value = "production" }
+# [variables.turbo.value]
+# DO_NOT_TRACK = "1"
+# TURBO_TELEMETRY_DISABLED = "1"
+#
+# [variables.bot.resolved]
+# APP_BOT_NAME = "MY_BOT_NAME"
 
-# --- Ruleset groups ---
-# [rulesets.standard]
-# workflow = { file = "./rulesets/workflow.json" }
+# --- Rulesets ---
+# [rulesets.default-branch]
+# name = "default-branch"
+# enforcement = "active"
+# target = "branch"
+#
+# [rulesets.default-branch.conditions.ref_name]
+# include = ["~DEFAULT_BRANCH"]
+# exclude = []
+#
+# [[rulesets.default-branch.rules]]
+# type = "deletion"
 
 # --- Cleanup defaults ---
 # [cleanup]
@@ -41,13 +60,13 @@ const CONFIG_TEMPLATE = `# gh-sync configuration
 # variables = false
 # rulesets = false
 
-# --- Repo groups ---
-# [repos.my-projects]
-# names = ["repo-one", "repo-two"]
+# --- Groups ---
+# [groups.my-projects]
+# repos = ["repo-one", "repo-two"]
 # settings = ["defaults"]
-# secrets = { actions = ["deploy"] }
-# variables = { actions = ["common"] }
-# rulesets = ["standard"]
+# secrets = { actions = ["from-files", "from-creds"] }
+# variables = { actions = ["turbo", "bot"] }
+# rulesets = ["default-branch"]
 `;
 
 const CREDENTIALS_TEMPLATE = `# gh-sync credentials (keep this file private)

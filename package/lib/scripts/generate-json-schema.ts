@@ -1,6 +1,7 @@
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { isDeepStrictEqual } from "node:util";
 import type { Schema } from "effect";
 import { JSONSchema } from "effect";
 import { ConfigSchema } from "../../src/schemas/config.js";
@@ -62,13 +63,13 @@ if (!existsSync(outputDir)) {
 for (const entry of schemas) {
 	const raw = JSONSchema.make(entry.schema) as unknown as Record<string, unknown>;
 	const jsonSchema = inlineRootRef(raw, entry.rootDefName);
-	jsonSchema["x-tombi-toml-version"] = "v1.0.0";
+	jsonSchema["x-tombi-toml-version"] = "v1.1.0";
 	const content = `${JSON.stringify(jsonSchema, null, 2)}\n`;
 	const outputPath = join(outputDir, entry.filename);
 
 	if (existsSync(outputPath)) {
-		const existing = readFileSync(outputPath, "utf-8");
-		if (existing === content) {
+		const existing = JSON.parse(readFileSync(outputPath, "utf-8"));
+		if (isDeepStrictEqual(existing, jsonSchema)) {
 			console.log(`  ${entry.name}: unchanged`);
 			continue;
 		}

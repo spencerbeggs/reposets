@@ -17,10 +17,15 @@ last-synced: 2026-04-18
 5. `ConfigLoaderLive` and `NodeContext.layer` provided at root
 6. `NodeRuntime.runMain` executes the program
 
+## Global Options
+
+`--log-level silent|info|verbose|debug` (default: `info`) - sets output
+verbosity. Overrides `log_level` in config.
+
 ## Command Tree
 
 ```text
-gh-sync
+gh-sync [--log-level]
   sync [--config] [--group] [--repo] [--dry-run] [--no-cleanup]
   list [--config]
   validate [--config]
@@ -35,8 +40,9 @@ gh-sync
 ## sync
 
 Loads config and credentials, builds service layers per credential
-profile, delegates to SyncEngine. Supports filtering by group or repo
-and dry-run mode.
+profile, delegates to SyncEngine. Log level resolved from config
+`log_level` field. SyncLoggerLive wired with `{ dryRun, logLevel }`.
+Supports filtering by group or repo and dry-run mode.
 
 ## list
 

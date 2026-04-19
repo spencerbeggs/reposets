@@ -1,44 +1,51 @@
 import { Schema } from "effect";
 
-const FileSource = Schema.Struct({
-	file: Schema.String.annotations({
-		title: "File path",
-		description: "Path to a file containing the value, resolved relative to the config directory",
-		examples: ["./private/my-secret", "./rulesets/workflow.json"],
+// --- Resource Group Schemas ---
+
+const ResourceFileKind = Schema.Struct({
+	file: Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
+		title: "File entries",
+		description: "Named entries with file path values, resolved relative to config directory",
+		jsonSchema: { "x-tombi-additional-key-label": "name" },
 	}),
 });
 
-const InlineValueSource = Schema.Struct({
-	value: Schema.String.annotations({
-		title: "Inline value",
-		description: "A literal string value",
-		examples: ["my-secret-value", "production"],
+const ResourceValueKind = Schema.Struct({
+	value: Schema.Record({
+		key: Schema.String,
+		value: Schema.Union(Schema.String, Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+	}).annotations({
+		title: "Value entries",
+		description: "Named entries with inline values. Strings used as-is, objects JSON-stringified.",
+		jsonSchema: { "x-tombi-additional-key-label": "name" },
 	}),
 });
 
-const JsonSource = Schema.Struct({
-	json: Schema.Record({ key: Schema.String, value: Schema.Unknown }).annotations({
-		title: "JSON object",
-		description: "An inline object that will be serialized to a JSON string",
-		examples: [{ github: "https://npm.pkg.github.com", npm: "https://registry.npmjs.org" }],
+const ResourceResolvedKind = Schema.Struct({
+	resolved: Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
+		title: "Resolved entries",
+		description: "Named entries mapped to credential labels. Values come from the active credential profile.",
+		jsonSchema: { "x-tombi-additional-key-label": "name" },
 	}),
 });
 
-const OpSource = Schema.Struct({
-	op: Schema.String.annotations({
-		title: "1Password reference",
-		description: "A 1Password secret reference resolved at runtime via the 1Password SDK",
-		examples: ["op://Private/npm-token/credential", "op://Work/api-key/password"],
-	}),
+export const SecretGroupSchema = Schema.Union(ResourceFileKind, ResourceValueKind, ResourceResolvedKind).annotations({
+	identifier: "SecretGroup",
+	title: "Secret group",
+	description: "A group of secrets. Must be exactly one kind: file, value, or resolved.",
 });
 
-export const ValueSourceSchema = Schema.Union(FileSource, InlineValueSource, JsonSource, OpSource).annotations({
-	identifier: "ValueSource",
-	title: "Value source",
-	description: "A value source: file path, inline string, JSON object, or 1Password reference",
+export type SecretGroup = typeof SecretGroupSchema.Type;
+
+export const VariableGroupSchema = Schema.Union(ResourceFileKind, ResourceValueKind, ResourceResolvedKind).annotations({
+	identifier: "VariableGroup",
+	title: "Variable group",
+	description: "A group of variables. Must be exactly one kind: file, value, or resolved.",
 });
 
-export type ValueSource = typeof ValueSourceSchema.Type;
+export type VariableGroup = typeof VariableGroupSchema.Type;
+
+// --- Cleanup Schema ---
 
 export const CleanupPreserveSchema = Schema.Struct({
 	secrets: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }).annotations({

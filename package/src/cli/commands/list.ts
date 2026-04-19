@@ -27,11 +27,11 @@ export const listCommand = Command.make("list", { config: configOption }, ({ con
 		const defaultOwner = parsedConfig.owner ?? "(not set)";
 		yield* Console.log(`Default owner: ${defaultOwner}\n`);
 
-		for (const [groupName, group] of Object.entries(parsedConfig.repos)) {
+		for (const [groupName, group] of Object.entries(parsedConfig.groups)) {
 			const owner = group.owner ?? parsedConfig.owner ?? "(not set)";
 			yield* Console.log(`[${groupName}] (owner: ${owner})`);
 
-			for (const repo of group.names) {
+			for (const repo of group.repos) {
 				yield* Console.log(`  - ${owner}/${repo}`);
 			}
 

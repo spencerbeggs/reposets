@@ -10,8 +10,8 @@ last-synced: 2026-04-18
 
 | File | Purpose | Location |
 | :--- | :------ | :------- |
-| `gh-sync.config.toml` | Repos, settings, secrets, variables, rulesets, cleanup | XDG or project-local |
-| `gh-sync.credentials.toml` | Named credential profiles (gitignored) | XDG config dir |
+| `gh-sync.config.toml` | Groups, settings, secrets, variables, rulesets, cleanup | XDG or project-local |
+| `gh-sync.credentials.toml` | Named credential profiles with resolve sections (gitignored) | XDG config dir |
 
 ## Config Path Resolution
 
@@ -21,59 +21,105 @@ Resolution order (first match wins):
 2. Walk up from cwd looking for `gh-sync.config.toml`
 3. `$XDG_CONFIG_HOME/gh-sync/` or `~/.config/gh-sync/`
 
-File references (e.g., `file = "./rulesets/workflow.json"`) resolve relative
-to the directory containing `gh-sync.config.toml`.
+File references in `file`-kind groups resolve relative to the directory
+containing `gh-sync.config.toml`.
 
 ## Config Structure
 
 ```toml
 owner = "spencerbeggs"
+log_level = "info"
 
 [settings.default]
 has_wiki = false
 
-[secrets.deploy]
-NPM_TOKEN = { file = "./private/NPM_TOKEN" }
-API_KEY = { op = "op://vault/item/field" }
+[secrets.deploy.file]
+NPM_TOKEN = "./private/NPM_TOKEN"
 
-[variables.common]
-NODE_ENV = { value = "production" }
+[secrets.api.resolved]
+API_KEY = "SILK_API_KEY"
 
-[rulesets.standard]
-workflow = { file = "./rulesets/workflow.json" }
+[variables.turbo.value]
+NODE_ENV = "production"
+DO_NOT_TRACK = "1"
+
+[variables.bot.resolved]
+BOT_NAME = "SILK_BOT_NAME"
+
+[rulesets.branch-protection]
+name = "branch-protection"
+enforcement = "active"
+target = "branch"
+
+[rulesets.branch-protection.conditions.ref_name]
+include = ["~DEFAULT_BRANCH"]
+
+[[rulesets.branch-protection.rules]]
+type = "pull_request"
+
+[rulesets.branch-protection.rules.parameters]
+required_approving_review_count = 1
+dismiss_stale_reviews_on_push = false
+require_code_owner_review = false
+require_last_push_approval = false
+required_review_thread_resolution = false
+
+[[rulesets.branch-protection.rules.parameters.required_status_checks]]
+context = "CI"
+integration_id = { resolved = "SILK_APP_ID" }
 
 [cleanup]
 secrets = true
 variables = true
 
-[repos.my-projects]
-names = ["repo-one", "repo-two"]
+[groups.my-projects]
+repos = ["repo-one", "repo-two"]
 settings = ["default"]
-secrets = { actions = ["deploy"], dependabot = ["deploy"] }
-variables = { actions = ["common"] }
-rulesets = ["standard"]
+secrets = { actions = ["deploy", "api"], dependabot = ["deploy"] }
+variables = { actions = ["turbo", "bot"] }
+rulesets = ["branch-protection"]
 ```
 
-## Value Source Model
+## Resource Group Model
 
-All secrets, variables, and rulesets use a uniform value resolution model.
-Each entry maps to exactly one source type:
+Secret and variable groups are discriminated by kind. Each group is
+exactly one kind, determined by its sub-key:
 
-- `{ file = "path" }` - read from disk relative to config dir
-- `{ value = "string" }` - inline string
-- `{ json = { key = "val" } }` - TOML object serialized to JSON string
-- `{ op = "op://vault/item/field" }` - resolved via 1Password SDK
+- `{ file = { NAME = "path" } }` - read from disk relative to config dir
+- `{ value = { NAME = "string" } }` - inline; strings as-is, TOML tables
+  JSON-stringified
+- `{ resolved = { NAME = "LABEL" } }` - map names to credential labels
+  from the active profile's `[resolve]` section
+
+Rulesets are defined inline as typed TOML tables (see Ruleset Schema).
+Integer fields in rulesets accept `{ resolved = "LABEL" }` for runtime
+substitution.
+
+## Ruleset Schema
+
+Rulesets are defined directly in TOML covering all 22 GitHub rule types:
+`creation`, `update`, `deletion`, `required_linear_history`,
+`required_signatures`, `non_fast_forward`, `pull_request`,
+`required_status_checks`, `required_deployments`, `merge_queue`,
+`commit_message_pattern`, `commit_author_email_pattern`,
+`committer_email_pattern`, `branch_name_pattern`, `tag_name_pattern`,
+`file_path_restriction`, `file_extension_restriction`,
+`max_file_path_length`, `max_file_size`, `workflows`, `code_scanning`,
+`copilot_code_review`.
+
+Fields `actor_id`, `integration_id`, and `repository_id` accept either
+a static integer or `{ resolved = "LABEL" }`.
 
 ## Secret Scopes
 
-Scoping is at the repo group level, not the secret definition:
+Scoping is at the group level, not the secret definition:
 
 - `actions` - GitHub Actions repository secrets
 - `dependabot` - Dependabot secrets
 - `codespaces` - Codespaces secrets
 
 The same secret group can be assigned to different scopes on different
-repo groups.
+groups.
 
 ## Credentials
 
@@ -81,10 +127,25 @@ repo groups.
 [profiles.personal]
 github_token = "ghp_..."
 op_service_account_token = "ops_..."
+
+[profiles.personal.resolve.op]
+SILK_APP_ID = "op://vault/item/field"
+
+[profiles.personal.resolve.file]
+DEPLOY_KEY = "./private/deploy.key"
+
+[profiles.personal.resolve.value]
+BOT_NAME = "mybot[bot]"
+REGISTRIES = { npm = "https://registry.npmjs.org" }
 ```
 
 If only one profile exists, it is used implicitly. Multiple profiles are
-referenced by name from repo groups via `credentials = "profile-name"`.
+referenced by name from groups via `credentials = "profile-name"`.
+
+The `[resolve]` section defines named labels in three sub-groups:
+`op` (1Password references), `file` (file paths), `value` (inline
+strings or objects). All three contribute to a flat namespace of
+labels referenced by config templates.
 
 ## JSON Schema Generation
 

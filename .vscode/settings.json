@@ -111,5 +111,8 @@
 		"editor.formatOnSave": true,
 		"editor.formatOnPaste": true
 	},
-	"markdown.styles": [".vscode/static/github-markdown.css"]
+	"markdown.styles": [".vscode/static/github-markdown.css"],
+	"[toml]": {
+		"editor.defaultFormatter": "tombi-toml.tombi"
+	}
 }

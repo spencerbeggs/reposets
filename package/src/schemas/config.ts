@@ -1,5 +1,6 @@
 import { Schema } from "effect";
-import { CleanupSchema, ValueSourceSchema } from "./common.js";
+import { CleanupSchema, SecretGroupSchema, VariableGroupSchema } from "./common.js";
+import { RulesetSchema } from "./ruleset.js";
 
 export const SecretScopesSchema = Schema.Struct({
 	actions: Schema.optional(
@@ -43,7 +44,7 @@ export const VariableScopesSchema = Schema.Struct({
 	description: "Assign variable groups to GitHub variable scopes",
 });
 
-export const RepoGroupSchema = Schema.Struct({
+export const GroupSchema = Schema.Struct({
 	owner: Schema.optional(
 		Schema.String.annotations({
 			title: "Owner override",
@@ -51,7 +52,7 @@ export const RepoGroupSchema = Schema.Struct({
 			examples: ["savvy-web"],
 		}),
 	),
-	names: Schema.Array(Schema.String).annotations({
+	repos: Schema.Array(Schema.String).annotations({
 		title: "Repository names",
 		description: "List of repository names (without owner prefix) to sync in this group",
 		examples: [["repo-one", "repo-two", "repo-three"]],
@@ -75,39 +76,47 @@ export const RepoGroupSchema = Schema.Struct({
 	variables: Schema.optional(VariableScopesSchema),
 	rulesets: Schema.optional(
 		Schema.Array(Schema.String).annotations({
-			title: "Ruleset groups",
-			description: "Names of ruleset groups to apply to these repos",
-			examples: [["standard"]],
+			title: "Rulesets",
+			description: "Names of rulesets to apply to these repos",
+			examples: [["workflow", "release"]],
 		}),
 	),
 	cleanup: Schema.optional(CleanupSchema),
 }).annotations({
-	identifier: "RepoGroup",
+	identifier: "Group",
 	title: "Repository group",
 	description: "A named group of repositories with their resource assignments",
 	jsonSchema: { "x-tombi-table-keys-order": "schema" },
 });
 
-export type RepoGroup = typeof RepoGroupSchema.Type;
-
-const ResourceGroupSchema = Schema.Record({
-	key: Schema.String,
-	value: ValueSourceSchema,
-});
+export type Group = typeof GroupSchema.Type;
 
 const SettingsGroupSchema = Schema.Record({
 	key: Schema.String,
 	value: Schema.Unknown,
 });
 
+export const LogLevelSchema = Schema.Literal("silent", "info", "verbose", "debug").annotations({
+	identifier: "LogLevel",
+	title: "Log level",
+	description:
+		"Controls output verbosity: silent (none), info (summaries), verbose (per-operation), debug (with sources)",
+});
+
+export type LogLevel = typeof LogLevelSchema.Type;
+
 export const ConfigSchema = Schema.Struct({
 	owner: Schema.optional(
 		Schema.String.annotations({
 			title: "Default owner",
-			description: "Default GitHub user or organization for all repo groups. Can be overridden per group.",
+			description: "Default GitHub user or organization for all groups. Can be overridden per group.",
 			examples: ["spencerbeggs", "savvy-web"],
 		}),
 	),
+	log_level: Schema.optionalWith(LogLevelSchema, { default: () => "info" as const }).annotations({
+		title: "Log level",
+		description: "Default output verbosity. Can be overridden with --log-level CLI flag.",
+	}),
 	settings: Schema.optionalWith(
 		Schema.Record({ key: Schema.String, value: SettingsGroupSchema }).annotations({
 			title: "Settings groups",
@@ -117,33 +126,17 @@ export const ConfigSchema = Schema.Struct({
 		{ default: () => ({}) },
 	),
 	secrets: Schema.optionalWith(
-		Schema.Record({
-			key: Schema.String,
-			value: ResourceGroupSchema.annotations({
-				title: "Secret entries",
-				description: "Named secrets with their value sources",
-				jsonSchema: { "x-tombi-additional-key-label": "secret_name" },
-			}),
-		}).annotations({
+		Schema.Record({ key: Schema.String, value: SecretGroupSchema }).annotations({
 			title: "Secret groups",
-			description:
-				"Named groups of secrets. Each entry maps a secret name to a value source (file, value, json, or op).",
+			description: "Named groups of secrets. Each group is one kind: file, value, or resolved.",
 			jsonSchema: { "x-tombi-additional-key-label": "secret_group" },
 		}),
 		{ default: () => ({}) },
 	),
 	variables: Schema.optionalWith(
-		Schema.Record({
-			key: Schema.String,
-			value: ResourceGroupSchema.annotations({
-				title: "Variable entries",
-				description: "Named variables with their value sources",
-				jsonSchema: { "x-tombi-additional-key-label": "variable_name" },
-			}),
-		}).annotations({
+		Schema.Record({ key: Schema.String, value: VariableGroupSchema }).annotations({
 			title: "Variable groups",
-			description:
-				"Named groups of variables. Each entry maps a variable name to a value source (file, value, json, or op).",
+			description: "Named groups of variables. Each group is one kind: file, value, or resolved.",
 			jsonSchema: { "x-tombi-additional-key-label": "variable_group" },
 		}),
 		{ default: () => ({}) },
@@ -151,16 +144,11 @@ export const ConfigSchema = Schema.Struct({
 	rulesets: Schema.optionalWith(
 		Schema.Record({
 			key: Schema.String,
-			value: ResourceGroupSchema.annotations({
-				title: "Ruleset entries",
-				description: "Named rulesets with their value sources (typically file references to JSON)",
-				jsonSchema: { "x-tombi-additional-key-label": "ruleset_name" },
-			}),
+			value: RulesetSchema,
 		}).annotations({
-			title: "Ruleset groups",
-			description:
-				"Named groups of rulesets. Each entry maps a ruleset name to a value source (file, value, json, or op).",
-			jsonSchema: { "x-tombi-additional-key-label": "ruleset_group" },
+			title: "Rulesets",
+			description: "Named rulesets defining branch/tag/push protection rules",
+			jsonSchema: { "x-tombi-additional-key-label": "ruleset_name" },
 		}),
 		{ default: () => ({}) },
 	),
@@ -181,15 +169,15 @@ export const ConfigSchema = Schema.Struct({
 		}),
 	}).annotations({
 		title: "Cleanup defaults",
-		description: "Default cleanup behavior for all repo groups. Can be overridden per group.",
+		description: "Default cleanup behavior for all groups. Can be overridden per group.",
 	}),
-	repos: Schema.Record({
+	groups: Schema.Record({
 		key: Schema.String,
-		value: RepoGroupSchema,
+		value: GroupSchema,
 	}).annotations({
-		title: "Repository groups",
+		title: "Groups",
 		description: "Named groups of repositories with their settings, secrets, variables, and ruleset assignments",
-		jsonSchema: { "x-tombi-additional-key-label": "repo_group" },
+		jsonSchema: { "x-tombi-additional-key-label": "group_name" },
 	}),
 }).annotations({
 	identifier: "Config",

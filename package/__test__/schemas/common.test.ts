@@ -1,37 +1,65 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { CleanupSchema, ValueSourceSchema } from "../../src/schemas/common.js";
+import { CleanupSchema, SecretGroupSchema, VariableGroupSchema } from "../../src/schemas/common.js";
 
-const decode = Schema.decodeUnknownSync(ValueSourceSchema);
+const decodeSecretGroup = Schema.decodeUnknownSync(SecretGroupSchema);
+const decodeVariableGroup = Schema.decodeUnknownSync(VariableGroupSchema);
 const decodeCleanup = Schema.decodeUnknownSync(CleanupSchema);
 
-describe("ValueSourceSchema", () => {
-	it("accepts file source", () => {
-		const result = decode({ file: "./private/key" });
-		expect(result).toEqual({ file: "./private/key" });
+describe("SecretGroupSchema", () => {
+	it("accepts file kind", () => {
+		const result = decodeSecretGroup({
+			file: { APP_KEY: "./private/key", CERT: "./private/cert.pem" },
+		});
+		expect("file" in result && result.file.APP_KEY).toBe("./private/key");
 	});
 
-	it("accepts value source", () => {
-		const result = decode({ value: "my-secret" });
-		expect(result).toEqual({ value: "my-secret" });
+	it("accepts value kind with string", () => {
+		const result = decodeSecretGroup({
+			value: { API_URL: "https://api.example.com" },
+		});
+		expect("value" in result && result.value.API_URL).toBe("https://api.example.com");
 	});
 
-	it("accepts json source", () => {
-		const result = decode({ json: { foo: "bar", baz: 123 } });
-		expect(result).toEqual({ json: { foo: "bar", baz: 123 } });
+	it("accepts value kind with object (will be JSON-stringified at sync time)", () => {
+		const result = decodeSecretGroup({
+			value: { REGISTRIES: { npm: "https://registry.npmjs.org" } },
+		});
+		expect("value" in result && result.value.REGISTRIES).toEqual({ npm: "https://registry.npmjs.org" });
 	});
 
-	it("accepts op source", () => {
-		const result = decode({ op: "op://vault/item/field" });
-		expect(result).toEqual({ op: "op://vault/item/field" });
+	it("accepts resolved kind", () => {
+		const result = decodeSecretGroup({
+			resolved: { APP_ID: "SILK_APP_ID", NPM_TOKEN: "SILK_NPM_TOKEN" },
+		});
+		expect("resolved" in result && result.resolved.APP_ID).toBe("SILK_APP_ID");
 	});
 
 	it("rejects empty object", () => {
-		expect(() => decode({})).toThrow();
+		expect(() => decodeSecretGroup({})).toThrow();
+	});
+});
+
+describe("VariableGroupSchema", () => {
+	it("accepts file kind", () => {
+		const result = decodeVariableGroup({
+			file: { SBOM: "./private/sbom.json" },
+		});
+		expect("file" in result && result.file.SBOM).toBe("./private/sbom.json");
 	});
 
-	it("rejects unknown source key", () => {
-		expect(() => decode({ env: "MY_VAR" })).toThrow();
+	it("accepts value kind", () => {
+		const result = decodeVariableGroup({
+			value: { NODE_ENV: "production", DO_NOT_TRACK: "1" },
+		});
+		expect("value" in result && result.value.NODE_ENV).toBe("production");
+	});
+
+	it("accepts resolved kind", () => {
+		const result = decodeVariableGroup({
+			resolved: { BOT_NAME: "SILK_BOT_NAME" },
+		});
+		expect("resolved" in result && result.resolved.BOT_NAME).toBe("SILK_BOT_NAME");
 	});
 });
 
@@ -53,9 +81,6 @@ describe("CleanupSchema", () => {
 		const result = decodeCleanup({});
 		expect(result.secrets).toBe(false);
 		expect(result.variables).toBe(false);
-		expect(result.dependabot_secrets).toBe(false);
-		expect(result.codespaces_secrets).toBe(false);
-		expect(result.rulesets).toBe(false);
 		expect(result.preserve).toEqual({
 			secrets: [],
 			variables: [],
@@ -63,11 +88,5 @@ describe("CleanupSchema", () => {
 			codespaces_secrets: [],
 			rulesets: [],
 		});
-	});
-
-	it("accepts partial cleanup", () => {
-		const result = decodeCleanup({ secrets: true });
-		expect(result.secrets).toBe(true);
-		expect(result.variables).toBe(false);
 	});
 });

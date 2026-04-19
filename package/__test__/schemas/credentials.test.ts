@@ -24,6 +24,59 @@ describe("CredentialProfileSchema", () => {
 	it("rejects profile without github token", () => {
 		expect(() => decodeProfile({})).toThrow();
 	});
+
+	it("accepts profile with resolve.op section", () => {
+		const result = decodeProfile({
+			github_token: "ghp_abc",
+			resolve: {
+				op: { SILK_APP_ID: "op://vault/item/field" },
+			},
+		});
+		expect(result.resolve?.op?.SILK_APP_ID).toBe("op://vault/item/field");
+	});
+
+	it("accepts profile with resolve.file section", () => {
+		const result = decodeProfile({
+			github_token: "ghp_abc",
+			resolve: {
+				file: { NPM_TOKEN: "./private/npm-token" },
+			},
+		});
+		expect(result.resolve?.file?.NPM_TOKEN).toBe("./private/npm-token");
+	});
+
+	it("accepts profile with resolve.value section", () => {
+		const result = decodeProfile({
+			github_token: "ghp_abc",
+			resolve: {
+				value: {
+					BOT_NAME: "mybot[bot]",
+					REGISTRIES: { npm: "https://registry.npmjs.org" },
+				},
+			},
+		});
+		expect(result.resolve?.value?.BOT_NAME).toBe("mybot[bot]");
+	});
+
+	it("accepts profile with all three resolve sub-groups", () => {
+		const result = decodeProfile({
+			github_token: "ghp_abc",
+			op_service_account_token: "ops_xyz",
+			resolve: {
+				op: { APP_ID: "op://vault/app/id" },
+				file: { CERT: "./certs/cert.pem" },
+				value: { NAME: "static" },
+			},
+		});
+		expect(result.resolve?.op?.APP_ID).toBe("op://vault/app/id");
+		expect(result.resolve?.file?.CERT).toBe("./certs/cert.pem");
+		expect(result.resolve?.value?.NAME).toBe("static");
+	});
+
+	it("accepts profile without resolve section", () => {
+		const result = decodeProfile({ github_token: "ghp_abc" });
+		expect(result.resolve).toBeUndefined();
+	});
 });
 
 describe("CredentialsSchema", () => {

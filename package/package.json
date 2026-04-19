@@ -21,17 +21,18 @@
 		"build:inspect": "rslib inspect --config-loader native --env-mode npm --verbose",
 		"build:prod": "rslib build --config-loader native --env-mode npm",
 		"generate:json-schema": "tsx lib/scripts/generate-json-schema.ts",
+		"prepare": "turbo run build:dev build:prod --log-order=grouped",
 		"types:check": "tsgo --noEmit"
 	},
 	"dependencies": {
-		"@1password/sdk": "^0.1.6",
+		"@1password/sdk": "^0.4.0",
 		"@effect/cli": "^0.75.1",
 		"@effect/platform": "^0.96.0",
 		"@effect/platform-node": "^0.106.0",
 		"@octokit/rest": "^22.0.1",
 		"blakejs": "^1.2.1",
 		"effect": "^3.21.1",
-		"smol-toml": "^1.6.1",
+		"smol-toml": ">=1.6.1",
 		"tweetnacl": "^1.0.3"
 	},
 	"devDependencies": {
@@ -46,6 +47,8 @@
 	},
 	"publishConfig": {
 		"access": "public",
+		"directory": "dist/npm",
+		"linkDiectory": true,
 		"targets": [
 			{
 				"protocol": "npm",

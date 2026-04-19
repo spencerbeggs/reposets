@@ -9,8 +9,8 @@ describe("ConfigLoader", () => {
 	it("loads valid config TOML", async () => {
 		const toml = stringify({
 			owner: "spencerbeggs",
-			repos: {
-				mygroup: { names: ["repo-one"] },
+			groups: {
+				mygroup: { repos: ["repo-one"] },
 			},
 		});
 
@@ -21,7 +21,7 @@ describe("ConfigLoader", () => {
 
 		const result = await Effect.runPromise(program);
 		expect(result.owner).toBe("spencerbeggs");
-		expect(result.repos.mygroup.names).toEqual(["repo-one"]);
+		expect(result.groups.mygroup.repos).toEqual(["repo-one"]);
 	});
 
 	it("returns ConfigError for invalid TOML", async () => {

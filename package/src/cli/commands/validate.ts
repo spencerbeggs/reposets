@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { Command, Options } from "@effect/cli";
 import { Console, Effect } from "effect";
 import { resolveConfigDir } from "../../lib/config-path.js";
-import type { ValueSource } from "../../schemas/common.js";
 import { ConfigLoader } from "../../services/ConfigLoader.js";
 
 const configOption = Options.file("config").pipe(
@@ -39,7 +38,7 @@ export const validateCommand = Command.make("validate", { config: configOption }
 			yield* Console.log("Config schema: valid");
 			const parsedConfig = configResult.right;
 
-			for (const [groupName, group] of Object.entries(parsedConfig.repos)) {
+			for (const [groupName, group] of Object.entries(parsedConfig.groups)) {
 				for (const ref of group.settings ?? []) {
 					if (!parsedConfig.settings?.[ref]) {
 						yield* Console.error(`Group '${groupName}': references unknown settings group '${ref}'`);
@@ -68,23 +67,30 @@ export const validateCommand = Command.make("validate", { config: configOption }
 
 				for (const ref of group.rulesets ?? []) {
 					if (!parsedConfig.rulesets?.[ref]) {
-						yield* Console.error(`Group '${groupName}': references unknown rulesets group '${ref}'`);
+						yield* Console.error(`Group '${groupName}': references unknown ruleset '${ref}'`);
 						hasErrors = true;
 					}
 				}
 			}
 
-			// Check file references exist
-			for (const [groupName, group] of Object.entries({
-				...parsedConfig.secrets,
-				...parsedConfig.variables,
-				...parsedConfig.rulesets,
-			})) {
-				for (const [entryName, source] of Object.entries(group)) {
-					if ("file" in (source as ValueSource)) {
-						const filePath = join(configDir, (source as { file: string }).file);
-						if (!existsSync(filePath)) {
-							yield* Console.error(`${groupName}.${entryName}: file not found: ${filePath}`);
+			// Check file references in file-kind secret groups
+			for (const [groupName, group] of Object.entries(parsedConfig.secrets)) {
+				if ("file" in group) {
+					for (const [entryName, filePath] of Object.entries(group.file)) {
+						const fullPath = join(configDir, filePath);
+						if (!existsSync(fullPath)) {
+							yield* Console.error(`secrets.${groupName}.file.${entryName}: file not found: ${fullPath}`);
+							hasErrors = true;
+						}
+					}
+				}
+			}
+			for (const [groupName, group] of Object.entries(parsedConfig.variables)) {
+				if ("file" in group) {
+					for (const [entryName, filePath] of Object.entries(group.file)) {
+						const fullPath = join(configDir, filePath);
+						if (!existsSync(fullPath)) {
+							yield* Console.error(`variables.${groupName}.file.${entryName}: file not found: ${fullPath}`);
 							hasErrors = true;
 						}
 					}
@@ -102,7 +108,7 @@ export const validateCommand = Command.make("validate", { config: configOption }
 			} else {
 				yield* Console.log("Credentials schema: valid");
 				if (configResult._tag === "Right") {
-					for (const [groupName, group] of Object.entries(configResult.right.repos)) {
+					for (const [groupName, group] of Object.entries(configResult.right.groups)) {
 						if (group.credentials && !credsResult.right.profiles[group.credentials]) {
 							yield* Console.error(
 								`Group '${groupName}': references unknown credentials profile '${group.credentials}'`,

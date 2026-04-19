@@ -2,17 +2,9 @@ import { Octokit } from "@octokit/rest";
 import { Context, Effect, Layer } from "effect";
 import { GitHubApiError } from "../errors.js";
 import { encryptSecret } from "../lib/crypto.js";
+import type { Ruleset } from "../schemas/ruleset.js";
 
 export type SecretScope = "actions" | "dependabot" | "codespaces";
-
-export interface RulesetPayload {
-	name: string;
-	target: "branch" | "tag";
-	enforcement: "active" | "disabled" | "evaluate";
-	conditions?: unknown;
-	rules?: unknown;
-	bypass_actors?: unknown;
-}
 
 export interface SecretInfo {
 	name: string;
@@ -54,7 +46,7 @@ export interface GitHubClientService {
 		owner: string,
 		repo: string,
 		name: string,
-		payload: RulesetPayload,
+		payload: Ruleset,
 	) => Effect.Effect<void, GitHubApiError>;
 
 	readonly listSecrets: (
@@ -267,7 +259,7 @@ export function GitHubClientLive(token: string): Layer.Layer<GitHubClient> {
 	);
 }
 
-interface RecordedCall {
+export interface RecordedCall {
 	method: string;
 	args: Record<string, unknown>;
 }

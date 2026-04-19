@@ -11,10 +11,19 @@ const configOption = Options.file("config").pipe(
 	Options.optional,
 );
 
-const KNOWN_CONFIG_KEYS = new Set(["owner", "settings", "secrets", "variables", "rulesets", "cleanup", "repos"]);
-const KNOWN_REPO_GROUP_KEYS = new Set([
+const KNOWN_CONFIG_KEYS = new Set([
 	"owner",
-	"names",
+	"log_level",
+	"settings",
+	"secrets",
+	"variables",
+	"rulesets",
+	"cleanup",
+	"groups",
+]);
+const KNOWN_GROUP_KEYS = new Set([
+	"owner",
+	"repos",
 	"credentials",
 	"settings",
 	"secrets",
@@ -99,15 +108,15 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 			}
 		}
 
-		const repos = raw.repos;
-		if (repos && typeof repos === "object") {
-			for (const [groupName, group] of Object.entries(repos as Record<string, unknown>)) {
+		const groups = raw.groups;
+		if (groups && typeof groups === "object") {
+			for (const [groupName, group] of Object.entries(groups as Record<string, unknown>)) {
 				if (group && typeof group === "object") {
 					for (const key of Object.keys(group as Record<string, unknown>)) {
-						if (!KNOWN_REPO_GROUP_KEYS.has(key)) {
-							const suggestion = findClosestMatch(key, KNOWN_REPO_GROUP_KEYS);
+						if (!KNOWN_GROUP_KEYS.has(key)) {
+							const suggestion = findClosestMatch(key, KNOWN_GROUP_KEYS);
 							const hint = suggestion ? ` -- did you mean '${suggestion}'?` : "";
-							yield* Console.log(`Warning: unknown key '${key}' in repos.${groupName}${hint}`);
+							yield* Console.log(`Warning: unknown key '${key}' in groups.${groupName}${hint}`);
 							warnings++;
 						}
 					}
