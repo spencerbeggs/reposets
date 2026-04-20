@@ -18,6 +18,7 @@ const KNOWN_CONFIG_KEYS = new Set([
 	"secrets",
 	"variables",
 	"rulesets",
+	"environments",
 	"cleanup",
 	"groups",
 ]);
@@ -29,6 +30,7 @@ const KNOWN_GROUP_KEYS = new Set([
 	"secrets",
 	"variables",
 	"rulesets",
+	"environments",
 	"cleanup",
 ]);
 const KNOWN_CLEANUP_KEYS = new Set([
@@ -37,6 +39,7 @@ const KNOWN_CLEANUP_KEYS = new Set([
 	"dependabot_secrets",
 	"codespaces_secrets",
 	"rulesets",
+	"environments",
 	"preserve",
 ]);
 
@@ -144,8 +147,15 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 			yield* Console.log("Schema validation: passed");
 		}
 
+		yield* Console.log("\nRequired fine-grained token permissions:");
+		yield* Console.log("  Repository permissions > Administration (Read and write) -- settings sync");
+		yield* Console.log("  Repository permissions > Secrets (Read and write) -- Actions secrets");
+		yield* Console.log("  Repository permissions > Variables (Read and write) -- Actions variables");
+		yield* Console.log("  Repository permissions > Environments (Read and write) -- environment sync");
+		yield* Console.log("  Account permissions > GPG keys (Read and write) -- secrets encryption key");
+
 		if (warnings === 0) {
-			yield* Console.log("No unknown keys detected.");
+			yield* Console.log("\nNo unknown keys detected.");
 		} else {
 			yield* Console.log(`\n${warnings} warning(s) found.`);
 		}

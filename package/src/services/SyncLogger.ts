@@ -12,14 +12,14 @@ export interface SyncLoggerService {
 	readonly repoStart: (owner: string, repo: string) => Effect.Effect<void>;
 	readonly repoSkip: (owner: string, repo: string, reason: string) => Effect.Effect<void>;
 	readonly syncSummary: (
-		resource: "secret" | "variable" | "ruleset",
+		resource: "secret" | "variable" | "ruleset" | "environment",
 		count: number,
 		detail: string,
 	) => Effect.Effect<void>;
 	readonly settingsApplied: () => Effect.Effect<void>;
 	readonly cleanupSummary: (resource: string, count: number, names: string[]) => Effect.Effect<void>;
 	readonly syncOperation: (
-		verb: "sync" | "apply" | "delete",
+		verb: "sync" | "apply" | "delete" | "skip",
 		resource: string,
 		name: string,
 		detail?: string,

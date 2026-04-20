@@ -3,6 +3,20 @@
 This file provides guidance to Claude Code (claude.ai/code) when working with
 code in this repository.
 
+**For detailed design documentation:**
+
+- Architecture and data flow:
+  `@./.claude/design/gh-sync/architecture.md`
+- Effect services API:
+  `@./.claude/design/gh-sync/services.md`
+- Configuration format and schemas:
+  `@./.claude/design/gh-sync/config-format.md`
+- CLI commands and options:
+  `@./.claude/design/gh-sync/cli.md`
+
+Load the relevant design doc when working on that subsystem. Do NOT load
+all of them at once.
+
 ## Commands
 
 ```bash
@@ -16,7 +30,7 @@ pnpm run typecheck         # Type-check all workspaces via Turbo
 pnpm sync                  # Alias: tsx package/src/cli/index.ts
 
 # Testing
-pnpm run test              # Run all tests (108 passing)
+pnpm run test              # Run all tests (186 passing)
 pnpm run test:watch        # Run tests in watch mode
 pnpm run test:coverage     # Run tests with coverage report
 
@@ -37,8 +51,8 @@ at `package/` (workspace name: `gh-sync`).
 ```text
 package/                   # gh-sync CLI package
 package/src/cli/           # CLI entrypoint and commands
-package/src/services/      # Effect services
-package/src/schemas/       # Effect Schema definitions (config, credentials, ruleset) + JSON schema generation
+package/src/services/      # Effect services (6 services, 19 GitHubClient methods)
+package/src/schemas/       # Effect Schema definitions (config, credentials, environment, ruleset) + JSON schema generation
 package/src/lib/           # Utilities (XDG paths, config resolution, crypto)
 package/__test__/          # Tests mirroring src/ structure
 lib/configs/               # Shared config files (commitlint, lint-staged, markdownlint)
@@ -70,8 +84,8 @@ Publishing targets (dual registry):
 
 ### gh-sync CLI (`package/`)
 
-CLI tool for syncing GitHub repository settings, secrets, variables, and
-rulesets across personal repos.
+CLI tool for syncing GitHub repository settings, secrets, variables,
+rulesets, and deployment environments across personal repos.
 
 - Built with `@effect/cli` (not Commander.js)
 - All async work is modeled as Effect programs
@@ -100,9 +114,13 @@ Six services compose the sync pipeline:
 - `CredentialResolver` — Resolves named values from credential profile
   `[resolve]` sections (value, file, and op sub-groups)
 - `OnePasswordClient` — Wraps `@1password/sdk` for 1Password secret references
-- `GitHubClient` — Octokit wrapper; handles settings, secrets, variables,
-  rulesets (accepts `Ruleset` schema type directly)
-- `SyncEngine` — Orchestrates the full sync lifecycle across groups and repos
+- `GitHubClient` — Octokit wrapper (19 methods); handles settings
+  (REST + GraphQL mutation), secrets by scope
+  (actions/dependabot/codespaces/environments), variables by scope
+  (actions/environments), rulesets, and deployment environments
+- `SyncEngine` — Orchestrates the full sync lifecycle: environments synced
+  before secrets/variables so scoped resources can attach; per-group cleanup
+  using three-way `CleanupScope` union
 - `SyncLogger` — Tiered output (silent/info/verbose/debug) with dry-run
   awareness; all sync output flows through this service
 
@@ -117,17 +135,24 @@ Config lookup order (first match wins):
 
 | File | Purpose |
 | :--- | :------ |
-| `gh-sync.config.toml` | Owner, `log_level`, settings groups, secret groups (file/value/resolved kinds), variable groups, ruleset groups (22 rule types inline), cleanup config, and `[groups.*]` sections mapping repos to resources |
+| `gh-sync.config.toml` | Owner, `log_level`, typed `[settings.*]` groups (20+ known fields + pass-through; `has_sponsorships`/`has_pull_requests` via GraphQL), secret groups (file/value/resolved kinds), variable groups, `[rulesets.*]` (discriminated union by `type`: branch/tag, 22 rule types, shorthand fields normalized via `normalizeRuleset()`), `[environments.*]` deployment environment definitions, per-group `cleanup` config, and `[groups.*]` sections mapping repos to resources |
 | `gh-sync.credentials.toml` | Named credential profiles (`[profiles.<name>]`) with `github_token`, optional `op_service_account_token`, and optional `[resolve]` section (op/file/value sub-groups for named values) |
 
 Credentials are stored in the XDG config dir (`~/.config/gh-sync/`) by
 default. Keep `gh-sync.credentials.toml` out of version control.
 
-Key naming: config top-level uses `[groups.<name>]` (not `repos`). Each
-group has a `repos` array (not `names`). Secret/variable groups are
-discriminated unions of exactly one kind: `{ file }`, `{ value }`, or
-`{ resolved }`. Resolved entries map names to credential labels from the
-active profile's `[resolve]` section.
+Key naming: config top-level uses `[groups.<name>]` (not `repos`) and
+`[environments.<name>]` for deployment environment definitions. Each group
+has a `repos` array (not `names`). Secrets are assigned via a `SecretScopes`
+struct: `actions`, `dependabot`, `codespaces` (arrays of group names), and
+`environments` (record mapping env names to group name arrays). Variables
+use a `VariableScopes` struct: `actions` and `environments`. Secret/variable
+groups themselves are discriminated unions of exactly one kind: `{ file }`,
+`{ value }`, or `{ resolved }`. Resolved entries map names to credential
+labels from the active profile's `[resolve]` section. Cleanup config is
+per-group (inside `[groups.<name>]`), not global; each scope uses a
+three-way `CleanupScope` union: `false` (disabled), `true` (delete all
+undeclared), or `{ preserve = [...] }`.
 
 #### JSON Schema
 
@@ -142,6 +167,7 @@ The CLI requires a fine-grained personal access token with:
 - **Repository permissions > Administration** (Read and write) — settings sync
 - **Repository permissions > Secrets** (Read and write) — Actions secrets
 - **Repository permissions > Variables** (Read and write) — Actions variables
+- **Repository permissions > Environments** (Read and write) — environment sync
 - **Account permissions > GPG keys** (Read and write) — secrets encryption key
 
 ## Conventions

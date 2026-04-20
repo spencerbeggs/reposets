@@ -2,8 +2,8 @@
 module: gh-sync
 title: CLI Commands
 status: current
-completeness: 90
-last-synced: 2026-04-18
+completeness: 95
+last-synced: 2026-04-20
 ---
 
 ## Entry Point
@@ -41,13 +41,20 @@ gh-sync [--log-level]
 
 Loads config and credentials, builds service layers per credential
 profile, delegates to SyncEngine. Log level resolved from config
-`log_level` field. SyncLoggerLive wired with `{ dryRun, logLevel }`.
-Supports filtering by group or repo and dry-run mode.
+`log_level` field, overridden by `--log-level` CLI flag.
+SyncLoggerLive wired with `{ dryRun, logLevel }`. Supports filtering
+by group or repo and dry-run mode.
+
+Layer composition: `GitHubClientLive(token)` + `OnePasswordClientLive` +
+`CredentialResolverLive` + `SyncLoggerLive` -> `SyncEngineLive`, all
+provided to the `SyncEngine.syncAll()` call.
 
 ## list
 
 Displays a config summary: repo groups with their referenced settings,
-secrets (by scope), variables, rulesets, owner, and credential profile.
+environments, secrets (by scope including environment-scoped), variables
+(by scope including environment-scoped), rulesets, owner, and credential
+profile.
 
 ## validate
 

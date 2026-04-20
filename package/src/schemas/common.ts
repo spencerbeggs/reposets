@@ -47,79 +47,98 @@ export type VariableGroup = typeof VariableGroupSchema.Type;
 
 // --- Cleanup Schema ---
 
-export const CleanupPreserveSchema = Schema.Struct({
-	secrets: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }).annotations({
-		title: "Preserved secrets",
-		description: "Action secret names that should never be deleted during cleanup",
-		examples: [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-		default: [],
+export const CleanupScopeSchema = Schema.Union(
+	Schema.Boolean,
+	Schema.Struct({
+		preserve: Schema.Array(Schema.String).annotations({
+			title: "Preserve list",
+			description: "Resource names that should never be deleted during cleanup",
+			examples: [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+		}),
 	}),
-	variables: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }).annotations({
-		title: "Preserved variables",
-		description: "Action variable names that should never be deleted during cleanup",
-		examples: [["LEGACY_VAR"]],
-		default: [],
-	}),
-	dependabot_secrets: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }).annotations({
-		title: "Preserved Dependabot secrets",
-		description: "Dependabot secret names that should never be deleted during cleanup",
-		default: [],
-	}),
-	codespaces_secrets: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }).annotations({
-		title: "Preserved Codespaces secrets",
-		description: "Codespaces secret names that should never be deleted during cleanup",
-		default: [],
-	}),
-	rulesets: Schema.optionalWith(Schema.Array(Schema.String), { default: () => [] }).annotations({
-		title: "Preserved rulesets",
-		description: "Ruleset names that should never be deleted during cleanup",
-		default: [],
-	}),
-}).annotations({
-	identifier: "CleanupPreserve",
-	title: "Preserve lists",
-	description: "Resource names to preserve during cleanup (never delete)",
+).annotations({
+	identifier: "CleanupScope",
+	title: "Cleanup scope",
+	description:
+		"Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve.",
 });
 
-export type CleanupPreserve = typeof CleanupPreserveSchema.Type;
+export type CleanupScope = typeof CleanupScopeSchema.Type;
 
-export const CleanupSchema = Schema.Struct({
-	secrets: Schema.optionalWith(Schema.Boolean, { default: () => false }).annotations({
-		title: "Clean up action secrets",
-		description: "Delete action secrets not declared in any referenced secret group",
+const CleanupSecretsSchema = Schema.Struct({
+	actions: Schema.optionalWith(CleanupScopeSchema, { default: () => false as CleanupScope }).annotations({
+		title: "Clean up Actions secrets",
+		description: "Delete Actions secrets not declared in any referenced secret group",
 		default: false,
 	}),
-	variables: Schema.optionalWith(Schema.Boolean, { default: () => false }).annotations({
-		title: "Clean up action variables",
-		description: "Delete action variables not declared in any referenced variable group",
-		default: false,
-	}),
-	dependabot_secrets: Schema.optionalWith(Schema.Boolean, { default: () => false }).annotations({
+	dependabot: Schema.optionalWith(CleanupScopeSchema, { default: () => false as CleanupScope }).annotations({
 		title: "Clean up Dependabot secrets",
 		description: "Delete Dependabot secrets not declared in any referenced secret group",
 		default: false,
 	}),
-	codespaces_secrets: Schema.optionalWith(Schema.Boolean, { default: () => false }).annotations({
+	codespaces: Schema.optionalWith(CleanupScopeSchema, { default: () => false as CleanupScope }).annotations({
 		title: "Clean up Codespaces secrets",
 		description: "Delete Codespaces secrets not declared in any referenced secret group",
 		default: false,
 	}),
-	rulesets: Schema.optionalWith(Schema.Boolean, { default: () => false }).annotations({
+	environments: Schema.optionalWith(CleanupScopeSchema, { default: () => false as CleanupScope }).annotations({
+		title: "Clean up environment secrets",
+		description: "Delete environment secrets not declared in any referenced secret group",
+		default: false,
+	}),
+}).annotations({
+	identifier: "CleanupSecrets",
+	title: "Secrets cleanup configuration",
+	description: "Controls deletion of secrets by scope (Actions, Dependabot, Codespaces, environments).",
+});
+
+const CleanupVariablesSchema = Schema.Struct({
+	actions: Schema.optionalWith(CleanupScopeSchema, { default: () => false as CleanupScope }).annotations({
+		title: "Clean up Actions variables",
+		description: "Delete Actions variables not declared in any referenced variable group",
+		default: false,
+	}),
+	environments: Schema.optionalWith(CleanupScopeSchema, { default: () => false as CleanupScope }).annotations({
+		title: "Clean up environment variables",
+		description: "Delete environment variables not declared in any referenced variable group",
+		default: false,
+	}),
+}).annotations({
+	identifier: "CleanupVariables",
+	title: "Variables cleanup configuration",
+	description: "Controls deletion of variables by scope (Actions, environments).",
+});
+
+export const CleanupSchema = Schema.Struct({
+	secrets: Schema.optionalWith(CleanupSecretsSchema, {
+		default: () => ({
+			actions: false as CleanupScope,
+			dependabot: false as CleanupScope,
+			codespaces: false as CleanupScope,
+			environments: false as CleanupScope,
+		}),
+	}).annotations({
+		title: "Secrets cleanup",
+		description: "Controls cleanup of secrets by scope",
+	}),
+	variables: Schema.optionalWith(CleanupVariablesSchema, {
+		default: () => ({
+			actions: false as CleanupScope,
+			environments: false as CleanupScope,
+		}),
+	}).annotations({
+		title: "Variables cleanup",
+		description: "Controls cleanup of variables by scope",
+	}),
+	rulesets: Schema.optionalWith(CleanupScopeSchema, { default: () => false as CleanupScope }).annotations({
 		title: "Clean up rulesets",
 		description: "Delete repository rulesets not declared in any referenced ruleset group",
 		default: false,
 	}),
-	preserve: Schema.optionalWith(CleanupPreserveSchema, {
-		default: () => ({
-			secrets: [],
-			variables: [],
-			dependabot_secrets: [],
-			codespaces_secrets: [],
-			rulesets: [],
-		}),
-	}).annotations({
-		title: "Preserve lists",
-		description: "Resource names to never delete during cleanup",
+	environments: Schema.optionalWith(CleanupScopeSchema, { default: () => false as CleanupScope }).annotations({
+		title: "Clean up environments",
+		description: "Delete repository environments not declared in config",
+		default: false,
 	}),
 }).annotations({
 	identifier: "Cleanup",

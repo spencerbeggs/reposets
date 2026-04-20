@@ -38,18 +38,47 @@ export const listCommand = Command.make("list", { config: configOption }, ({ con
 			if (group.settings?.length) {
 				yield* Console.log(`  settings: ${group.settings.join(", ")}`);
 			}
+
+			if (group.environments?.length) {
+				yield* Console.log(`  environments: ${group.environments.join(", ")}`);
+			}
+
 			if (group.secrets) {
-				const scopes = Object.entries(group.secrets)
-					.filter(([, groups]) => groups && groups.length > 0)
-					.map(([scope, groups]) => `${scope}:[${groups?.join(",")}]`);
-				if (scopes.length) yield* Console.log(`  secrets: ${scopes.join(", ")}`);
+				const parts: string[] = [];
+				if (group.secrets.actions?.length) {
+					parts.push(`actions:[${group.secrets.actions.join(",")}]`);
+				}
+				if (group.secrets.dependabot?.length) {
+					parts.push(`dependabot:[${group.secrets.dependabot.join(",")}]`);
+				}
+				if (group.secrets.codespaces?.length) {
+					parts.push(`codespaces:[${group.secrets.codespaces.join(",")}]`);
+				}
+				if (group.secrets.environments) {
+					for (const [envName, envGroups] of Object.entries(group.secrets.environments)) {
+						if (envGroups.length) {
+							parts.push(`environments.${envName}:[${envGroups.join(",")}]`);
+						}
+					}
+				}
+				if (parts.length) yield* Console.log(`  secrets: ${parts.join(", ")}`);
 			}
+
 			if (group.variables) {
-				const scopes = Object.entries(group.variables)
-					.filter(([, groups]) => groups && groups.length > 0)
-					.map(([scope, groups]) => `${scope}:[${groups?.join(",")}]`);
-				if (scopes.length) yield* Console.log(`  variables: ${scopes.join(", ")}`);
+				const parts: string[] = [];
+				if (group.variables.actions?.length) {
+					parts.push(`actions:[${group.variables.actions.join(",")}]`);
+				}
+				if (group.variables.environments) {
+					for (const [envName, envGroups] of Object.entries(group.variables.environments)) {
+						if (envGroups.length) {
+							parts.push(`environments.${envName}:[${envGroups.join(",")}]`);
+						}
+					}
+				}
+				if (parts.length) yield* Console.log(`  variables: ${parts.join(", ")}`);
 			}
+
 			if (group.rulesets?.length) {
 				yield* Console.log(`  rulesets: ${group.rulesets.join(", ")}`);
 			}

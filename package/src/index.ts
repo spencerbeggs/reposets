@@ -15,14 +15,14 @@ export { resolveConfigDir } from "./lib/config-path.js";
 export { encryptSecret } from "./lib/crypto.js";
 export { configDir, configPath, credentialsPath } from "./lib/xdg.js";
 // Schemas
-export type { Cleanup, CleanupPreserve, SecretGroup, VariableGroup } from "./schemas/common.js";
-export { CleanupPreserveSchema, CleanupSchema, SecretGroupSchema, VariableGroupSchema } from "./schemas/common.js";
+export type { Cleanup, CleanupScope, SecretGroup, VariableGroup } from "./schemas/common.js";
+export { CleanupSchema, CleanupScopeSchema, SecretGroupSchema, VariableGroupSchema } from "./schemas/common.js";
 export type { Config, Group, LogLevel } from "./schemas/config.js";
 export { ConfigSchema, GroupSchema, LogLevelSchema } from "./schemas/config.js";
 export type { CredentialProfile, Credentials, ResolveSection } from "./schemas/credentials.js";
 export { CredentialProfileSchema, CredentialsSchema, ResolveSectionSchema } from "./schemas/credentials.js";
-export type { BypassActor, ResolvedRef, Rule, Ruleset } from "./schemas/ruleset.js";
-export { BypassActorSchema, ResolvedRefSchema, RuleSchema, RulesetSchema } from "./schemas/ruleset.js";
+export type { BypassActor, ResolvedRef, Ruleset, RulesetPayload } from "./schemas/ruleset.js";
+export { BypassActorSchema, ResolvedRefSchema, RulesetSchema, buildRulesetPayload } from "./schemas/ruleset.js";
 // Services
 export { ConfigLoader, ConfigLoaderLive } from "./services/ConfigLoader.js";
 export { CredentialResolver, CredentialResolverLive } from "./services/CredentialResolver.js";

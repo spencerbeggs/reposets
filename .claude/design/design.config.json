@@ -1,0 +1,54 @@
+{
+	"version": "1.0.0",
+	"project": {
+		"name": "spencerbeggs/github-repo-sync",
+		"type": "monorepo",
+		"repository": "https://github.com/spencerbeggs/github-repo-sync",
+		"maintainer": "C. Spencer Beggs"
+	},
+	"paths": {
+		"designDocs": ".claude/design",
+		"skills": ".claude/skills",
+		"context": "CLAUDE.md"
+	},
+	"modules": {
+		"gh-sync": {
+			"path": "package",
+			"designDocsPath": ".claude/design/gh-sync",
+			"categories": ["architecture", "other"],
+			"maintainer": "C. Spencer Beggs"
+		}
+	},
+	"skills": {
+		"baseNamespace": "/",
+		"enabled": [
+			"design-init",
+			"design-validate",
+			"design-update",
+			"design-sync",
+			"design-review",
+			"design-audit",
+			"design-search",
+			"design-report"
+		]
+	},
+	"quality": {
+		"designDocs": {
+			"maxLineLength": 120,
+			"requireFrontmatter": true,
+			"requireTOC": false,
+			"minSections": ["Overview"]
+		}
+	},
+	"integration": {
+		"ci": {
+			"enabled": false,
+			"validateOnPR": false,
+			"syncOnMerge": false
+		},
+		"git": {
+			"trackDesignDocs": true,
+			"requireReviewForChanges": false
+		}
+	}
+}

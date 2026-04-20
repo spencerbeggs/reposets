@@ -1,9 +1,11 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { ConfigSchema, GroupSchema } from "../../src/schemas/config.js";
+import { ConfigSchema, GroupSchema, SecretScopesSchema, VariableScopesSchema } from "../../src/schemas/config.js";
 
 const decodeConfig = Schema.decodeUnknownSync(ConfigSchema);
 const decodeGroup = Schema.decodeUnknownSync(GroupSchema);
+const decodeSecretScopes = Schema.decodeUnknownSync(SecretScopesSchema);
+const decodeVariableScopes = Schema.decodeUnknownSync(VariableScopesSchema);
 
 describe("GroupSchema", () => {
 	it("accepts minimal group", () => {
@@ -27,6 +29,29 @@ describe("GroupSchema", () => {
 
 	it("rejects group without repos", () => {
 		expect(() => decodeGroup({})).toThrow();
+	});
+
+	it("accepts group-level cleanup with new three-way union structure", () => {
+		const result = decodeGroup({
+			repos: ["repo-one"],
+			cleanup: {
+				secrets: { actions: true, dependabot: false },
+				variables: { actions: { preserve: ["KEEP_ME"] } },
+				rulesets: false,
+				environments: true,
+			},
+		});
+		expect(result.cleanup?.secrets?.actions).toBe(true);
+		expect(result.cleanup?.variables?.actions).toEqual({ preserve: ["KEEP_ME"] });
+		expect(result.cleanup?.environments).toBe(true);
+	});
+
+	it("accepts environments array in group", () => {
+		const result = decodeGroup({
+			repos: ["repo-one"],
+			environments: ["staging", "production"],
+		});
+		expect(result.environments).toEqual(["staging", "production"]);
 	});
 });
 
@@ -83,7 +108,7 @@ describe("ConfigSchema", () => {
 				bot: { resolved: { BOT_NAME: "SILK_BOT_NAME" } },
 			},
 			rulesets: {
-				workflow: { name: "workflow", enforcement: "active", rules: [{ type: "deletion" }] },
+				workflow: { name: "workflow", type: "branch", enforcement: "active", rules: [{ type: "deletion" }] },
 			},
 			groups: {
 				silk: {
@@ -129,5 +154,73 @@ describe("ConfigSchema", () => {
 				log_level: "banana",
 			}),
 		).toThrow();
+	});
+
+	it("accepts top-level environments", () => {
+		const result = decodeConfig({
+			environments: {
+				staging: { wait_timer: 5, prevent_self_review: true },
+				production: { wait_timer: 30, deployment_branches: "protected" },
+			},
+			groups: { g: { repos: ["r"] } },
+		});
+		expect(result.environments).toHaveProperty("staging");
+		expect(result.environments?.staging?.wait_timer).toBe(5);
+		expect(result.environments).toHaveProperty("production");
+	});
+
+	it("applies empty object default for environments when omitted", () => {
+		const result = decodeConfig({
+			groups: { mygroup: { repos: ["repo-one"] } },
+		});
+		expect(result.environments).toEqual({});
+	});
+
+	it("does NOT have a global cleanup field", () => {
+		const result = decodeConfig({
+			groups: { g: { repos: ["r"] } },
+		});
+		expect("cleanup" in result).toBe(false);
+	});
+});
+
+describe("SecretScopesSchema", () => {
+	it("accepts environment-scoped secrets", () => {
+		const result = decodeSecretScopes({
+			actions: ["deploy"],
+			environments: {
+				staging: ["app-secrets"],
+				production: ["app-secrets", "prod-secrets"],
+			},
+		});
+		expect(result.environments).toHaveProperty("staging");
+		expect(result.environments?.staging).toEqual(["app-secrets"]);
+		expect(result.environments?.production).toEqual(["app-secrets", "prod-secrets"]);
+	});
+
+	it("accepts secret scopes without environments", () => {
+		const result = decodeSecretScopes({ actions: ["deploy"], dependabot: ["deploy"] });
+		expect(result.actions).toEqual(["deploy"]);
+		expect(result.environments).toBeUndefined();
+	});
+});
+
+describe("VariableScopesSchema", () => {
+	it("accepts environment-scoped variables", () => {
+		const result = decodeVariableScopes({
+			actions: ["common"],
+			environments: {
+				staging: ["staging-vars"],
+				production: ["prod-vars"],
+			},
+		});
+		expect(result.environments).toHaveProperty("staging");
+		expect(result.environments?.staging).toEqual(["staging-vars"]);
+	});
+
+	it("accepts variable scopes without environments", () => {
+		const result = decodeVariableScopes({ actions: ["common"] });
+		expect(result.actions).toEqual(["common"]);
+		expect(result.environments).toBeUndefined();
 	});
 });

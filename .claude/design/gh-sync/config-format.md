@@ -3,14 +3,14 @@ module: gh-sync
 title: Configuration Format
 status: current
 completeness: 95
-last-synced: 2026-04-18
+last-synced: 2026-04-20
 ---
 
 ## Files
 
 | File | Purpose | Location |
 | :--- | :------ | :------- |
-| `gh-sync.config.toml` | Groups, settings, secrets, variables, rulesets, cleanup | XDG or project-local |
+| `gh-sync.config.toml` | Groups, settings, environments, secrets, variables, rulesets, cleanup | XDG or project-local |
 | `gh-sync.credentials.toml` | Named credential profiles with resolve sections (gitignored) | XDG config dir |
 
 ## Config Path Resolution
@@ -32,6 +32,22 @@ log_level = "info"
 
 [settings.default]
 has_wiki = false
+has_discussions = false
+delete_branch_on_merge = true
+
+[environments.staging]
+wait_timer = 0
+
+[environments.production]
+wait_timer = 30
+prevent_self_review = true
+
+[[environments.production.reviewers]]
+type = "User"
+id = 12345
+
+[environments.production.deployment_branches]
+# "all", "protected", or array of custom policies
 
 [secrets.deploy.file]
 NPM_TOKEN = "./private/NPM_TOKEN"
@@ -48,36 +64,42 @@ BOT_NAME = "SILK_BOT_NAME"
 
 [rulesets.branch-protection]
 name = "branch-protection"
+type = "branch"
 enforcement = "active"
-target = "branch"
+targets = "default"
+non_fast_forward = true
 
-[rulesets.branch-protection.conditions.ref_name]
-include = ["~DEFAULT_BRANCH"]
+[rulesets.branch-protection.pull_requests]
+approvals = 1
+dismiss_stale_reviews = false
 
-[[rulesets.branch-protection.rules]]
-type = "pull_request"
+[rulesets.branch-protection.status_checks]
+update_branch = true
+default_integration_id = { resolved = "SILK_APP_ID" }
 
-[rulesets.branch-protection.rules.parameters]
-required_approving_review_count = 1
-dismiss_stale_reviews_on_push = false
-require_code_owner_review = false
-require_last_push_approval = false
-required_review_thread_resolution = false
-
-[[rulesets.branch-protection.rules.parameters.required_status_checks]]
+[[rulesets.branch-protection.status_checks.required]]
 context = "CI"
-integration_id = { resolved = "SILK_APP_ID" }
-
-[cleanup]
-secrets = true
-variables = true
 
 [groups.my-projects]
 repos = ["repo-one", "repo-two"]
 settings = ["default"]
-secrets = { actions = ["deploy", "api"], dependabot = ["deploy"] }
-variables = { actions = ["turbo", "bot"] }
+environments = ["staging", "production"]
+secrets = { actions = ["deploy", "api"], dependabot = ["deploy"], environments = { production = ["api"] } }
+variables = { actions = ["turbo", "bot"], environments = { staging = ["turbo"] } }
 rulesets = ["branch-protection"]
+
+[groups.my-projects.cleanup]
+rulesets = true
+environments = true
+
+[groups.my-projects.cleanup.secrets]
+actions = true
+dependabot = { preserve = ["LEGACY_TOKEN"] }
+environments = true
+
+[groups.my-projects.cleanup.variables]
+actions = true
+environments = true
 ```
 
 ## Resource Group Model
@@ -97,7 +119,13 @@ substitution.
 
 ## Ruleset Schema
 
-Rulesets are defined directly in TOML covering all 22 GitHub rule types:
+Rulesets are a discriminated union by `type` field: `BranchRuleset` or
+`TagRuleset`. Branch rulesets support all 21 rule types plus the
+`pull_requests` shorthand; tag rulesets support 16 rule types (no
+`merge_queue`, `pull_request`, `branch_name_pattern`, `workflows`,
+`code_scanning`, `copilot_code_review`).
+
+The full 22 GitHub rule types supported across both:
 `creation`, `update`, `deletion`, `required_linear_history`,
 `required_signatures`, `non_fast_forward`, `pull_request`,
 `required_status_checks`, `required_deployments`, `merge_queue`,
@@ -107,19 +135,115 @@ Rulesets are defined directly in TOML covering all 22 GitHub rule types:
 `max_file_path_length`, `max_file_size`, `workflows`, `code_scanning`,
 `copilot_code_review`.
 
+### Shorthand Fields
+
+Rulesets support several shorthand fields that `normalizeRuleset()`
+converts into API-compatible format:
+
+- `targets` - `"default"` | `"all"` | array of `{ include }` /
+  `{ exclude }` patterns -> `conditions.ref_name`
+- `pull_requests` (branch only) - `{ approvals, dismiss_stale_reviews,
+  code_owner_review, last_push_approval, resolve_threads, merge_methods,
+  reviewers }` -> `pull_request` rule
+- `status_checks` - `{ update_branch, on_creation,
+  default_integration_id, required }` -> `required_status_checks` rule;
+  `default_integration_id` applied to checks that omit it
+- Boolean flags: `creation`, `update`, `deletion`,
+  `required_linear_history`, `required_signatures`, `non_fast_forward` ->
+  corresponding parameterless rules
+- `deployments` - array of environment names ->
+  `required_deployments` rule
+
+All shorthand fields are stripped from the output after normalization.
+
 Fields `actor_id`, `integration_id`, and `repository_id` accept either
 a static integer or `{ resolved = "LABEL" }`.
 
+## Environment Schema
+
+Top-level `[environments.<name>]` tables define deployment environment
+configurations:
+
+- `wait_timer` - minutes to wait before allowing deployments (0-43200)
+- `prevent_self_review` - prevent deployment trigger from approving
+- `reviewers` - array of `{ type: "User"|"Team", id: number }`
+- `deployment_branches` - `"all"` | `"protected"` | array of
+  `{ name, type? }` custom policies (type defaults to `"branch"`)
+
+Environments referenced by `group.environments` array are synced via
+`GitHubClient.syncEnvironment()` before secrets/variables.
+
 ## Secret Scopes
 
-Scoping is at the group level, not the secret definition:
+Scoping is now structured as a `SecretScopes` object with four fields:
 
-- `actions` - GitHub Actions repository secrets
-- `dependabot` - Dependabot secrets
-- `codespaces` - Codespaces secrets
+- `actions` - array of secret group names for GitHub Actions secrets
+- `dependabot` - array of secret group names for Dependabot secrets
+- `codespaces` - array of secret group names for Codespaces secrets
+- `environments` - record mapping environment names to arrays of secret
+  group names for environment-scoped secrets
 
 The same secret group can be assigned to different scopes on different
 groups.
+
+## Variable Scopes
+
+Variables use a `VariableScopes` object with two fields:
+
+- `actions` - array of variable group names for GitHub Actions variables
+- `environments` - record mapping environment names to arrays of variable
+  group names for environment-scoped variables
+
+## Settings Schema
+
+The `SettingsGroupSchema` is a typed struct with 20+ known fields and
+pass-through for additional unknown fields via index signature. Known
+fields include:
+
+- Repository features: `is_template`, `has_wiki`, `has_issues`,
+  `has_projects`, `has_discussions`, `has_sponsorships` (GraphQL),
+  `has_pull_requests` (GraphQL)
+- Forking: `allow_forking`
+- Merge strategies: `allow_merge_commit`, `allow_squash_merge`,
+  `allow_rebase_merge`, `allow_auto_merge`, `allow_update_branch`
+- Merge commit formatting: `squash_merge_commit_title`,
+  `squash_merge_commit_message`, `merge_commit_title`,
+  `merge_commit_message`
+- Cleanup: `delete_branch_on_merge`
+- Security: `web_commit_signoff_required`
+
+Fields `has_sponsorships` and `has_pull_requests` are synced via GraphQL
+`updateRepository` mutation (not available in REST API).
+
+## Cleanup Configuration
+
+Cleanup is per-group (not global). Each group can have its own
+`[groups.<name>.cleanup]` section.
+
+The `CleanupScope` type is a three-way union:
+
+- `false` - cleanup disabled (default)
+- `true` - delete all undeclared resources
+- `{ preserve = ["name1", "name2"] }` - delete undeclared except preserved
+
+Cleanup is organized into nested scopes:
+
+```text
+cleanup
+  secrets
+    actions:      CleanupScope
+    dependabot:   CleanupScope
+    codespaces:   CleanupScope
+    environments: CleanupScope
+  variables
+    actions:      CleanupScope
+    environments: CleanupScope
+  rulesets:       CleanupScope
+  environments:   CleanupScope
+```
+
+All scopes default to `false`. Cleanup runs after sync so newly synced
+items are never deleted.
 
 ## Credentials
 
