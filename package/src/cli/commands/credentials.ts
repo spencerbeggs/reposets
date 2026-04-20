@@ -18,7 +18,7 @@ const opTokenOption = Options.text("op-token").pipe(
 );
 
 function getCredentialsPath(): string {
-	return join(configDir(), "gh-sync.credentials.toml");
+	return join(configDir(), "repo-sync.credentials.toml");
 }
 
 function loadCredentialsFile(): Record<string, unknown> {

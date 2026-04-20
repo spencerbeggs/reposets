@@ -9,8 +9,8 @@ const projectOption = Options.boolean("project").pipe(
 	Options.withDefault(false),
 );
 
-const CONFIG_TEMPLATE = `# gh-sync configuration
-# See: https://github.com/spencerbeggs/gh-sync
+const CONFIG_TEMPLATE = `# repo-sync configuration
+# See: https://github.com/spencerbeggs/repo-sync
 
 # Default owner for all groups (can be overridden per group)
 # owner = "your-github-username"
@@ -69,16 +69,16 @@ const CONFIG_TEMPLATE = `# gh-sync configuration
 # rulesets = ["default-branch"]
 `;
 
-const CREDENTIALS_TEMPLATE = `# gh-sync credentials (keep this file private)
-# See: https://github.com/spencerbeggs/gh-sync
+const CREDENTIALS_TEMPLATE = `# repo-sync credentials (keep this file private)
+# See: https://github.com/spencerbeggs/repo-sync
 
 # [profiles.personal]
 # github_token = "ghp_your_token_here"
 # op_service_account_token = "ops_your_token_here"
 `;
 
-const CREDENTIALS_FILE = "gh-sync.credentials.toml";
-const CONFIG_FILE = "gh-sync.config.toml";
+const CREDENTIALS_FILE = "repo-sync.credentials.toml";
+const CONFIG_FILE = "repo-sync.config.toml";
 
 export const initCommand = Command.make("init", { project: projectOption }, ({ project }) =>
 	Effect.gen(function* () {

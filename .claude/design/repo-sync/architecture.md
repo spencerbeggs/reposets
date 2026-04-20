@@ -1,5 +1,5 @@
 ---
-module: gh-sync
+module: repo-sync
 title: Architecture
 status: current
 completeness: 95
@@ -8,7 +8,7 @@ last-synced: 2026-04-20
 
 ## Overview
 
-gh-sync is an Effect-based CLI for syncing GitHub repository settings,
+repo-sync is an Effect-based CLI for syncing GitHub repository settings,
 secrets, variables, rulesets, and deployment environments across personal
 repos. Config files serve as distributable templates; environment-specific
 values are resolved from credential profiles at runtime.

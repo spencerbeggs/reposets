@@ -7,7 +7,7 @@ export default NodeLibraryBuilder.create({
 	},
 	transform({ pkg, target }) {
 		if (target?.registry === "https://npm.pkg.github.com/") {
-			pkg.name = "@spencerbeggs/gh-sync";
+			pkg.name = "@spencerbeggs/repo-sync";
 		}
 		delete pkg.devDependencies;
 		delete pkg.bundleDependencies;

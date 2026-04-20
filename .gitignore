@@ -49,6 +49,6 @@ private/**
 docs/superpowers
 
 # Local configuration and credentials files (keep them out of version control)
-gh-sync.config.toml
-gh-sync.credentials.toml
+repo-sync.config.toml
+repo-sync.credentials.toml
 tombi.toml

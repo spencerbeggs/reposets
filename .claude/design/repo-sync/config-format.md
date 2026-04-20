@@ -1,5 +1,5 @@
 ---
-module: gh-sync
+module: repo-sync
 title: Configuration Format
 status: current
 completeness: 95
@@ -10,19 +10,19 @@ last-synced: 2026-04-20
 
 | File | Purpose | Location |
 | :--- | :------ | :------- |
-| `gh-sync.config.toml` | Groups, settings, environments, secrets, variables, rulesets, cleanup | XDG or project-local |
-| `gh-sync.credentials.toml` | Named credential profiles with resolve sections (gitignored) | XDG config dir |
+| `repo-sync.config.toml` | Groups, settings, environments, secrets, variables, rulesets, cleanup | XDG or project-local |
+| `repo-sync.credentials.toml` | Named credential profiles with resolve sections (gitignored) | XDG config dir |
 
 ## Config Path Resolution
 
 Resolution order (first match wins):
 
 1. `--config` flag (directory or file path)
-2. Walk up from cwd looking for `gh-sync.config.toml`
-3. `$XDG_CONFIG_HOME/gh-sync/` or `~/.config/gh-sync/`
+2. Walk up from cwd looking for `repo-sync.config.toml`
+3. `$XDG_CONFIG_HOME/repo-sync/` or `~/.config/repo-sync/`
 
 File references in `file`-kind groups resolve relative to the directory
-containing `gh-sync.config.toml`.
+containing `repo-sync.config.toml`.
 
 ## Config Structure
 

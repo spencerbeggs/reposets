@@ -1,9 +1,9 @@
 {
 	"version": "1.0.0",
 	"project": {
-		"name": "spencerbeggs/github-repo-sync",
+		"name": "spencerbeggs/repo-sync",
 		"type": "monorepo",
-		"repository": "https://github.com/spencerbeggs/github-repo-sync",
+		"repository": "https://github.com/spencerbeggs/repo-sync",
 		"maintainer": "C. Spencer Beggs"
 	},
 	"paths": {
@@ -12,9 +12,9 @@
 		"context": "CLAUDE.md"
 	},
 	"modules": {
-		"gh-sync": {
+		"repo-sync": {
 			"path": "package",
-			"designDocsPath": ".claude/design/gh-sync",
+			"designDocsPath": ".claude/design/repo-sync",
 			"categories": ["architecture", "other"],
 			"maintainer": "C. Spencer Beggs"
 		}

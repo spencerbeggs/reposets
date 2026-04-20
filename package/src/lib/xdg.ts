@@ -1,9 +1,9 @@
 import { homedir } from "node:os";
 import { join } from "node:path";
 
-const APP_NAME = "gh-sync";
-const CONFIG_FILE = "gh-sync.config.toml";
-const CREDENTIALS_FILE = "gh-sync.credentials.toml";
+const APP_NAME = "repo-sync";
+const CONFIG_FILE = "repo-sync.config.toml";
+const CREDENTIALS_FILE = "repo-sync.credentials.toml";
 
 export function configDir(): string {
 	const xdg = process.env.XDG_CONFIG_HOME;
