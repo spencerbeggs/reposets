@@ -1,5 +1,5 @@
 /**
- * repo-sync
+ * reposets
  *
  * CLI tool to sync GitHub repo settings, secrets, and rulesets
  * across personal repositories.
@@ -25,8 +25,8 @@ export type { BypassActor, ResolvedRef, Ruleset, RulesetPayload } from "./schema
 export { BypassActorSchema, ResolvedRefSchema, RulesetSchema, buildRulesetPayload } from "./schemas/ruleset.js";
 export {
 	ConfigFilesLive,
-	RepoSyncConfigFile,
-	RepoSyncCredentialsFile,
+	ReposetsConfigFile,
+	ReposetsCredentialsFile,
 	loadConfigWithDir,
 	resolveConfigFlag,
 } from "./services/ConfigFiles.js";

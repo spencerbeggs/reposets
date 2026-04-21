@@ -2,7 +2,7 @@
 
 ## Overview
 
-Rulesets are defined as `[rulesets.<name>]` tables in the config. Each is a discriminated union by `type` field: `branch` or `tag`. repo-sync creates or updates rulesets by matching on name.
+Rulesets are defined as `[rulesets.<name>]` tables in the config. Each is a discriminated union by `type` field: `branch` or `tag`. reposets creates or updates rulesets by matching on name.
 
 ## Required Fields
 
@@ -107,7 +107,7 @@ deployments = ["staging"]
 
 ## Resolved References
 
-Integer fields in rulesets accept `{ resolved = "LABEL" }` for runtime substitution. The label references a named value defined in the active credential profile's `[resolve]` section. At sync time, repo-sync looks up the label, retrieves the value, and coerces it to an integer for the GitHub API.
+Integer fields in rulesets accept `{ resolved = "LABEL" }` for runtime substitution. The label references a named value defined in the active credential profile's `[resolve]` section. At sync time, reposets looks up the label, retrieves the value, and coerces it to an integer for the GitHub API.
 
 Fields that support resolved references: `actor_id`, `integration_id`, `repository_id`, `default_integration_id`.
 

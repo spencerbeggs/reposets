@@ -49,6 +49,6 @@ private/**
 docs/superpowers
 
 # Local configuration and credentials files (keep them out of version control)
-repo-sync.config.toml
-repo-sync.credentials.toml
+reposets.config.toml
+reposets.credentials.toml
 tombi.toml

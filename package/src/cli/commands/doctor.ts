@@ -3,10 +3,10 @@ import { join } from "node:path";
 import { Command, Options } from "@effect/cli";
 import { Console, Effect } from "effect";
 import { parse } from "smol-toml";
-import { RepoSyncConfigFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
+import { ReposetsConfigFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
 
 const configOption = Options.file("config").pipe(
-	Options.withDescription("Path to config directory or repo-sync.config.toml file"),
+	Options.withDescription("Path to config directory or reposets.config.toml file"),
 	Options.optional,
 );
 
@@ -68,18 +68,18 @@ function levenshtein(a: string, b: string): number {
 
 export const doctorCommand = Command.make("doctor", { config: configOption }, ({ config }) =>
 	Effect.gen(function* () {
-		const configFile = yield* RepoSyncConfigFile;
+		const configFile = yield* ReposetsConfigFile;
 
 		// Use discover to find and validate config; also get the file path for raw parsing
 		const discoverResult = yield* Effect.either(loadConfigWithDir(configFile, config));
 
 		if (discoverResult._tag === "Left") {
-			yield* Console.error("No config found. Run 'repo-sync init' to create one.");
+			yield* Console.error("No config found. Run 'reposets init' to create one.");
 			return;
 		}
 
 		const { configDir } = discoverResult.right;
-		const configPath = join(configDir, "repo-sync.config.toml");
+		const configPath = join(configDir, "reposets.config.toml");
 
 		// Raw TOML parsing for typo detection (schema validation strips unknown keys)
 		let raw: Record<string, unknown>;

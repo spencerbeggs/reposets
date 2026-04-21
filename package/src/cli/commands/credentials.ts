@@ -2,7 +2,7 @@ import { Command, Options } from "@effect/cli";
 import { Console, Effect } from "effect";
 import { AppDirs } from "xdg-effect";
 import type { Credentials } from "../../schemas/credentials.js";
-import { RepoSyncCredentialsFile } from "../../services/ConfigFiles.js";
+import { ReposetsCredentialsFile } from "../../services/ConfigFiles.js";
 
 const EMPTY_CREDENTIALS: Credentials = { profiles: {} };
 
@@ -31,7 +31,7 @@ const createCommand = Command.make(
 			const appDirs = yield* AppDirs;
 			yield* appDirs.ensureConfig;
 
-			const credentialsFile = yield* RepoSyncCredentialsFile;
+			const credentialsFile = yield* ReposetsCredentialsFile;
 			const creds = yield* credentialsFile.loadOrDefault(EMPTY_CREDENTIALS);
 
 			if (creds.profiles[profile]) {
@@ -68,7 +68,7 @@ const createCommand = Command.make(
 
 const listCredsCommand = Command.make("list", {}, () =>
 	Effect.gen(function* () {
-		const credentialsFile = yield* RepoSyncCredentialsFile;
+		const credentialsFile = yield* ReposetsCredentialsFile;
 		const creds = yield* credentialsFile.loadOrDefault(EMPTY_CREDENTIALS);
 
 		if (Object.keys(creds.profiles).length === 0) {
@@ -94,7 +94,7 @@ const deleteCommand = Command.make("delete", { profile: profileOption }, ({ prof
 		const appDirs = yield* AppDirs;
 		yield* appDirs.ensureConfig;
 
-		const credentialsFile = yield* RepoSyncCredentialsFile;
+		const credentialsFile = yield* ReposetsCredentialsFile;
 		const creds = yield* credentialsFile.loadOrDefault(EMPTY_CREDENTIALS);
 
 		if (!creds.profiles[profile]) {

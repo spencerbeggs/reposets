@@ -1,9 +1,9 @@
 {
 	"version": "1.0.0",
 	"project": {
-		"name": "spencerbeggs/repo-sync",
+		"name": "spencerbeggs/reposets",
 		"type": "monorepo",
-		"repository": "https://github.com/spencerbeggs/repo-sync",
+		"repository": "https://github.com/spencerbeggs/reposets",
 		"maintainer": "C. Spencer Beggs"
 	},
 	"paths": {
@@ -12,9 +12,9 @@
 		"context": "CLAUDE.md"
 	},
 	"modules": {
-		"repo-sync": {
+		"reposets": {
 			"path": "package",
-			"designDocsPath": ".claude/design/repo-sync",
+			"designDocsPath": ".claude/design/reposets",
 			"categories": ["architecture", "other"],
 			"maintainer": "C. Spencer Beggs"
 		}

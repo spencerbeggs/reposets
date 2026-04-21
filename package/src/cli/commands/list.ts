@@ -1,15 +1,15 @@
 import { Command, Options } from "@effect/cli";
 import { Console, Effect } from "effect";
-import { RepoSyncConfigFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
+import { ReposetsConfigFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
 
 const configOption = Options.file("config").pipe(
-	Options.withDescription("Path to config directory or repo-sync.config.toml file"),
+	Options.withDescription("Path to config directory or reposets.config.toml file"),
 	Options.optional,
 );
 
 export const listCommand = Command.make("list", { config: configOption }, ({ config }) =>
 	Effect.gen(function* () {
-		const configFile = yield* RepoSyncConfigFile;
+		const configFile = yield* ReposetsConfigFile;
 		const { config: parsedConfig } = yield* loadConfigWithDir(configFile, config);
 
 		const defaultOwner = parsedConfig.owner ?? "(not set)";

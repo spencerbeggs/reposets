@@ -35,7 +35,7 @@ const TestCredentialsFile = ConfigFile.Tag<Credentials>("test/Credentials");
  */
 function makeConfigLayer(configPath: string) {
 	return XdgConfigLive({
-		app: new AppDirsConfig({ namespace: "repo-sync" }),
+		app: new AppDirsConfig({ namespace: "reposets" }),
 		config: {
 			tag: TestConfigFile,
 			schema: ConfigSchema,
@@ -89,7 +89,7 @@ describe("resolveConfigFlag", () => {
 	});
 
 	it("appends config filename when flag points to a directory", () => {
-		expect(resolveConfigFlag(Option.some(fixturesDir))).toBe(join(fixturesDir, "repo-sync.config.toml"));
+		expect(resolveConfigFlag(Option.some(fixturesDir))).toBe(join(fixturesDir, "reposets.config.toml"));
 	});
 });
 
@@ -292,9 +292,9 @@ describe("loadConfigWithDir", () => {
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const tmpDir = yield* fs.makeTempDirectoryScoped();
-				yield* fs.writeFileString(join(tmpDir, "repo-sync.config.toml"), fixtureContent("valid-minimal.toml"));
+				yield* fs.writeFileString(join(tmpDir, "reposets.config.toml"), fixtureContent("valid-minimal.toml"));
 
-				const layer = makeConfigLayer(join(tmpDir, "repo-sync.config.toml"));
+				const layer = makeConfigLayer(join(tmpDir, "reposets.config.toml"));
 				return yield* Effect.provide(
 					Effect.gen(function* () {
 						const cf = yield* TestConfigFile;
@@ -415,7 +415,7 @@ describe("ConfigFiles filesystem integration", () => {
 		);
 
 		const layer = XdgConfigLive({
-			app: new AppDirsConfig({ namespace: "repo-sync" }),
+			app: new AppDirsConfig({ namespace: "reposets" }),
 			config: {
 				tag: TestConfigFile,
 				schema: ConfigSchema,
@@ -432,14 +432,14 @@ describe("ConfigFiles filesystem integration", () => {
 			}).pipe(Effect.withConfigProvider(provider), Effect.provide(layer), Effect.provide(NodeFileSystem.layer)),
 		);
 
-		expect(result).toBe("/test/xdg-config/repo-sync");
+		expect(result).toBe("/test/xdg-config/reposets");
 	});
 
-	it("AppDirs falls back to HOME/.repo-sync when XDG_CONFIG_HOME is unset", async () => {
+	it("AppDirs falls back to HOME/.reposets when XDG_CONFIG_HOME is unset", async () => {
 		const provider = ConfigProvider.fromMap(new Map([["HOME", "/test/home"]]));
 
 		const layer = XdgConfigLive({
-			app: new AppDirsConfig({ namespace: "repo-sync" }),
+			app: new AppDirsConfig({ namespace: "reposets" }),
 			config: {
 				tag: TestConfigFile,
 				schema: ConfigSchema,
@@ -456,7 +456,7 @@ describe("ConfigFiles filesystem integration", () => {
 			}).pipe(Effect.withConfigProvider(provider), Effect.provide(layer), Effect.provide(NodeFileSystem.layer)),
 		);
 
-		expect(result).toBe("/test/home/.repo-sync");
+		expect(result).toBe("/test/home/.reposets");
 	});
 
 	it("loads both config and credentials from temp directory", async () => {

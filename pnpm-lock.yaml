@@ -48,7 +48,7 @@ importers:
       '@savvy-web/vitest':
         specifier: ^1.3.0
         version: 1.3.0(f8317390e5f558db1e6c112403c3d3da)
-      repo-sync:
+      reposets:
         specifier: workspace:*
         version: link:package/dist/npm
       tsx:

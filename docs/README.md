@@ -1,8 +1,8 @@
-# repo-sync Documentation
+# reposets Documentation
 
-repo-sync is a CLI tool for syncing GitHub repository settings, secrets, variables, rulesets, and deployment environments across your personal repositories. Define your desired state once in a TOML config file and apply it everywhere with a single command.
+reposets is a CLI tool for syncing GitHub repository settings, secrets, variables, rulesets, and deployment environments across your personal repositories. Define your desired state once in a TOML config file and apply it everywhere with a single command.
 
-Rather than clicking through repository settings one by one, repo-sync lets you manage repository configuration as code. Group repositories together, assign shared secrets and variables to those groups, and let repo-sync reconcile the live state on GitHub against your declared config on every run.
+Rather than clicking through repository settings one by one, reposets lets you manage repository configuration as code. Group repositories together, assign shared secrets and variables to those groups, and let reposets reconcile the live state on GitHub against your declared config on every run.
 
 ## Prerequisites
 
@@ -11,34 +11,34 @@ Rather than clicking through repository settings one by one, repo-sync lets you 
 ## Installation
 
 ```sh
-npm install -g repo-sync
+npm install -g reposets
 # or run without installing:
-npx repo-sync <command>
+npx reposets <command>
 ```
 
 ## Getting Started
 
-1. Install repo-sync (see above)
+1. Install reposets (see above)
 2. Create a GitHub fine-grained personal access token with the [required permissions](token-permissions.md)
-3. Run `repo-sync init` to scaffold config files in your XDG config directory (or pass `--project` for the current directory)
-4. Create a credential profile: `repo-sync credentials create --profile personal --github-token ghp_your_token`
-5. Edit `repo-sync.config.toml` to define your repositories, settings, secrets, and variables (see [Configuration](configuration.md))
-6. Run `repo-sync validate` to check your config for errors
-7. Run `repo-sync sync --dry-run` to preview what changes would be applied
-8. Run `repo-sync sync` to apply the config to all repositories
+3. Run `reposets init` to scaffold config files in your XDG config directory (or pass `--project` for the current directory)
+4. Create a credential profile: `reposets credentials create --profile personal --github-token ghp_your_token`
+5. Edit `reposets.config.toml` to define your repositories, settings, secrets, and variables (see [Configuration](configuration.md))
+6. Run `reposets validate` to check your config for errors
+7. Run `reposets sync --dry-run` to preview what changes would be applied
+8. Run `reposets sync` to apply the config to all repositories
 
 ## Minimal Working Example
 
 Below is a minimal config and credentials pair you can copy-paste and adapt. This example syncs basic settings to a single repository.
 
-`repo-sync.credentials.toml`:
+`reposets.credentials.toml`:
 
 ```toml
 [profiles.personal]
 github_token = "github_pat_your_token_here"
 ```
 
-`repo-sync.config.toml`:
+`reposets.config.toml`:
 
 ```toml
 owner = "your-github-username"
@@ -57,9 +57,9 @@ settings = "defaults"
 Then run:
 
 ```sh
-repo-sync validate
-repo-sync sync --dry-run
-repo-sync sync
+reposets validate
+reposets sync --dry-run
+reposets sync
 ```
 
 ## Guides

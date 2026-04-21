@@ -1,14 +1,14 @@
-# repo-sync
+# reposets
 
-[![npm version](https://img.shields.io/npm/v/repo-sync)](https://www.npmjs.com/package/repo-sync)
+[![npm version](https://img.shields.io/npm/v/reposets)](https://www.npmjs.com/package/reposets)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg)](https://www.typescriptlang.org/)
 
 Declarative GitHub repository management. Define your repo settings, secrets, variables, rulesets, and deployment environments in a TOML config file, then apply them across all your repositories with a single command.
 
-## Why repo-sync
+## Why reposets
 
-Managing repository settings by hand doesn't scale. When you have dozens of repos that should share the same branch protection rules, CI secrets, and merge settings, clicking through the GitHub UI for each one is slow and error-prone. repo-sync lets you define that configuration once and sync it everywhere.
+Managing repository settings by hand doesn't scale. When you have dozens of repos that should share the same branch protection rules, CI secrets, and merge settings, clicking through the GitHub UI for each one is slow and error-prone. reposets lets you define that configuration once and sync it everywhere.
 
 ## Features
 
@@ -24,27 +24,27 @@ Managing repository settings by hand doesn't scale. When you have dozens of repo
 ## Installation
 
 ```sh
-npm install -g repo-sync
+npm install -g reposets
 ```
 
 Alternative (no install):
 
 ```sh
-npx repo-sync <command>
+npx reposets <command>
 ```
 
 Requires Node.js >= 20.
 
 ## Quick Start
 
-1. Run `repo-sync init` to scaffold config files.
+1. Run `reposets init` to scaffold config files.
 2. Add a credential profile:
 
    ```sh
-   repo-sync credentials create --profile personal --github-token ghp_...
+   reposets credentials create --profile personal --github-token ghp_...
    ```
 
-3. Edit `repo-sync.config.toml` with your repos and settings:
+3. Edit `reposets.config.toml` with your repos and settings:
 
    ```toml
    owner = "your-username"
@@ -61,31 +61,31 @@ Requires Node.js >= 20.
 4. Validate your config:
 
    ```sh
-   repo-sync validate
+   reposets validate
    ```
 
 5. Preview changes without applying them:
 
    ```sh
-   repo-sync sync --dry-run
+   reposets sync --dry-run
    ```
 
 6. Apply the config:
 
    ```sh
-   repo-sync sync
+   reposets sync
    ```
 
 ## Commands
 
 | Command | Description |
 | :--- | :--- |
-| `repo-sync sync` | Apply config to repos (supports --dry-run, --group, --repo, --no-cleanup) |
-| `repo-sync list` | Show config summary |
-| `repo-sync validate` | Validate config without API calls |
-| `repo-sync doctor` | Deep diagnostics with typo detection |
-| `repo-sync init` | Scaffold config files (--project for local) |
-| `repo-sync credentials` | Manage credential profiles (create, list, delete) |
+| `reposets sync` | Apply config to repos (supports --dry-run, --group, --repo, --no-cleanup) |
+| `reposets list` | Show config summary |
+| `reposets validate` | Validate config without API calls |
+| `reposets doctor` | Deep diagnostics with typo detection |
+| `reposets init` | Scaffold config files (--project for local) |
+| `reposets credentials` | Manage credential profiles (create, list, delete) |
 
 All commands accept `--log-level silent|info|verbose|debug`.
 
@@ -105,7 +105,7 @@ Full reference guides are in the [docs/](docs/) folder:
 ## Project Structure
 
 ```text
-package/               # repo-sync CLI package (published to npm + GitHub Packages)
+package/               # reposets CLI package (published to npm + GitHub Packages)
   src/cli/             # CLI entrypoint and commands
   src/services/        # Effect services (ConfigLoader, GitHubClient, SyncEngine, etc.)
   src/schemas/         # Effect Schema definitions + JSON schema generation

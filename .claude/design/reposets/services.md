@@ -1,5 +1,5 @@
 ---
-module: repo-sync
+module: reposets
 title: Effect Services
 status: current
 completeness: 95

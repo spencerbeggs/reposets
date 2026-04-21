@@ -15,7 +15,7 @@ import { syncCommand } from "../../src/cli/commands/sync.js";
 import { validateCommand } from "../../src/cli/commands/validate.js";
 import { ConfigSchema } from "../../src/schemas/config.js";
 import { CredentialsSchema } from "../../src/schemas/credentials.js";
-import { RepoSyncConfigFile, RepoSyncCredentialsFile } from "../../src/services/ConfigFiles.js";
+import { ReposetsConfigFile, ReposetsCredentialsFile } from "../../src/services/ConfigFiles.js";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -170,7 +170,7 @@ variables = { environments = { ghost = ["missing-vars"] } }
 let tmpDir: string;
 
 beforeEach(() => {
-	tmpDir = join(tmpdir(), `repo-sync-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
+	tmpDir = join(tmpdir(), `reposets-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 	mkdirSync(tmpDir, { recursive: true });
 });
 
@@ -182,9 +182,9 @@ const testProvider = ConfigProvider.fromMap(new Map([["HOME", "/test/home"]]));
 
 function makeTestConfigLayer(configPath: string) {
 	return XdgConfigLive({
-		app: new AppDirsConfig({ namespace: "repo-sync", fallbackDir: Option.none(), dirs: Option.none() }),
+		app: new AppDirsConfig({ namespace: "reposets", fallbackDir: Option.none(), dirs: Option.none() }),
 		config: {
-			tag: RepoSyncConfigFile,
+			tag: ReposetsConfigFile,
 			schema: ConfigSchema,
 			codec: TomlCodec,
 			strategy: FirstMatch,
@@ -195,7 +195,7 @@ function makeTestConfigLayer(configPath: string) {
 
 function makeTestCredentialsLayer(credentialsPath: string, configLayer: ReturnType<typeof makeTestConfigLayer>) {
 	return ConfigFile.Live({
-		tag: RepoSyncCredentialsFile,
+		tag: ReposetsCredentialsFile,
 		schema: CredentialsSchema,
 		codec: TomlCodec,
 		strategy: FirstMatch,
@@ -210,7 +210,7 @@ function makeTestCredentialsLayer(credentialsPath: string, configLayer: ReturnTy
 function makeAppDirsLayer(configDir: string) {
 	return XdgConfigLive({
 		app: new AppDirsConfig({
-			namespace: "repo-sync",
+			namespace: "reposets",
 			fallbackDir: Option.none(),
 			dirs: Option.some({
 				config: Option.some(configDir),
@@ -221,24 +221,24 @@ function makeAppDirsLayer(configDir: string) {
 			}),
 		}),
 		config: {
-			tag: RepoSyncConfigFile,
+			tag: ReposetsConfigFile,
 			schema: ConfigSchema,
 			codec: TomlCodec,
 			strategy: FirstMatch,
-			resolvers: [ExplicitPath(join(configDir, "repo-sync.config.toml"))],
+			resolvers: [ExplicitPath(join(configDir, "reposets.config.toml"))],
 		},
 	});
 }
 
 /**
- * Build a layer with AppDirs + RepoSyncCredentialsFile pointing at the given config dir.
+ * Build a layer with AppDirs + ReposetsCredentialsFile pointing at the given config dir.
  * Used for credentials command tests that need the credentials service.
  */
 function makeAppDirsWithCredsLayer(configDir: string) {
-	const credsPath = join(configDir, "repo-sync.credentials.toml");
+	const credsPath = join(configDir, "reposets.credentials.toml");
 	const base = makeAppDirsLayer(configDir);
 	const credsLayer = ConfigFile.Live({
-		tag: RepoSyncCredentialsFile,
+		tag: ReposetsCredentialsFile,
 		schema: CredentialsSchema,
 		codec: TomlCodec,
 		strategy: FirstMatch,
@@ -256,10 +256,10 @@ function writeFixture(dir: string, filename: string, content: string): string {
 
 // biome-ignore lint/suspicious/noExplicitAny: Effect Command/Layer variance prevents precise typing in test helpers
 function runCommand(command: any, args: string[], layer: any) {
-	const root = Command.make("repo-sync").pipe(Command.withSubcommands([command]));
-	const cli = Command.run(root, { name: "repo-sync", version: "0.0.0" });
+	const root = Command.make("reposets").pipe(Command.withSubcommands([command]));
+	const cli = Command.run(root, { name: "reposets", version: "0.0.0" });
 	return Effect.runPromise(
-		Effect.suspend(() => cli(["node", "repo-sync", ...args])).pipe(
+		Effect.suspend(() => cli(["node", "reposets", ...args])).pipe(
 			Effect.withConfigProvider(testProvider),
 			Effect.provide(layer),
 			Effect.provide(NodeContext.layer),
@@ -278,14 +278,14 @@ describe("init command", () => {
 
 		await runCommand(initCommand, ["init", "--project"], layer);
 
-		expect(existsSync(join(tmpDir, "repo-sync.config.toml"))).toBe(true);
-		expect(existsSync(join(tmpDir, "repo-sync.credentials.toml"))).toBe(true);
+		expect(existsSync(join(tmpDir, "reposets.config.toml"))).toBe(true);
+		expect(existsSync(join(tmpDir, "reposets.credentials.toml"))).toBe(true);
 
-		const config = readFileSync(join(tmpDir, "repo-sync.config.toml"), "utf-8");
-		expect(config).toContain("repo-sync configuration");
+		const config = readFileSync(join(tmpDir, "reposets.config.toml"), "utf-8");
+		expect(config).toContain("reposets configuration");
 
-		const creds = readFileSync(join(tmpDir, "repo-sync.credentials.toml"), "utf-8");
-		expect(creds).toContain("repo-sync credentials");
+		const creds = readFileSync(join(tmpDir, "reposets.credentials.toml"), "utf-8");
+		expect(creds).toContain("reposets credentials");
 	});
 
 	it("creates .gitignore with credentials file in project mode", async () => {
@@ -295,19 +295,19 @@ describe("init command", () => {
 		await runCommand(initCommand, ["init", "--project"], layer);
 
 		const gitignore = readFileSync(join(tmpDir, ".gitignore"), "utf-8");
-		expect(gitignore).toContain("repo-sync.credentials.toml");
+		expect(gitignore).toContain("reposets.credentials.toml");
 	});
 
 	it("does not overwrite existing config files", async () => {
 		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 		const layer = makeAppDirsLayer(tmpDir);
-		writeFixture(tmpDir, "repo-sync.config.toml", "# existing config");
-		writeFixture(tmpDir, "repo-sync.credentials.toml", "# existing creds");
+		writeFixture(tmpDir, "reposets.config.toml", "# existing config");
+		writeFixture(tmpDir, "reposets.credentials.toml", "# existing creds");
 
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 		await runCommand(initCommand, ["init", "--project"], layer);
 
-		const config = readFileSync(join(tmpDir, "repo-sync.config.toml"), "utf-8");
+		const config = readFileSync(join(tmpDir, "reposets.config.toml"), "utf-8");
 		expect(config).toBe("# existing config");
 
 		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
@@ -315,13 +315,13 @@ describe("init command", () => {
 	});
 
 	it("creates files in XDG config dir when --project is not set", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "repo-sync");
+		const xdgDir = join(tmpDir, "xdg-config", "reposets");
 		const layer = makeAppDirsLayer(xdgDir);
 
 		await runCommand(initCommand, ["init"], layer);
 
-		expect(existsSync(join(xdgDir, "repo-sync.config.toml"))).toBe(true);
-		expect(existsSync(join(xdgDir, "repo-sync.credentials.toml"))).toBe(true);
+		expect(existsSync(join(xdgDir, "reposets.config.toml"))).toBe(true);
+		expect(existsSync(join(xdgDir, "reposets.credentials.toml"))).toBe(true);
 	});
 
 	it("appends to existing .gitignore in project mode", async () => {
@@ -333,7 +333,7 @@ describe("init command", () => {
 
 		const gitignore = readFileSync(join(tmpDir, ".gitignore"), "utf-8");
 		expect(gitignore).toContain("node_modules");
-		expect(gitignore).toContain("repo-sync.credentials.toml");
+		expect(gitignore).toContain("reposets.credentials.toml");
 	});
 });
 
@@ -343,7 +343,7 @@ describe("init command", () => {
 
 describe("credentials command", () => {
 	it("creates a new credential profile", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "repo-sync");
+		const xdgDir = join(tmpDir, "xdg-config", "reposets");
 		mkdirSync(xdgDir, { recursive: true });
 		const layer = makeAppDirsWithCredsLayer(xdgDir);
 
@@ -353,7 +353,7 @@ describe("credentials command", () => {
 			layer,
 		);
 
-		const credsPath = join(xdgDir, "repo-sync.credentials.toml");
+		const credsPath = join(xdgDir, "reposets.credentials.toml");
 		expect(existsSync(credsPath)).toBe(true);
 		const content = readFileSync(credsPath, "utf-8");
 		expect(content).toContain("ghp_testtoken123");
@@ -361,9 +361,9 @@ describe("credentials command", () => {
 	});
 
 	it("lists credential profiles", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "repo-sync");
+		const xdgDir = join(tmpDir, "xdg-config", "reposets");
 		mkdirSync(xdgDir, { recursive: true });
-		writeFixture(xdgDir, "repo-sync.credentials.toml", VALID_CREDENTIALS);
+		writeFixture(xdgDir, "reposets.credentials.toml", VALID_CREDENTIALS);
 		const layer = makeAppDirsWithCredsLayer(xdgDir);
 
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -375,21 +375,21 @@ describe("credentials command", () => {
 	});
 
 	it("deletes a credential profile", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "repo-sync");
+		const xdgDir = join(tmpDir, "xdg-config", "reposets");
 		mkdirSync(xdgDir, { recursive: true });
-		writeFixture(xdgDir, "repo-sync.credentials.toml", VALID_CREDENTIALS);
+		writeFixture(xdgDir, "reposets.credentials.toml", VALID_CREDENTIALS);
 		const layer = makeAppDirsWithCredsLayer(xdgDir);
 
 		await runCommand(credentialsCommand, ["credentials", "delete", "--profile", "personal"], layer);
 
-		const content = readFileSync(join(xdgDir, "repo-sync.credentials.toml"), "utf-8");
+		const content = readFileSync(join(xdgDir, "reposets.credentials.toml"), "utf-8");
 		expect(content).not.toContain("personal");
 	});
 
 	it("reports error when creating duplicate profile", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "repo-sync");
+		const xdgDir = join(tmpDir, "xdg-config", "reposets");
 		mkdirSync(xdgDir, { recursive: true });
-		writeFixture(xdgDir, "repo-sync.credentials.toml", VALID_CREDENTIALS);
+		writeFixture(xdgDir, "reposets.credentials.toml", VALID_CREDENTIALS);
 		const layer = makeAppDirsWithCredsLayer(xdgDir);
 
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -404,9 +404,9 @@ describe("credentials command", () => {
 	});
 
 	it("reports error when deleting nonexistent profile", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "repo-sync");
+		const xdgDir = join(tmpDir, "xdg-config", "reposets");
 		mkdirSync(xdgDir, { recursive: true });
-		writeFixture(xdgDir, "repo-sync.credentials.toml", VALID_CREDENTIALS);
+		writeFixture(xdgDir, "reposets.credentials.toml", VALID_CREDENTIALS);
 		const layer = makeAppDirsWithCredsLayer(xdgDir);
 
 		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
@@ -417,7 +417,7 @@ describe("credentials command", () => {
 	});
 
 	it("shows message when no profiles exist", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "repo-sync");
+		const xdgDir = join(tmpDir, "xdg-config", "reposets");
 		mkdirSync(xdgDir, { recursive: true });
 		const layer = makeAppDirsWithCredsLayer(xdgDir);
 
@@ -429,7 +429,7 @@ describe("credentials command", () => {
 	});
 
 	it("rejects create with no tokens provided", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "repo-sync");
+		const xdgDir = join(tmpDir, "xdg-config", "reposets");
 		mkdirSync(xdgDir, { recursive: true });
 		const layer = makeAppDirsWithCredsLayer(xdgDir);
 
@@ -610,7 +610,7 @@ describe("validate command", () => {
 
 describe("doctor command", () => {
 	it("passes schema validation on valid config", async () => {
-		const configPath = writeFixture(tmpDir, "repo-sync.config.toml", VALID_MINIMAL_CONFIG);
+		const configPath = writeFixture(tmpDir, "reposets.config.toml", VALID_MINIMAL_CONFIG);
 		const configLayer = makeTestConfigLayer(configPath);
 
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -622,7 +622,7 @@ describe("doctor command", () => {
 	});
 
 	it("detects unknown top-level keys and suggests corrections", async () => {
-		const configPath = writeFixture(tmpDir, "repo-sync.config.toml", CONFIG_WITH_TYPOS);
+		const configPath = writeFixture(tmpDir, "reposets.config.toml", CONFIG_WITH_TYPOS);
 		const configLayer = makeTestConfigLayer(configPath);
 
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -637,7 +637,7 @@ describe("doctor command", () => {
 	});
 
 	it("detects unknown group keys", async () => {
-		const configPath = writeFixture(tmpDir, "repo-sync.config.toml", CONFIG_WITH_TYPOS);
+		const configPath = writeFixture(tmpDir, "reposets.config.toml", CONFIG_WITH_TYPOS);
 		const configLayer = makeTestConfigLayer(configPath);
 
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -649,7 +649,7 @@ describe("doctor command", () => {
 	});
 
 	it("detects cleanup section typos including secrets and variables sub-keys", async () => {
-		const configPath = writeFixture(tmpDir, "repo-sync.config.toml", CONFIG_WITH_CLEANUP_TYPOS);
+		const configPath = writeFixture(tmpDir, "reposets.config.toml", CONFIG_WITH_CLEANUP_TYPOS);
 		const configLayer = makeTestConfigLayer(configPath);
 
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
@@ -666,7 +666,7 @@ describe("doctor command", () => {
 	});
 
 	it("reports TOML parse error on invalid syntax", async () => {
-		const configPath = writeFixture(tmpDir, "repo-sync.config.toml", INVALID_TOML);
+		const configPath = writeFixture(tmpDir, "reposets.config.toml", INVALID_TOML);
 		// The config layer will fail, but doctor catches loadConfigWithDir failure
 		// However, doctor then tries raw TOML parsing separately
 		const configLayer = makeTestConfigLayer(configPath);
@@ -681,7 +681,7 @@ describe("doctor command", () => {
 	});
 
 	it("displays token permission requirements", async () => {
-		const configPath = writeFixture(tmpDir, "repo-sync.config.toml", VALID_MINIMAL_CONFIG);
+		const configPath = writeFixture(tmpDir, "reposets.config.toml", VALID_MINIMAL_CONFIG);
 		const configLayer = makeTestConfigLayer(configPath);
 
 		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});

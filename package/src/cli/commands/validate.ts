@@ -2,16 +2,16 @@ import { existsSync } from "node:fs";
 import { join } from "node:path";
 import { Command, Options } from "@effect/cli";
 import { Console, Effect } from "effect";
-import { RepoSyncConfigFile, RepoSyncCredentialsFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
+import { ReposetsConfigFile, ReposetsCredentialsFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
 
 const configOption = Options.file("config").pipe(
-	Options.withDescription("Path to config directory or repo-sync.config.toml file"),
+	Options.withDescription("Path to config directory or reposets.config.toml file"),
 	Options.optional,
 );
 
 export const validateCommand = Command.make("validate", { config: configOption }, ({ config }) =>
 	Effect.gen(function* () {
-		const configFile = yield* RepoSyncConfigFile;
+		const configFile = yield* ReposetsConfigFile;
 		let hasErrors = false;
 
 		const configResult = yield* Effect.either(loadConfigWithDir(configFile, config));
@@ -118,7 +118,7 @@ export const validateCommand = Command.make("validate", { config: configOption }
 			}
 		}
 
-		const credentialsFile = yield* RepoSyncCredentialsFile;
+		const credentialsFile = yield* ReposetsCredentialsFile;
 		const credsResult = yield* Effect.either(credentialsFile.load);
 
 		if (credsResult._tag === "Left") {

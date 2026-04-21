@@ -1,5 +1,5 @@
 ---
-"repo-sync": minor
+"reposets": minor
 ---
 
 ## Features
@@ -24,14 +24,14 @@ Replaced the JSON config format with TOML. Settings, secrets, variables, and rul
 Config file discovery uses the `xdg-effect` package with a three-tier resolver chain:
 
 1. Explicit `--config` flag (file or directory path)
-2. Walk up from `cwd` looking for `repo-sync.config.toml`
-3. XDG fallback at `$XDG_CONFIG_HOME/repo-sync/` (defaults to `~/.repo-sync/`)
+2. Walk up from `cwd` looking for `reposets.config.toml`
+3. XDG fallback at `$XDG_CONFIG_HOME/reposets/` (defaults to `~/.reposets/`)
 
 The `AppDirs` service from xdg-effect handles directory resolution for `init` and `credentials` commands. JSON Schema generation uses xdg-effect's `JsonSchemaExporter` service.
 
 ### Credential profiles with resolved templates
 
-Credential profiles in `repo-sync.credentials.toml` support multi-account workflows. Each profile holds a GitHub fine-grained token, an optional 1Password service account token, and an optional `[resolve]` section with three sub-groups:
+Credential profiles in `reposets.credentials.toml` support multi-account workflows. Each profile holds a GitHub fine-grained token, an optional 1Password service account token, and an optional `[resolve]` section with three sub-groups:
 
 - `op` - 1Password `op://` references resolved via the 1Password SDK
 - `file` - file paths resolved relative to the credentials directory
@@ -71,5 +71,5 @@ The `SyncLogger` service provides tiered output controlled by `--log-level` (sil
 
 ## Maintenance
 
-- Renamed the project from `gh-sync` to `repo-sync`
+- Renamed the project from `gh-sync` to `reposets`
 - Added comprehensive integration tests for all CLI commands and the xdg-effect config service layer (236 tests, 90% line coverage)
