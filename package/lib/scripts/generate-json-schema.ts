@@ -36,8 +36,9 @@ const program = Effect.gen(function* () {
 		})),
 	);
 
-	for (const result of results) {
-		const name = outputs.find((o) => result.path.includes(o.name.toLowerCase()))?.name ?? "Unknown";
+	for (let i = 0; i < results.length; i++) {
+		const result = results[i];
+		const name = outputs[i].name;
 		if (result._tag === "Written") {
 			console.log(`  ${name}: generated -> ${result.path}`);
 		} else {

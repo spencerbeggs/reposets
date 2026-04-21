@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Command, Options } from "@effect/cli";
 import { Console, Effect } from "effect";
@@ -45,6 +45,9 @@ const createCommand = Command.make(
 		Effect.gen(function* () {
 			const appDirs = yield* AppDirs;
 			const configDir = yield* appDirs.config;
+			if (!existsSync(configDir)) {
+				mkdirSync(configDir, { recursive: true });
+			}
 			const data = loadCredentialsFile(configDir);
 			const profiles = (data.profiles ?? {}) as Record<string, unknown>;
 

@@ -1,4 +1,5 @@
 import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { Command, Options } from "@effect/cli";
 import { Console, Effect } from "effect";
 import { parse } from "smol-toml";
@@ -78,7 +79,7 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 		}
 
 		const { configDir } = discoverResult.right;
-		const configPath = `${configDir}/repo-sync.config.toml`;
+		const configPath = join(configDir, "repo-sync.config.toml");
 
 		// Raw TOML parsing for typo detection (schema validation strips unknown keys)
 		let raw: Record<string, unknown>;
