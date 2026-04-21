@@ -1,0 +1,115 @@
+owner = "spencerbeggs"
+log_level = "info"
+# --- Settings groups ---
+
+[settings.silk-v1]
+is_template = false
+has_wiki = false
+has_issues = true
+has_projects = false
+has_discussions = false
+has_sponsorships = false
+has_pull_requests = true
+allow_forking = true
+allow_merge_commit = false
+allow_squash_merge = true
+allow_rebase_merge = true
+allow_auto_merge = true
+allow_update_branch = true
+squash_merge_commit_title = "PR_TITLE"
+squash_merge_commit_message = "BLANK"
+merge_commit_title = "PR_TITLE"
+merge_commit_message = "PR_BODY"
+delete_branch_on_merge = true
+web_commit_signoff_required = true
+
+[secrets.silk-v1.resolved]
+APP_ID = "SILK_APP_ID"
+APP_CLIENT_ID = "SILK_APP_CLIENT_ID"
+APP_CLIENT_SECRET = "SILK_APP_CLIENT_SECRET"
+APP_PRIVATE_KEY = "SILK_APP_PRIVATE_KEY"
+CLAUDE_REVIEW_PAT = "SILK_CLAUDE_REVIEW_PAT"
+CUSTOM_REGISTRIES = "SILK_CUSTOM_REGISTRIES"
+NPM_TOKEN = "SILK_NPM_TOKEN"
+
+[variables.silk-v1.resolved]
+APP_BOT_ID = "SILK_APP_ID"
+APP_BOT_NAME = "SILK_APP_BOT_NAME"
+APP_CLIENT_ID = "SILK_APP_CLIENT_ID"
+SILK_RELEASE_SBOM_TEMPLATE = "SILK_SBOM_TEMPLATE"
+
+[variables.turbo.value]
+FORCE_JAVASCRIPT_ACTIONS_TO_NODE24 = "true"
+TURBO_TELEMETRY_DISABLED = "1"
+DO_NOT_TRACK = "1"
+
+[rulesets.silk-workflow-v1]
+name = "workflow"
+enforcement = "active"
+bypass_actors = [
+	{ actor_id = 5, actor_type = "RepositoryRole", bypass_mode = "always" }
+]
+deletion = true
+required_linear_history = true
+required_signatures = true
+non_fast_forward = true
+targets = "default"
+status_checks = {
+	update_branch = true,
+	on_creation = false,
+	default_integration_id = { resolved = "SILK_APP_ID" },
+	required = [
+		{ context = "Code Quality" },
+		{ context = "Markdown" },
+		{ context = "Claude Code Review" },
+		{ context = "Conventional Commits" },
+		{ context = "Tests" },
+		{ context = "PR Title Validation" },
+		{ context = "DCO Check", integration_id = 15368 }
+	]
+}
+type = "branch"
+pull_requests = {
+	approvals = 0,
+	dismiss_stale_reviews = false,
+	code_owner_review = false,
+	last_push_approval = false,
+	resolve_threads = false,
+	merge_methods = ["squash"]
+}
+
+[rulesets.silk-release-v1]
+name = "release"
+enforcement = "active"
+bypass_actors = [
+	{
+		actor_id = { resolved = "SILK_APP_ID" },
+		actor_type = "Integration",
+		bypass_mode = "always"
+	}
+]
+deletion = true
+required_linear_history = true
+required_signatures = true
+non_fast_forward = true
+targets = [{ include = "refs/heads/changesets-release/main" }]
+type = "branch"
+
+# --- Groups ---
+
+[groups.silk]
+repos = ["reposets", "xdg-effect"]
+settings = ["silk-v1"]
+environments = ["silk-v1"]
+secrets = { actions = ["silk-v1"], dependabot = ["silk-v1"] }
+variables = { actions = ["turbo", "silk-v1"] }
+rulesets = ["silk-workflow-v1", "silk-release-v1"]
+cleanup = {
+	secrets = {
+		actions = { preserve = ["CLAUDE_CODE_OAUTH_TOKEN"] },
+		dependabot = true,
+		codespaces = false
+	},
+	variables = { actions = true },
+	rulesets = false
+}

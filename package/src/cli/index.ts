@@ -10,12 +10,12 @@ import { listCommand } from "./commands/list.js";
 import { syncCommand } from "./commands/sync.js";
 import { validateCommand } from "./commands/validate.js";
 
-const rootCommand = Command.make("repo-sync").pipe(
+const rootCommand = Command.make("reposets").pipe(
 	Command.withSubcommands([syncCommand, listCommand, validateCommand, doctorCommand, initCommand, credentialsCommand]),
 );
 
 const cli = Command.run(rootCommand, {
-	name: "repo-sync",
+	name: "reposets",
 	version: "0.0.0",
 });
 

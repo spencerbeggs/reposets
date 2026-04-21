@@ -11,7 +11,7 @@ describe("CredentialResolver", () => {
 	let tempDir: string;
 
 	beforeEach(() => {
-		tempDir = join(tmpdir(), `repo-sync-cr-test-${Date.now()}`);
+		tempDir = join(tmpdir(), `reposets-cr-test-${Date.now()}`);
 		mkdirSync(tempDir, { recursive: true });
 	});
 

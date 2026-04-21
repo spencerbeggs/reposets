@@ -1,5 +1,5 @@
 ---
-module: repo-sync
+module: reposets
 title: Configuration Format
 status: current
 completeness: 95
@@ -10,19 +10,19 @@ last-synced: 2026-04-20
 
 | File | Purpose | Location |
 | :--- | :------ | :------- |
-| `repo-sync.config.toml` | Groups, settings, environments, secrets, variables, rulesets, cleanup | XDG or project-local |
-| `repo-sync.credentials.toml` | Named credential profiles with resolve sections (gitignored) | XDG config dir |
+| `reposets.config.toml` | Groups, settings, environments, secrets, variables, rulesets, cleanup | XDG or project-local |
+| `reposets.credentials.toml` | Named credential profiles with resolve sections (gitignored) | XDG config dir |
 
 ## Config Path Resolution
 
 Resolution order (first match wins):
 
 1. `--config` flag (directory or file path)
-2. Walk up from cwd looking for `repo-sync.config.toml`
-3. `$XDG_CONFIG_HOME/repo-sync/` or `~/.config/repo-sync/`
+2. Walk up from cwd looking for `reposets.config.toml`
+3. `$XDG_CONFIG_HOME/reposets/` or `~/.config/reposets/`
 
 File references in `file`-kind groups resolve relative to the directory
-containing `repo-sync.config.toml`.
+containing `reposets.config.toml`.
 
 ## Config Structure
 

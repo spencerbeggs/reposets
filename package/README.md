@@ -1,14 +1,14 @@
-# repo-sync
+# reposets
 
-[![npm version](https://img.shields.io/npm/v/repo-sync)](https://www.npmjs.com/package/repo-sync)
+[![npm version](https://img.shields.io/npm/v/reposets)](https://www.npmjs.com/package/reposets)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg)](https://www.typescriptlang.org/)
 
 Declarative GitHub repository management. Define your repo settings, secrets, variables, rulesets, and deployment environments in a TOML config file, then apply them across all your repositories with a single command.
 
-## Why repo-sync
+## Why reposets
 
-Managing repository settings by hand doesn't scale. When you have dozens of repos that should share the same branch protection rules, CI secrets, and merge settings, clicking through the GitHub UI for each one is slow and error-prone. repo-sync lets you define that configuration once and sync it everywhere.
+Managing repository settings by hand doesn't scale. When you have dozens of repos that should share the same branch protection rules, CI secrets, and merge settings, clicking through the GitHub UI for each one is slow and error-prone. reposets lets you define that configuration once and sync it everywhere.
 
 ## Features
 
@@ -24,27 +24,27 @@ Managing repository settings by hand doesn't scale. When you have dozens of repo
 ## Installation
 
 ```sh
-npm install -g repo-sync
+npm install -g reposets
 ```
 
 Alternative (no install):
 
 ```sh
-npx repo-sync <command>
+npx reposets <command>
 ```
 
 Requires Node.js >= 20.
 
 ## Quick Start
 
-1. Run `repo-sync init` to scaffold config files.
+1. Run `reposets init` to scaffold config files.
 2. Add a credential profile:
 
    ```sh
-   repo-sync credentials create --profile personal --github-token ghp_...
+   reposets credentials create --profile personal --github-token ghp_...
    ```
 
-3. Edit `repo-sync.config.toml` with your repos and settings:
+3. Edit `reposets.config.toml` with your repos and settings:
 
    ```toml
    owner = "your-username"
@@ -61,52 +61,52 @@ Requires Node.js >= 20.
 4. Validate your config:
 
    ```sh
-   repo-sync validate
+   reposets validate
    ```
 
 5. Preview changes without applying them:
 
    ```sh
-   repo-sync sync --dry-run
+   reposets sync --dry-run
    ```
 
 6. Apply the config:
 
    ```sh
-   repo-sync sync
+   reposets sync
    ```
 
 ## Commands
 
 | Command | Description |
 | :--- | :--- |
-| `repo-sync sync` | Apply config to repos (supports --dry-run, --group, --repo, --no-cleanup) |
-| `repo-sync list` | Show config summary |
-| `repo-sync validate` | Validate config without API calls |
-| `repo-sync doctor` | Deep diagnostics with typo detection |
-| `repo-sync init` | Scaffold config files (--project for local) |
-| `repo-sync credentials` | Manage credential profiles (create, list, delete) |
+| `reposets sync` | Apply config to repos (supports --dry-run, --group, --repo, --no-cleanup) |
+| `reposets list` | Show config summary |
+| `reposets validate` | Validate config without API calls |
+| `reposets doctor` | Deep diagnostics with typo detection |
+| `reposets init` | Scaffold config files (--project for local) |
+| `reposets credentials` | Manage credential profiles (create, list, delete) |
 
 All commands accept `--log-level silent|info|verbose|debug`.
 
 ## Configuration
 
-repo-sync uses two TOML files:
+reposets uses two TOML files:
 
-- `repo-sync.config.toml` — defines settings, secrets, variables, rulesets, environments, and groups
-- `repo-sync.credentials.toml` — stores GitHub tokens and optional resolve sections for named values
+- `reposets.config.toml` — defines settings, secrets, variables, rulesets, environments, and groups
+- `reposets.credentials.toml` — stores GitHub tokens and optional resolve sections for named values
 
 Config lookup order (first match wins):
 
 1. `--config` flag (explicit path or directory)
-2. Walk up from current directory looking for `repo-sync.config.toml`
-3. XDG fallback: `~/.config/repo-sync/repo-sync.config.toml`
+2. Walk up from current directory looking for `reposets.config.toml`
+3. XDG fallback: `~/.config/reposets/reposets.config.toml`
 
-See the [docs/](https://github.com/spencerbeggs/repo-sync/tree/main/docs) folder for full reference on configuration, credentials, secrets, rulesets, environments, cleanup, and token setup.
+See the [docs/](https://github.com/spencerbeggs/reposets/tree/main/docs) folder for full reference on configuration, credentials, secrets, rulesets, environments, cleanup, and token setup.
 
 ## Token Permissions
 
-repo-sync requires a fine-grained personal access token with:
+reposets requires a fine-grained personal access token with:
 
 - Repository > Administration (Read and write)
 - Repository > Secrets (Read and write)
@@ -116,16 +116,16 @@ repo-sync requires a fine-grained personal access token with:
 
 ## Documentation
 
-Full reference guides are available in the [`docs/`](https://github.com/spencerbeggs/repo-sync/tree/main/docs) folder:
+Full reference guides are available in the [`docs/`](https://github.com/spencerbeggs/reposets/tree/main/docs) folder:
 
-- [Commands Reference](https://github.com/spencerbeggs/repo-sync/blob/main/docs/commands.md) - all commands, flags, and usage examples
-- [Configuration](https://github.com/spencerbeggs/repo-sync/blob/main/docs/configuration.md) - config file format, path resolution, and settings reference
-- [Credentials](https://github.com/spencerbeggs/repo-sync/blob/main/docs/credentials.md) - credential profiles, resolve sections, and 1Password integration
-- [Secrets and Variables](https://github.com/spencerbeggs/repo-sync/blob/main/docs/secrets-and-variables.md) - resource groups, three kinds (file/value/resolved), and scoping
-- [Rulesets](https://github.com/spencerbeggs/repo-sync/blob/main/docs/rulesets.md) - branch and tag ruleset configuration
-- [Environments](https://github.com/spencerbeggs/repo-sync/blob/main/docs/environments.md) - deployment environment setup
-- [Cleanup](https://github.com/spencerbeggs/repo-sync/blob/main/docs/cleanup.md) - automatic cleanup of undeclared resources
-- [Token Permissions](https://github.com/spencerbeggs/repo-sync/blob/main/docs/token-permissions.md) - GitHub PAT setup guide
+- [Commands Reference](https://github.com/spencerbeggs/reposets/blob/main/docs/commands.md) - all commands, flags, and usage examples
+- [Configuration](https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md) - config file format, path resolution, and settings reference
+- [Credentials](https://github.com/spencerbeggs/reposets/blob/main/docs/credentials.md) - credential profiles, resolve sections, and 1Password integration
+- [Secrets and Variables](https://github.com/spencerbeggs/reposets/blob/main/docs/secrets-and-variables.md) - resource groups, three kinds (file/value/resolved), and scoping
+- [Rulesets](https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md) - branch and tag ruleset configuration
+- [Environments](https://github.com/spencerbeggs/reposets/blob/main/docs/environments.md) - deployment environment setup
+- [Cleanup](https://github.com/spencerbeggs/reposets/blob/main/docs/cleanup.md) - automatic cleanup of undeclared resources
+- [Token Permissions](https://github.com/spencerbeggs/reposets/blob/main/docs/token-permissions.md) - GitHub PAT setup guide
 
 ## License
 

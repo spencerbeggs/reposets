@@ -6,7 +6,7 @@ import { parse } from "smol-toml";
 import { RepoSyncConfigFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
 
 const configOption = Options.file("config").pipe(
-	Options.withDescription("Path to config directory or repo-sync.config.toml file"),
+	Options.withDescription("Path to config directory or reposets.config.toml file"),
 	Options.optional,
 );
 
@@ -74,12 +74,12 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 		const discoverResult = yield* Effect.either(loadConfigWithDir(configFile, config));
 
 		if (discoverResult._tag === "Left") {
-			yield* Console.error("No config found. Run 'repo-sync init' to create one.");
+			yield* Console.error("No config found. Run 'reposets init' to create one.");
 			return;
 		}
 
 		const { configDir } = discoverResult.right;
-		const configPath = join(configDir, "repo-sync.config.toml");
+		const configPath = join(configDir, "reposets.config.toml");
 
 		// Raw TOML parsing for typo detection (schema validation strips unknown keys)
 		let raw: Record<string, unknown>;

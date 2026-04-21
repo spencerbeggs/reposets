@@ -71,9 +71,9 @@ cleanup = {
 
 ## Dry Run and Skip
 
-Use `repo-sync sync --dry-run` to preview what would be deleted before applying. In dry-run mode, cleanup logs every resource it would delete without actually deleting anything. This is the safest way to verify your cleanup config before enabling it.
+Use `reposets sync --dry-run` to preview what would be deleted before applying. In dry-run mode, cleanup logs every resource it would delete without actually deleting anything. This is the safest way to verify your cleanup config before enabling it.
 
-Use `repo-sync sync --no-cleanup` to skip cleanup entirely during a sync.
+Use `reposets sync --no-cleanup` to skip cleanup entirely during a sync.
 
 ## Notes
 

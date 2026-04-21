@@ -32,7 +32,7 @@ const program = Effect.gen(function* () {
 	const results = yield* exporter.writeMany(
 		outputs.map((output) => ({
 			output,
-			path: join(outputDir, `repo-sync.${output.name.toLowerCase()}.schema.json`),
+			path: join(outputDir, `reposets.${output.name.toLowerCase()}.schema.json`),
 		})),
 	);
 

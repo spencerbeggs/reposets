@@ -1,23 +1,23 @@
 # Configuration
 
-repo-sync uses TOML config files to declare your desired repository state. The main config file defines groups, settings, environments, secrets, variables, and rulesets. A separate credentials file stores tokens and resolve sections and is kept out of version control.
+reposets uses TOML config files to declare your desired repository state. The main config file defines groups, settings, environments, secrets, variables, and rulesets. A separate credentials file stores tokens and resolve sections and is kept out of version control.
 
 ## Config Files
 
 | File | Purpose |
 | :--- | :------ |
-| `repo-sync.config.toml` | Groups, settings, environments, secrets, variables, rulesets, cleanup |
-| `repo-sync.credentials.toml` | Credential profiles with tokens and resolve sections (see [Credentials](credentials.md)) |
+| `reposets.config.toml` | Groups, settings, environments, secrets, variables, rulesets, cleanup |
+| `reposets.credentials.toml` | Credential profiles with tokens and resolve sections (see [Credentials](credentials.md)) |
 
 ## Config Path Resolution
 
 Resolution order (first match wins):
 
 1. `--config` flag (directory or file path)
-2. Walk up from current directory looking for `repo-sync.config.toml`
-3. XDG fallback: `~/.config/repo-sync/repo-sync.config.toml` (respects `$XDG_CONFIG_HOME`)
+2. Walk up from current directory looking for `reposets.config.toml`
+3. XDG fallback: `~/.config/reposets/reposets.config.toml` (respects `$XDG_CONFIG_HOME`)
 
-File paths in `file`-kind secret and variable groups resolve relative to the directory containing `repo-sync.config.toml`, not the current working directory. For example, if your config is at `~/.config/repo-sync/repo-sync.config.toml` and a secret references `./private/NPM_TOKEN`, the file is read from `~/.config/repo-sync/private/NPM_TOKEN`.
+File paths in `file`-kind secret and variable groups resolve relative to the directory containing `reposets.config.toml`, not the current working directory. For example, if your config is at `~/.config/reposets/reposets.config.toml` and a secret references `./private/NPM_TOKEN`, the file is read from `~/.config/reposets/private/NPM_TOKEN`.
 
 ## Top-Level Keys
 
@@ -56,9 +56,9 @@ allow_rebase_merge = false
 
 ### Pass-through fields
 
-Settings groups accept any additional fields beyond the typed ones listed above. Unknown fields are forwarded directly to the GitHub repository update API. This means new GitHub API fields work immediately without waiting for a repo-sync update.
+Settings groups accept any additional fields beyond the typed ones listed above. Unknown fields are forwarded directly to the GitHub repository update API. This means new GitHub API fields work immediately without waiting for a reposets update.
 
-Be careful with pass-through fields -- typos are silently forwarded to the API. Use `repo-sync doctor` to detect unknown keys.
+Be careful with pass-through fields -- typos are silently forwarded to the API. Use `reposets doctor` to detect unknown keys.
 
 ## Groups
 
@@ -90,7 +90,7 @@ rulesets = ["branch-protection"]
 
 JSON schemas are generated for [Tombi](https://tombi-toml.github.io/tombi/) TOML language server support. Schema files include `x-tombi-*` annotations for inline documentation and completion.
 
-Run `pnpm --filter repo-sync generate:json-schema` to regenerate schemas after config schema changes.
+Run `pnpm --filter reposets generate:json-schema` to regenerate schemas after config schema changes.
 
 ## Complete Example
 

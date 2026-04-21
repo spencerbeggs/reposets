@@ -1,5 +1,5 @@
 ---
-module: repo-sync
+module: reposets
 title: CLI Commands
 status: current
 completeness: 95
@@ -10,7 +10,7 @@ last-synced: 2026-04-20
 
 `package/src/cli/index.ts` bootstraps the CLI:
 
-1. Root command created with `Command.make("repo-sync")`
+1. Root command created with `Command.make("reposets")`
 2. All subcommands registered via `Command.withSubcommands`
 3. `Command.run` creates the CLI handler
 4. `Effect.suspend(() => cli(process.argv))` defers evaluation
@@ -25,7 +25,7 @@ verbosity. Overrides `log_level` in config.
 ## Command Tree
 
 ```text
-repo-sync [--log-level]
+reposets [--log-level]
   sync [--config] [--group] [--repo] [--dry-run] [--no-cleanup]
   list [--config]
   validate [--config]
@@ -78,16 +78,16 @@ against known sets.
 
 ## init
 
-Scaffolds `repo-sync.config.toml` and `repo-sync.credentials.toml`:
+Scaffolds `reposets.config.toml` and `reposets.credentials.toml`:
 
 - Default (no flags): creates in XDG config dir, adds `.gitignore`
-  containing `repo-sync.credentials.toml` to the config dir
-- `--project`: creates in cwd, appends `repo-sync.credentials.toml` to
+  containing `reposets.credentials.toml` to the config dir
+- `--project`: creates in cwd, appends `reposets.credentials.toml` to
   the project's `.gitignore`
 
 ## credentials
 
-Manages named credential profiles in `repo-sync.credentials.toml`:
+Manages named credential profiles in `reposets.credentials.toml`:
 
 - `create` - add a profile with `--github-token` and/or `--op-token`
 - `list` - show profiles with tokens redacted (first/last 4 chars)

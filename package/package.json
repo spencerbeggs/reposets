@@ -1,5 +1,5 @@
 {
-	"name": "repo-sync",
+	"name": "reposets",
 	"version": "0.0.0",
 	"description": "CLI tool to sync GitHub repo settings, secrets and rulesets across personal repositories",
 	"keywords": [
@@ -18,13 +18,13 @@
 		"automation",
 		"devops"
 	],
-	"homepage": "https://github.com/spencerbeggs/repo-sync#readme",
+	"homepage": "https://github.com/spencerbeggs/reposets#readme",
 	"bugs": {
-		"url": "https://github.com/spencerbeggs/repo-sync/issues"
+		"url": "https://github.com/spencerbeggs/reposets/issues"
 	},
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/spencerbeggs/repo-sync.git",
+		"url": "git+https://github.com/spencerbeggs/reposets.git",
 		"directory": "package"
 	},
 	"license": "MIT",
@@ -38,7 +38,7 @@
 		".": "./src/index.ts"
 	},
 	"bin": {
-		"repo-sync": "./src/cli/index.ts"
+		"reposets": "./src/cli/index.ts"
 	},
 	"scripts": {
 		"build:dev": "rslib build --config-loader native --env-mode dev",

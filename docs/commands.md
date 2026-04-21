@@ -1,14 +1,14 @@
 # Commands Reference
 
-All `repo-sync` subcommands accept the global `--log-level silent|info|verbose|debug` option (default: `info`), which overrides the `log_level` value set in `repo-sync.config.toml`.
+All `reposets` subcommands accept the global `--log-level silent|info|verbose|debug` option (default: `info`), which overrides the `log_level` value set in `reposets.config.toml`.
 
 ## sync
 
-Apply config to all repos in a group, or all groups. Loads `repo-sync.config.toml` and `repo-sync.credentials.toml`, resolves the active credential profile, and delegates to the sync engine. This is the core command.
+Apply config to all repos in a group, or all groups. Loads `reposets.config.toml` and `reposets.credentials.toml`, resolves the active credential profile, and delegates to the sync engine. This is the core command.
 
 | Flag | Type | Default | Description |
 | :--- | :--- | :------ | :---------- |
-| `--config <path>` | string | (optional) | Path to config directory or `repo-sync.config.toml` file |
+| `--config <path>` | string | (optional) | Path to config directory or `reposets.config.toml` file |
 | `--group <name>` | string | (optional) | Sync only a specific repo group |
 | `--repo <name>` | string | (optional) | Sync only a specific repo |
 | `--dry-run` | boolean | `false` | Preview changes without making them |
@@ -19,25 +19,25 @@ The `--dry-run` flag output is affected by `--log-level`: at `info` level it sho
 
 ```sh
 # Sync all groups
-repo-sync sync
+reposets sync
 
 # Preview changes without applying
-repo-sync sync --dry-run
+reposets sync --dry-run
 
 # Dry-run with per-resource detail
-repo-sync sync --dry-run --log-level verbose
+reposets sync --dry-run --log-level verbose
 
 # Sync a specific group
-repo-sync sync --group my-projects
+reposets sync --group my-projects
 
 # Sync a single repo
-repo-sync sync --repo my-repo
+reposets sync --repo my-repo
 
 # Sync with verbose output
-repo-sync sync --log-level verbose
+reposets sync --log-level verbose
 
 # Use a specific config directory
-repo-sync sync --config ./my-config/
+reposets sync --config ./my-config/
 ```
 
 ## list
@@ -46,28 +46,28 @@ Show a config summary. Displays repo groups with their referenced settings, envi
 
 | Flag | Type | Default | Description |
 | :--- | :--- | :------ | :---------- |
-| `--config <path>` | string | (optional) | Path to config directory or `repo-sync.config.toml` file |
+| `--config <path>` | string | (optional) | Path to config directory or `reposets.config.toml` file |
 
 ```sh
-repo-sync list
+reposets list
 ```
 
 ## validate
 
-Validate `repo-sync.config.toml` against its schema without making any API calls. Checks schema compliance and reference integrity: verifies that referenced settings, secret, variable, and ruleset groups exist; that file paths in `file`-kind secret and variable groups exist on disk; that credential profiles referenced by groups exist in `repo-sync.credentials.toml`; that groups referencing environments point to environments that are actually defined; and that environment-scoped secret and variable group references are valid.
+Validate `reposets.config.toml` against its schema without making any API calls. Checks schema compliance and reference integrity: verifies that referenced settings, secret, variable, and ruleset groups exist; that file paths in `file`-kind secret and variable groups exist on disk; that credential profiles referenced by groups exist in `reposets.credentials.toml`; that groups referencing environments point to environments that are actually defined; and that environment-scoped secret and variable group references are valid.
 
 | Flag | Type | Default | Description |
 | :--- | :--- | :------ | :---------- |
-| `--config <path>` | string | (optional) | Path to config directory or `repo-sync.config.toml` file |
+| `--config <path>` | string | (optional) | Path to config directory or `reposets.config.toml` file |
 
 ```sh
-repo-sync validate
+reposets validate
 ```
 
 Example output when validation finds reference errors:
 
 ```text
-$ repo-sync validate
+$ reposets validate
 Config schema: valid
 Group 'my-projects': references unknown settings group 'typo-settings'
 Group 'my-projects': references unknown environment 'nonexistent'
@@ -79,17 +79,17 @@ Deep config diagnostics. Runs everything `validate` does, plus Levenshtein-based
 
 | Flag | Type | Default | Description |
 | :--- | :--- | :------ | :---------- |
-| `--config <path>` | string | (optional) | Path to config directory or `repo-sync.config.toml` file |
+| `--config <path>` | string | (optional) | Path to config directory or `reposets.config.toml` file |
 
 ```sh
-repo-sync doctor
+reposets doctor
 ```
 
 ## init
 
-Scaffold `repo-sync.config.toml` and `repo-sync.credentials.toml` with commented templates.
+Scaffold `reposets.config.toml` and `reposets.credentials.toml` with commented templates.
 
-Without `--project`: creates files in the XDG config directory (`~/.config/repo-sync/`) and writes a `.gitignore` there containing the credentials filename.
+Without `--project`: creates files in the XDG config directory (`~/.config/reposets/`) and writes a `.gitignore` there containing the credentials filename.
 
 With `--project`: creates files in the current directory and appends the credentials filename to the project's `.gitignore` (creating it if it does not exist).
 
@@ -99,15 +99,15 @@ With `--project`: creates files in the current directory and appends the credent
 
 ```sh
 # Scaffold in XDG config directory
-repo-sync init
+reposets init
 
 # Scaffold in current project directory
-repo-sync init --project
+reposets init --project
 ```
 
 ## credentials
 
-Manage credential profiles stored in `repo-sync.credentials.toml`. Has three subcommands: `create`, `list`, and `delete`.
+Manage credential profiles stored in `reposets.credentials.toml`. Has three subcommands: `create`, `list`, and `delete`.
 
 ### credentials create
 
@@ -120,7 +120,7 @@ Add a new credential profile. At least one of `--github-token` or `--op-token` i
 | `--op-token <token>` | string | (optional) | 1Password service account token |
 
 ```sh
-repo-sync credentials create --profile personal --github-token ghp_abc123
+reposets credentials create --profile personal --github-token ghp_abc123
 ```
 
 ### credentials list
@@ -128,7 +128,7 @@ repo-sync credentials create --profile personal --github-token ghp_abc123
 Show all credential profiles. Token values are redacted, showing only the first and last four characters.
 
 ```sh
-repo-sync credentials list
+reposets credentials list
 ```
 
 ### credentials delete
@@ -140,5 +140,5 @@ Remove a credential profile by name.
 | `--profile <name>` | string | (required) | Profile name to delete |
 
 ```sh
-repo-sync credentials delete --profile old-profile
+reposets credentials delete --profile old-profile
 ```

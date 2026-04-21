@@ -5,7 +5,7 @@ import { Console, Effect } from "effect";
 import { RepoSyncConfigFile, RepoSyncCredentialsFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
 
 const configOption = Options.file("config").pipe(
-	Options.withDescription("Path to config directory or repo-sync.config.toml file"),
+	Options.withDescription("Path to config directory or reposets.config.toml file"),
 	Options.optional,
 );
 

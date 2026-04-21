@@ -1,18 +1,18 @@
 # Credentials
 
-repo-sync stores credentials in a separate file from your main config so that tokens and secrets are never accidentally committed to version control. The credentials file holds named profiles, each containing a GitHub token and optional resolve sections for pulling values from 1Password, files, or inline strings.
+reposets stores credentials in a separate file from your main config so that tokens and secrets are never accidentally committed to version control. The credentials file holds named profiles, each containing a GitHub token and optional resolve sections for pulling values from 1Password, files, or inline strings.
 
 ## Credentials File
 
-`repo-sync.credentials.toml` is stored in the XDG config directory (`~/.config/repo-sync/` by default). The `$XDG_CONFIG_HOME` environment variable is respected if set.
+`reposets.credentials.toml` is stored in the XDG config directory (`~/.config/reposets/` by default). The `$XDG_CONFIG_HOME` environment variable is respected if set.
 
-Running `repo-sync init` creates the file and automatically adds a `.gitignore` entry for it. Keep `repo-sync.credentials.toml` out of version control — never commit tokens to git.
+Running `reposets init` creates the file and automatically adds a `.gitignore` entry for it. Keep `reposets.credentials.toml` out of version control — never commit tokens to git.
 
 ### Credential file locations
 
-The credentials file is stored in the XDG config directory by default (`~/.config/repo-sync/repo-sync.credentials.toml`, or `~/.repo-sync/repo-sync.credentials.toml` if `XDG_CONFIG_HOME` is not set).
+The credentials file is stored in the XDG config directory by default (`~/.config/reposets/reposets.credentials.toml`, or `~/.reposets/reposets.credentials.toml` if `XDG_CONFIG_HOME` is not set).
 
-The `repo-sync credentials` subcommands always read and write from the XDG location. The `sync`, `validate`, and other config-loading commands discover the credentials file using the same strategy as the config file: first walking up from the current directory, then falling back to the XDG config directory. This means `repo-sync init --project` places credentials alongside the config file and both are discovered automatically.
+The `reposets credentials` subcommands always read and write from the XDG location. The `sync`, `validate`, and other config-loading commands discover the credentials file using the same strategy as the config file: first walking up from the current directory, then falling back to the XDG config directory. This means `reposets init --project` places credentials alongside the config file and both are discovered automatically.
 
 ## Profile Structure
 
@@ -38,7 +38,7 @@ See [Token Permissions](token-permissions.md) for the fine-grained personal acce
 If only one profile exists in the credentials file, it is used automatically for every group. When multiple profiles are defined, reference a profile by name in each group:
 
 ```toml
-# In repo-sync.config.toml
+# In reposets.config.toml
 [groups.work-repos]
 repos = ["repo-one"]
 credentials = "work"
@@ -64,7 +64,7 @@ REGISTRIES = { npm = "https://registry.npmjs.org" }
 
 ### File
 
-`[profiles.<name>.resolve.file]` reads values from disk. Paths are relative to the directory containing `repo-sync.credentials.toml` (not the config file or the current working directory):
+`[profiles.<name>.resolve.file]` reads values from disk. Paths are relative to the directory containing `reposets.credentials.toml` (not the config file or the current working directory):
 
 ```toml
 [profiles.personal.resolve.file]
@@ -87,18 +87,18 @@ MY_APP_ID = "op://vault/item/app-id"
 
 ## Using Resolved Values
 
-The resolve system works across two files. You define **labels** in the credentials file, then reference those labels in the config file. At sync time, repo-sync looks up each label and substitutes the actual value.
+The resolve system works across two files. You define **labels** in the credentials file, then reference those labels in the config file. At sync time, reposets looks up each label and substitutes the actual value.
 
 ### How it works
 
-1. In `repo-sync.credentials.toml`, define labels in the `[resolve]` section of a profile. Each label maps to a source (1Password reference, file path, or inline value):
+1. In `reposets.credentials.toml`, define labels in the `[resolve]` section of a profile. Each label maps to a source (1Password reference, file path, or inline value):
 
    ```toml
    [profiles.personal.resolve.op]
    MY_APP_ID = "op://vault/github-app/app-id"
    ```
 
-2. In `repo-sync.config.toml`, reference those labels. There are two syntaxes depending on context:
+2. In `reposets.config.toml`, reference those labels. There are two syntaxes depending on context:
 
    **Secrets and variables** use `resolved`-kind groups where names map to labels:
 
@@ -128,13 +128,13 @@ The resolve system works across two files. You define **labels** in the credenti
 The same label can be used in multiple places. Here `MY_APP_ID` resolves a GitHub App's numeric ID from 1Password, then that value is used as both a secret, a variable, a status check integration ID, and a bypass actor:
 
 ```toml
-# repo-sync.credentials.toml
+# reposets.credentials.toml
 [profiles.personal.resolve.op]
 MY_APP_ID = "op://vault/github-app/app-id"
 ```
 
 ```toml
-# repo-sync.config.toml
+# reposets.config.toml
 
 # As a secret (the repo gets a secret named APP_ID)
 [secrets.app.resolved]
@@ -178,18 +178,18 @@ Use the `credentials` subcommand to create, list, and delete profiles. See [Comm
 
 ```sh
 # Create a profile
-repo-sync credentials create --profile personal --github-token ghp_...
+reposets credentials create --profile personal --github-token ghp_...
 
 # List profiles (tokens redacted)
-repo-sync credentials list
+reposets credentials list
 
 # Delete a profile
-repo-sync credentials delete --profile old-profile
+reposets credentials delete --profile old-profile
 ```
 
 ## Security Notes
 
-- Keep `repo-sync.credentials.toml` out of version control
-- `repo-sync init` automatically creates a `.gitignore` entry for the credentials file
+- Keep `reposets.credentials.toml` out of version control
+- `reposets init` automatically creates a `.gitignore` entry for the credentials file
 - Never commit tokens to git
 - Use 1Password resolve sections to avoid storing sensitive values in the credentials file itself

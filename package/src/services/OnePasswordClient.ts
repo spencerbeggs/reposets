@@ -18,7 +18,7 @@ export const OnePasswordClientLive = Layer.succeed(OnePasswordClient, {
 				const { createClient } = await import("@1password/sdk");
 				const client = await createClient({
 					auth: serviceAccountToken,
-					integrationName: "repo-sync",
+					integrationName: "reposets",
 					integrationVersion: "1.0.0",
 				});
 				return await client.secrets.resolve(reference);

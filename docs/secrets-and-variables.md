@@ -14,7 +14,7 @@ Each group is a discriminated union: it must contain exactly one of `file`, `val
 
 ### File
 
-Read values from disk. Paths are relative to the directory containing `repo-sync.config.toml`:
+Read values from disk. Paths are relative to the directory containing `reposets.config.toml`:
 
 ```toml
 [secrets.deploy.file]
@@ -34,10 +34,10 @@ DO_NOT_TRACK = "1"
 
 ### Resolved
 
-Map names to credential labels from the active profile's `[resolve]` section. At sync time, repo-sync looks up each label in the credentials file and substitutes the actual value.
+Map names to credential labels from the active profile's `[resolve]` section. At sync time, reposets looks up each label in the credentials file and substitutes the actual value.
 
 ```toml
-# repo-sync.config.toml
+# reposets.config.toml
 [secrets.app.resolved]
 APP_ID = "MY_APP_ID"
 APP_PRIVATE_KEY = "MY_APP_PRIVATE_KEY"
@@ -47,7 +47,7 @@ NPM_TOKEN = "MY_NPM_TOKEN"
 The left-hand side (`APP_ID`) is the secret name as it will appear in GitHub. The right-hand side (`MY_APP_ID`) is a label defined in the active credential profile's `[resolve]` section:
 
 ```toml
-# repo-sync.credentials.toml
+# reposets.credentials.toml
 [profiles.personal.resolve.op]
 MY_APP_ID = "op://vault/github-app/app-id"
 MY_APP_PRIVATE_KEY = "op://vault/github-app/private-key"

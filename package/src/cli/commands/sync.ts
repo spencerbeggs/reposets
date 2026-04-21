@@ -9,7 +9,7 @@ import { SyncEngine, SyncEngineLive } from "../../services/SyncEngine.js";
 import { SyncLoggerLive } from "../../services/SyncLogger.js";
 
 const configOption = Options.file("config").pipe(
-	Options.withDescription("Path to config directory or repo-sync.config.toml file"),
+	Options.withDescription("Path to config directory or reposets.config.toml file"),
 	Options.optional,
 );
 
@@ -58,7 +58,7 @@ export const syncCommand = Command.make(
 			const token = defaultProfile ? credentials.profiles[defaultProfile]?.github_token : undefined;
 
 			if (!token) {
-				yield* Console.error("No GitHub token found. Run 'repo-sync credentials create' first.");
+				yield* Console.error("No GitHub token found. Run 'reposets credentials create' first.");
 				return;
 			}
 

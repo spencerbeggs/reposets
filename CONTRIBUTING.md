@@ -1,4 +1,4 @@
-# Contributing to repo-sync
+# Contributing to reposets
 
 ## Prerequisites
 
@@ -8,8 +8,8 @@
 ## Setup
 
 ```sh
-git clone https://github.com/spencerbeggs/repo-sync.git
-cd repo-sync
+git clone https://github.com/spencerbeggs/reposets.git
+cd reposets
 pnpm install
 ```
 

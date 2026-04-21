@@ -67,8 +67,8 @@ export const CredentialsSchema = Schema.Struct({
 	),
 }).annotations({
 	identifier: "Credentials",
-	title: "repo-sync Credentials",
-	description: "Authentication profiles for repo-sync. This file should be gitignored.",
+	title: "reposets Credentials",
+	description: "Authentication profiles for reposets. This file should be gitignored.",
 });
 
 export type Credentials = typeof CredentialsSchema.Type;

@@ -18,15 +18,15 @@ import { ConfigSchema } from "../schemas/config.js";
 import type { Credentials } from "../schemas/credentials.js";
 import { CredentialsSchema } from "../schemas/credentials.js";
 
-const CONFIG_FILENAME = "repo-sync.config.toml";
-const CREDENTIALS_FILENAME = "repo-sync.credentials.toml";
+const CONFIG_FILENAME = "reposets.config.toml";
+const CREDENTIALS_FILENAME = "reposets.credentials.toml";
 
-export const RepoSyncConfigFile = ConfigFile.Tag<Config>("repo-sync/Config");
+export const RepoSyncConfigFile = ConfigFile.Tag<Config>("reposets/Config");
 
-export const RepoSyncCredentialsFile = ConfigFile.Tag<Credentials>("repo-sync/Credentials");
+export const RepoSyncCredentialsFile = ConfigFile.Tag<Credentials>("reposets/Credentials");
 
 const xdgLayer = XdgConfigLive({
-	app: new AppDirsConfig({ namespace: "repo-sync" }),
+	app: new AppDirsConfig({ namespace: "reposets" }),
 	config: {
 		tag: RepoSyncConfigFile,
 		schema: ConfigSchema,

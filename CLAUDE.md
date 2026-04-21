@@ -6,13 +6,13 @@ code in this repository.
 **For detailed design documentation:**
 
 - Architecture and data flow:
-  `@./.claude/design/repo-sync/architecture.md`
+  `@./.claude/design/reposets/architecture.md`
 - Effect services API:
-  `@./.claude/design/repo-sync/services.md`
+  `@./.claude/design/reposets/services.md`
 - Configuration format and schemas:
-  `@./.claude/design/repo-sync/config-format.md`
+  `@./.claude/design/reposets/config-format.md`
 - CLI commands and options:
-  `@./.claude/design/repo-sync/cli.md`
+  `@./.claude/design/reposets/cli.md`
 
 Load the relevant design doc when working on that subsystem. Do NOT load
 all of them at once.
@@ -46,10 +46,10 @@ pnpm run lint:md:fix       # Auto-fix markdown issues
 ### Monorepo Structure
 
 pnpm workspace monorepo using Turbo for orchestration. The CLI package lives
-at `package/` (workspace name: `repo-sync`).
+at `package/` (workspace name: `reposets`).
 
 ```text
-package/                   # repo-sync CLI package
+package/                   # reposets CLI package
 package/src/cli/           # CLI entrypoint and commands
 package/src/services/      # Effect services (6 services, 19 GitHubClient methods)
 package/src/schemas/       # Effect Schema definitions (config, credentials, environment, ruleset) + JSON schema generation
@@ -72,8 +72,8 @@ transforms it during build. Do not remove it or manually modify export paths.
 
 Publishing targets (dual registry):
 
-- GitHub Packages (`@spencerbeggs/repo-sync`) → `dist/github/`
-- npm (`repo-sync`) → `dist/npm/`
+- GitHub Packages (`@spencerbeggs/reposets`) → `dist/github/`
+- npm (`reposets`) → `dist/npm/`
 
 ### TypeScript Configuration
 
@@ -82,7 +82,7 @@ Publishing targets (dual registry):
 - Target: ES2022/ES2023, Module: NodeNext/bundler resolution
 - Strict mode enabled
 
-### repo-sync CLI (`package/`)
+### reposets CLI (`package/`)
 
 CLI tool for syncing GitHub repository settings, secrets, variables,
 rulesets, and deployment environments across personal repos.
@@ -100,11 +100,11 @@ Global option: `--log-level silent|info|verbose|debug` (overrides
 - `sync` - Apply config to all repos in a group (or all groups)
 - `list` - Show config summary (groups, repos, settings, credentials,
   secrets, variables, rulesets)
-- `validate` - Validate `repo-sync.config.toml` against schema
+- `validate` - Validate `reposets.config.toml` against schema
 - `doctor` - Check environment: config file, credentials, token permissions
-- `init` - Scaffold `repo-sync.config.toml` in the current or XDG directory
+- `init` - Scaffold `reposets.config.toml` in the current or XDG directory
 - `credentials create|list|delete` - Manage named credential profiles in
-  `repo-sync.credentials.toml`
+  `reposets.credentials.toml`
 
 #### Effect Services
 
@@ -130,17 +130,17 @@ Six services compose the sync pipeline:
 Config lookup order (first match wins):
 
 1. `--config` flag (explicit path or directory)
-2. Walk up from `cwd` looking for `repo-sync.config.toml`
-3. XDG fallback: `~/.config/repo-sync/repo-sync.config.toml`
+2. Walk up from `cwd` looking for `reposets.config.toml`
+3. XDG fallback: `~/.config/reposets/reposets.config.toml`
    (respects `$XDG_CONFIG_HOME`)
 
 | File | Purpose |
 | :--- | :------ |
-| `repo-sync.config.toml` | Owner, `log_level`, typed `[settings.*]` groups (20+ known fields + pass-through; `has_sponsorships`/`has_pull_requests` via GraphQL), secret groups (file/value/resolved kinds), variable groups, `[rulesets.*]` (discriminated union by `type`: branch/tag, 22 rule types, shorthand fields normalized via `normalizeRuleset()`), `[environments.*]` deployment environment definitions, per-group `cleanup` config, and `[groups.*]` sections mapping repos to resources |
-| `repo-sync.credentials.toml` | Named credential profiles (`[profiles.<name>]`) with `github_token`, optional `op_service_account_token`, and optional `[resolve]` section (op/file/value sub-groups for named values) |
+| `reposets.config.toml` | Owner, `log_level`, typed `[settings.*]` groups (20+ known fields + pass-through; `has_sponsorships`/`has_pull_requests` via GraphQL), secret groups (file/value/resolved kinds), variable groups, `[rulesets.*]` (discriminated union by `type`: branch/tag, 22 rule types, shorthand fields normalized via `normalizeRuleset()`), `[environments.*]` deployment environment definitions, per-group `cleanup` config, and `[groups.*]` sections mapping repos to resources |
+| `reposets.credentials.toml` | Named credential profiles (`[profiles.<name>]`) with `github_token`, optional `op_service_account_token`, and optional `[resolve]` section (op/file/value sub-groups for named values) |
 
-Credentials are stored in the XDG config dir (`~/.config/repo-sync/`) by
-default. Keep `repo-sync.credentials.toml` out of version control.
+Credentials are stored in the XDG config dir (`~/.config/reposets/`) by
+default. Keep `reposets.credentials.toml` out of version control.
 
 Key naming: config top-level uses `[groups.<name>]` (not `repos`) and
 `[environments.<name>]` for deployment environment definitions. Each group
@@ -157,7 +157,7 @@ undeclared), or `{ preserve = [...] }`.
 
 #### JSON Schema
 
-Run `pnpm --filter repo-sync generate:json-schema` to regenerate
+Run `pnpm --filter reposets generate:json-schema` to regenerate
 `package/schemas/`. Schema files use `x-tombi-*` annotations for
 [Tombi](https://tombi-toml.github.io/tombi/) TOML language server support.
 

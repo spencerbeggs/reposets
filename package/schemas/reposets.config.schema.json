@@ -87,7 +87,7 @@
 	},
 	"additionalProperties": false,
 	"description": "Configuration for syncing GitHub repository settings, secrets, variables, and rulesets",
-	"title": "repo-sync Configuration",
+	"title": "reposets Configuration",
 	"x-tombi-table-keys-order": "schema",
 	"$defs": {
 		"LogLevel": {
