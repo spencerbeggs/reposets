@@ -110,6 +110,9 @@ const deleteCommand = Command.make("delete", { profile: profileOption }, ({ prof
 		const { [profile]: _, ...remainingProfiles } = creds.profiles;
 		const updatedCreds: Credentials = { profiles: remainingProfiles };
 		const configDir = yield* appDirs.config;
+		if (!existsSync(configDir)) {
+			mkdirSync(configDir, { recursive: true });
+		}
 		yield* credentialsFile.write(updatedCreds, join(configDir, CREDENTIALS_FILENAME));
 
 		yield* Console.log(`Deleted profile '${profile}'.`);
