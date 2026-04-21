@@ -12,7 +12,7 @@ import { SyncEngine, SyncEngineLive } from "../../services/SyncEngine.js";
 import { SyncLoggerLive } from "../../services/SyncLogger.js";
 
 const configOption = Options.file("config").pipe(
-	Options.withDescription("Path to config directory or gh-sync.config.toml file"),
+	Options.withDescription("Path to config directory or repo-sync.config.toml file"),
 	Options.optional,
 );
 
@@ -54,15 +54,15 @@ export const syncCommand = Command.make(
 			const configDir = resolveConfigDir({ configFlag });
 
 			if (!configDir) {
-				yield* Console.error("No config found. Run 'gh-sync init' to create one.");
+				yield* Console.error("No config found. Run 'repo-sync init' to create one.");
 				return;
 			}
 
-			const configToml = readFileSync(join(configDir, "gh-sync.config.toml"), "utf-8");
+			const configToml = readFileSync(join(configDir, "repo-sync.config.toml"), "utf-8");
 
 			let credsToml = "";
 			try {
-				credsToml = readFileSync(join(configDir, "gh-sync.credentials.toml"), "utf-8");
+				credsToml = readFileSync(join(configDir, "repo-sync.credentials.toml"), "utf-8");
 			} catch {
 				// credentials file is optional
 			}
@@ -76,7 +76,7 @@ export const syncCommand = Command.make(
 			const token = defaultProfile ? credentials.profiles[defaultProfile]?.github_token : undefined;
 
 			if (!token) {
-				yield* Console.error("No GitHub token found. Run 'gh-sync credentials create' first.");
+				yield* Console.error("No GitHub token found. Run 'repo-sync credentials create' first.");
 				return;
 			}
 

@@ -332,7 +332,7 @@ export const ConfigSchema = Schema.Struct({
 	}),
 }).annotations({
 	identifier: "Config",
-	title: "gh-sync Configuration",
+	title: "repo-sync Configuration",
 	description: "Configuration for syncing GitHub repository settings, secrets, variables, and rulesets",
 	jsonSchema: { "x-tombi-table-keys-order": "schema" },
 });

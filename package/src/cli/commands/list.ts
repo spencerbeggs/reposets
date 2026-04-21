@@ -6,7 +6,7 @@ import { resolveConfigDir } from "../../lib/config-path.js";
 import { ConfigLoader } from "../../services/ConfigLoader.js";
 
 const configOption = Options.file("config").pipe(
-	Options.withDescription("Path to config directory or gh-sync.config.toml file"),
+	Options.withDescription("Path to config directory or repo-sync.config.toml file"),
 	Options.optional,
 );
 
@@ -16,11 +16,11 @@ export const listCommand = Command.make("list", { config: configOption }, ({ con
 		const configDir = resolveConfigDir({ configFlag });
 
 		if (!configDir) {
-			yield* Console.error("No config found. Run 'gh-sync init' to create one.");
+			yield* Console.error("No config found. Run 'repo-sync init' to create one.");
 			return;
 		}
 
-		const configToml = readFileSync(join(configDir, "gh-sync.config.toml"), "utf-8");
+		const configToml = readFileSync(join(configDir, "repo-sync.config.toml"), "utf-8");
 		const loader = yield* ConfigLoader;
 		const parsedConfig = yield* loader.parseConfig(configToml);
 

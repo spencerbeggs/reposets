@@ -2,7 +2,7 @@ import { existsSync, statSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { configDir } from "./xdg.js";
 
-const CONFIG_FILE = "gh-sync.config.toml";
+const CONFIG_FILE = "repo-sync.config.toml";
 
 export interface ResolveOptions {
 	configFlag?: string | undefined;

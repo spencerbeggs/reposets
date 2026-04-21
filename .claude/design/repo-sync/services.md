@@ -1,5 +1,5 @@
 ---
-module: gh-sync
+module: repo-sync
 title: Effect Services
 status: current
 completeness: 95

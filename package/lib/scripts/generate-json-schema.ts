@@ -47,11 +47,11 @@ function inlineRootRef(schema: Record<string, unknown>, defName: string): Record
 }
 
 const schemas: SchemaEntry[] = [
-	{ name: "Config", schema: ConfigSchema, filename: "gh-sync.config.schema.json", rootDefName: "Config" },
+	{ name: "Config", schema: ConfigSchema, filename: "repo-sync.config.schema.json", rootDefName: "Config" },
 	{
 		name: "Credentials",
 		schema: CredentialsSchema,
-		filename: "gh-sync.credentials.schema.json",
+		filename: "repo-sync.credentials.schema.json",
 		rootDefName: "Credentials",
 	},
 ];

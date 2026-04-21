@@ -1,8 +1,17 @@
 {
-	"name": "gh-sync",
+	"name": "repo-sync",
 	"version": "0.0.0",
-	"description": "CLI tool to sync GitHub repo settings, secrets, and rulesets across personal repositories",
+	"description": "CLI tool to sync GitHub repo settings, secrets and rulesets across personal repositories",
 	"keywords": ["github", "sync", "cli", "secrets", "rulesets"],
+	"homepage": "https://github.com/spencerbeggs/repo-sync#readme",
+	"bugs": {
+		"url": "https://github.com/spencerbeggs/repo-sync/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/spencerbeggs/repo-sync.git",
+		"directory": "package"
+	},
 	"license": "MIT",
 	"author": {
 		"name": "C. Spencer Beggs",
@@ -14,7 +23,7 @@
 		".": "./src/index.ts"
 	},
 	"bin": {
-		"gh-sync": "./src/cli/index.ts"
+		"repo-sync": "./src/cli/index.ts"
 	},
 	"scripts": {
 		"build:dev": "rslib build --config-loader native --env-mode dev",

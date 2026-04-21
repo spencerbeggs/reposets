@@ -1,5 +1,5 @@
 ---
-"gh-sync": minor
+"repo-sync": minor
 ---
 
 ## Features
