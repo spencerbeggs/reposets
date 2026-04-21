@@ -116,7 +116,16 @@ repo-sync requires a fine-grained personal access token with:
 
 ## Documentation
 
-Full guides are available in the [docs/](https://github.com/spencerbeggs/repo-sync/tree/main/docs) folder, covering configuration, credentials, secrets, rulesets, environments, cleanup policies, and token setup.
+Full reference guides are available in the [`docs/`](https://github.com/spencerbeggs/repo-sync/tree/main/docs) folder:
+
+- [Commands Reference](https://github.com/spencerbeggs/repo-sync/blob/main/docs/commands.md) - all commands, flags, and usage examples
+- [Configuration](https://github.com/spencerbeggs/repo-sync/blob/main/docs/configuration.md) - config file format, path resolution, and settings reference
+- [Credentials](https://github.com/spencerbeggs/repo-sync/blob/main/docs/credentials.md) - credential profiles, resolve sections, and 1Password integration
+- [Secrets and Variables](https://github.com/spencerbeggs/repo-sync/blob/main/docs/secrets-and-variables.md) - resource groups, three kinds (file/value/resolved), and scoping
+- [Rulesets](https://github.com/spencerbeggs/repo-sync/blob/main/docs/rulesets.md) - branch and tag ruleset configuration
+- [Environments](https://github.com/spencerbeggs/repo-sync/blob/main/docs/environments.md) - deployment environment setup
+- [Cleanup](https://github.com/spencerbeggs/repo-sync/blob/main/docs/cleanup.md) - automatic cleanup of undeclared resources
+- [Token Permissions](https://github.com/spencerbeggs/repo-sync/blob/main/docs/token-permissions.md) - GitHub PAT setup guide
 
 ## License
 

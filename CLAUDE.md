@@ -98,7 +98,8 @@ Global option: `--log-level silent|info|verbose|debug` (overrides
 `log_level` in config, defaults to `info`)
 
 - `sync` - Apply config to all repos in a group (or all groups)
-- `list` - List repos, secrets, variables, or rulesets for a repo
+- `list` - Show config summary (groups, repos, settings, credentials,
+  secrets, variables, rulesets)
 - `validate` - Validate `repo-sync.config.toml` against schema
 - `doctor` - Check environment: config file, credentials, token permissions
 - `init` - Scaffold `repo-sync.config.toml` in the current or XDG directory
