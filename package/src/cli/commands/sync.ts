@@ -51,11 +51,7 @@ export const syncCommand = Command.make(
 			const { config: parsedConfig, configDir } = yield* loadConfigWithDir(configFile, config);
 
 			const credentialsFile = yield* RepoSyncCredentialsFile;
-			const credsResult = yield* Effect.either(credentialsFile.load);
-			const credentials =
-				credsResult._tag === "Right"
-					? credsResult.right
-					: { profiles: {} as Record<string, { github_token: string; op_service_account_token?: string }> };
+			const credentials = yield* credentialsFile.loadOrDefault({ profiles: {} });
 
 			const profileNames = Object.keys(credentials.profiles);
 			const defaultProfile = profileNames.length === 1 ? profileNames[0] : undefined;

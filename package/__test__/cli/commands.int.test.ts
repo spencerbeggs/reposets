@@ -6,7 +6,7 @@ import { Command } from "@effect/cli";
 import { NodeContext } from "@effect/platform-node";
 import { ConfigProvider, Effect, Layer, Option } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppDirsConfig, ExplicitPath, FirstMatch, TomlCodec, XdgConfigLive, makeConfigFileLive } from "xdg-effect";
+import { AppDirsConfig, ConfigFile, ExplicitPath, FirstMatch, TomlCodec, XdgConfigLive } from "xdg-effect";
 import { credentialsCommand } from "../../src/cli/commands/credentials.js";
 import { doctorCommand } from "../../src/cli/commands/doctor.js";
 import { initCommand } from "../../src/cli/commands/init.js";
@@ -194,7 +194,7 @@ function makeTestConfigLayer(configPath: string) {
 }
 
 function makeTestCredentialsLayer(credentialsPath: string, configLayer: ReturnType<typeof makeTestConfigLayer>) {
-	return makeConfigFileLive({
+	return ConfigFile.Live({
 		tag: RepoSyncCredentialsFile,
 		schema: CredentialsSchema,
 		codec: TomlCodec,
@@ -235,13 +235,15 @@ function makeAppDirsLayer(configDir: string) {
  * Used for credentials command tests that need the credentials service.
  */
 function makeAppDirsWithCredsLayer(configDir: string) {
+	const credsPath = join(configDir, "repo-sync.credentials.toml");
 	const base = makeAppDirsLayer(configDir);
-	const credsLayer = makeConfigFileLive({
+	const credsLayer = ConfigFile.Live({
 		tag: RepoSyncCredentialsFile,
 		schema: CredentialsSchema,
 		codec: TomlCodec,
 		strategy: FirstMatch,
-		resolvers: [ExplicitPath(join(configDir, "repo-sync.credentials.toml"))],
+		resolvers: [ExplicitPath(credsPath)],
+		defaultPath: Effect.succeed(credsPath),
 	}).pipe(Layer.provide(base));
 	return Layer.mergeAll(base, credsLayer);
 }

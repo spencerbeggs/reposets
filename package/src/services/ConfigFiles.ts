@@ -4,14 +4,14 @@ import { Effect, Layer, Option } from "effect";
 import type { ConfigFileService, ConfigSource } from "xdg-effect";
 import {
 	AppDirsConfig,
+	ConfigFile,
 	FirstMatch,
 	TomlCodec,
 	UpwardWalk,
 	XdgConfig,
 	ConfigError as XdgConfigError,
 	XdgConfigLive,
-	makeConfigFileLive,
-	makeConfigFileTag,
+	XdgSavePath,
 } from "xdg-effect";
 import type { Config } from "../schemas/config.js";
 import { ConfigSchema } from "../schemas/config.js";
@@ -21,12 +21,12 @@ import { CredentialsSchema } from "../schemas/credentials.js";
 const CONFIG_FILENAME = "repo-sync.config.toml";
 const CREDENTIALS_FILENAME = "repo-sync.credentials.toml";
 
-export const RepoSyncConfigFile = makeConfigFileTag<Config>("repo-sync/Config");
+export const RepoSyncConfigFile = ConfigFile.Tag<Config>("repo-sync/Config");
 
-export const RepoSyncCredentialsFile = makeConfigFileTag<Credentials>("repo-sync/Credentials");
+export const RepoSyncCredentialsFile = ConfigFile.Tag<Credentials>("repo-sync/Credentials");
 
 const xdgLayer = XdgConfigLive({
-	app: new AppDirsConfig({ namespace: "repo-sync", fallbackDir: Option.none(), dirs: Option.none() }),
+	app: new AppDirsConfig({ namespace: "repo-sync" }),
 	config: {
 		tag: RepoSyncConfigFile,
 		schema: ConfigSchema,
@@ -36,12 +36,13 @@ const xdgLayer = XdgConfigLive({
 	},
 });
 
-const credentialsLayer = makeConfigFileLive({
+const credentialsLayer = ConfigFile.Live({
 	tag: RepoSyncCredentialsFile,
 	schema: CredentialsSchema,
 	codec: TomlCodec,
 	strategy: FirstMatch,
 	resolvers: [UpwardWalk({ filename: CREDENTIALS_FILENAME }), XdgConfig({ filename: CREDENTIALS_FILENAME })],
+	defaultPath: XdgSavePath(CREDENTIALS_FILENAME),
 }).pipe(Layer.provide(xdgLayer));
 
 export const ConfigFilesLive = Layer.mergeAll(xdgLayer, credentialsLayer);

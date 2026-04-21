@@ -7,16 +7,7 @@ import { NodeFileSystem } from "@effect/platform-node";
 import { ConfigProvider, Effect, Layer, Option } from "effect";
 import { describe, expect, it } from "vitest";
 import type { ConfigError } from "xdg-effect";
-import {
-	AppDirs,
-	AppDirsConfig,
-	ExplicitPath,
-	FirstMatch,
-	TomlCodec,
-	XdgConfigLive,
-	makeConfigFileLive,
-	makeConfigFileTag,
-} from "xdg-effect";
+import { AppDirs, AppDirsConfig, ConfigFile, ExplicitPath, FirstMatch, TomlCodec, XdgConfigLive } from "xdg-effect";
 import type { Config } from "../../src/schemas/config.js";
 import { ConfigSchema } from "../../src/schemas/config.js";
 import type { Credentials } from "../../src/schemas/credentials.js";
@@ -35,8 +26,8 @@ function fixtureContent(name: string): string {
 }
 
 // Tags for test-scoped config file services
-const TestConfigFile = makeConfigFileTag<Config>("test/Config");
-const TestCredentialsFile = makeConfigFileTag<Credentials>("test/Credentials");
+const TestConfigFile = ConfigFile.Tag<Config>("test/Config");
+const TestCredentialsFile = ConfigFile.Tag<Credentials>("test/Credentials");
 
 /**
  * Build a config layer with ExplicitPath resolver pointing at a known file.
@@ -44,7 +35,7 @@ const TestCredentialsFile = makeConfigFileTag<Credentials>("test/Credentials");
  */
 function makeConfigLayer(configPath: string) {
 	return XdgConfigLive({
-		app: new AppDirsConfig({ namespace: "repo-sync", fallbackDir: Option.none(), dirs: Option.none() }),
+		app: new AppDirsConfig({ namespace: "repo-sync" }),
 		config: {
 			tag: TestConfigFile,
 			schema: ConfigSchema,
@@ -56,7 +47,7 @@ function makeConfigLayer(configPath: string) {
 }
 
 function makeCredentialsLayer(credentialsPath: string, configLayer: ReturnType<typeof makeConfigLayer>) {
-	return makeConfigFileLive({
+	return ConfigFile.Live({
 		tag: TestCredentialsFile,
 		schema: CredentialsSchema,
 		codec: TomlCodec,
@@ -424,7 +415,7 @@ describe("ConfigFiles filesystem integration", () => {
 		);
 
 		const layer = XdgConfigLive({
-			app: new AppDirsConfig({ namespace: "repo-sync", fallbackDir: Option.none(), dirs: Option.none() }),
+			app: new AppDirsConfig({ namespace: "repo-sync" }),
 			config: {
 				tag: TestConfigFile,
 				schema: ConfigSchema,
@@ -448,7 +439,7 @@ describe("ConfigFiles filesystem integration", () => {
 		const provider = ConfigProvider.fromMap(new Map([["HOME", "/test/home"]]));
 
 		const layer = XdgConfigLive({
-			app: new AppDirsConfig({ namespace: "repo-sync", fallbackDir: Option.none(), dirs: Option.none() }),
+			app: new AppDirsConfig({ namespace: "repo-sync" }),
 			config: {
 				tag: TestConfigFile,
 				schema: ConfigSchema,

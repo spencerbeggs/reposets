@@ -2,7 +2,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { NodeFileSystem } from "@effect/platform-node";
 import { Effect } from "effect";
-import { JsonSchemaExporter, JsonSchemaExporterLive } from "xdg-effect";
+import { JsonSchemaExporter } from "xdg-effect";
 import { ConfigSchema } from "../../src/schemas/config.js";
 import { CredentialsSchema } from "../../src/schemas/credentials.js";
 
@@ -47,4 +47,4 @@ const program = Effect.gen(function* () {
 	}
 });
 
-Effect.runPromise(program.pipe(Effect.provide(JsonSchemaExporterLive), Effect.provide(NodeFileSystem.layer)));
+Effect.runPromise(program.pipe(Effect.provide(JsonSchemaExporter.Live), Effect.provide(NodeFileSystem.layer)));

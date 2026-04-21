@@ -9,7 +9,7 @@
 
 /* v8 ignore start -- barrel re-exports */
 // Services
-export { AppDirs, ConfigError as XdgConfigError } from "xdg-effect";
+export { AppDirs, ConfigError as XdgConfigError, ConfigFile } from "xdg-effect";
 // Errors
 export { GitHubApiError, OnePasswordError, ResolveError, SyncError } from "./errors.js";
 // Utilities

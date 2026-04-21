@@ -58,7 +58,7 @@
 		"effect": "^3.21.1",
 		"smol-toml": ">=1.6.1",
 		"tweetnacl": "^1.0.3",
-		"xdg-effect": "^0.1.0"
+		"xdg-effect": "^0.2.0"
 	},
 	"devDependencies": {
 		"@savvy-web/rslib-builder": "^0.20.1",

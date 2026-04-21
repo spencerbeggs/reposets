@@ -85,8 +85,8 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3
       xdg-effect:
-        specifier: ^0.1.0
-        version: 0.1.0(03f80dd67552833d8eca5052e274b981)
+        specifier: ^0.2.0
+        version: 0.2.0(03f80dd67552833d8eca5052e274b981)
     devDependencies:
       '@savvy-web/rslib-builder':
         specifier: ^0.20.1
@@ -2291,8 +2291,8 @@ packages:
   eventemitter3@5.0.4:
     resolution: {integrity: sha512-mlsTRyGaPBjPedk6Bvw+aqbsXDtoAyAzm5MO7JgU+yVRyMQ5O8bD4Kcci7BS85f93veegeCPkL8R4GLClnjLFw==}
 
-  eventsource-parser@3.0.7:
-    resolution: {integrity: sha512-zwxwiQqexizSXFZV13zMiEtW1E3lv7RlUv+1f5FBiR4x7wFhEjm3aFTyYkZQWzyN08WnPdox015GoRH5D/E5YA==}
+  eventsource-parser@3.0.8:
+    resolution: {integrity: sha512-70QWGkr4snxr0OXLRWsFLeRBIRPuQOvt4s8QYjmUlmlkyTZkRqS7EDVRZtzU3TiyDbXSzaOeF0XUKy8PchzukQ==}
     engines: {node: '>=18.0.0'}
 
   eventsource@3.0.7:
@@ -2911,6 +2911,9 @@ packages:
 
   jsonfile@6.2.0:
     resolution: {integrity: sha512-FGuPw30AdOIUTRMC2OMRtQV+jkVj2cfPqSeWXv1NEAJ1qZ5zb1X6z1mFhbfOB/iy3ssJCD+3KuZ8r8C3uVFlAg==}
+
+  jsonfile@6.2.1:
+    resolution: {integrity: sha512-zwOTdL3rFQ/lRdBnntKVOX6k5cKJwEc1HdilT71BWEu7J41gXIB2MRp+vxduPSwZJPWBxEzv4yH1wYLJGUHX4Q==}
 
   jsonpointer@5.0.1:
     resolution: {integrity: sha512-p/nXbhSEcu3pZRdkW1OfJhpsVtW1gd4Wa1fnQc9YLiTfAjn0312eMKimbdIQzuZl9aa9xUGaRlP9T/CJE/ditQ==}
@@ -4289,8 +4292,8 @@ packages:
       utf-8-validate:
         optional: true
 
-  xdg-effect@0.1.0:
-    resolution: {integrity: sha512-NWGq0bLHac5HYcxqHvChW/RnEs6EWIgpHC8BS5nZkvCSrCPyo265QAB0bXx3stTnvLsIVRW2dMmKiGOSDTd03A==}
+  xdg-effect@0.2.0:
+    resolution: {integrity: sha512-fUWxvUvfYIbWc1lU45bhkAm/vHuik+ymlA2phbuL5/re+R+lrOt9ZJrqZHi6mYGIhJNfmGBhEhPSiB5a7glcPw==}
     peerDependencies:
       '@effect/platform': '>=0.96.0'
       '@effect/platform-node': '>=0.106.0'
@@ -5037,7 +5040,7 @@ snapshots:
       cors: 2.8.6
       cross-spawn: 7.0.6
       eventsource: 3.0.7
-      eventsource-parser: 3.0.7
+      eventsource-parser: 3.0.8
       express: 5.2.1
       express-rate-limit: 8.3.2(express@5.2.1)
       hono: 4.12.14
@@ -6734,11 +6737,11 @@ snapshots:
 
   eventemitter3@5.0.4: {}
 
-  eventsource-parser@3.0.7: {}
+  eventsource-parser@3.0.8: {}
 
   eventsource@3.0.7:
     dependencies:
-      eventsource-parser: 3.0.7
+      eventsource-parser: 3.0.8
 
   execa@9.6.1:
     dependencies:
@@ -6937,7 +6940,7 @@ snapshots:
     dependencies:
       at-least-node: 1.0.0
       graceful-fs: 4.2.11
-      jsonfile: 6.2.0
+      jsonfile: 6.2.1
       universalify: 2.0.1
 
   fs.realpath@1.0.0: {}
@@ -7365,6 +7368,12 @@ snapshots:
       graceful-fs: 4.2.11
 
   jsonfile@6.2.0:
+    dependencies:
+      universalify: 2.0.1
+    optionalDependencies:
+      graceful-fs: 4.2.11
+
+  jsonfile@6.2.1:
     dependencies:
       universalify: 2.0.1
     optionalDependencies:
@@ -8934,7 +8943,7 @@ snapshots:
 
   ws@8.20.0: {}
 
-  xdg-effect@0.1.0(03f80dd67552833d8eca5052e274b981):
+  xdg-effect@0.2.0(03f80dd67552833d8eca5052e274b981):
     dependencies:
       '@effect/platform': 0.96.0(effect@3.21.1)
       effect: 3.21.1
