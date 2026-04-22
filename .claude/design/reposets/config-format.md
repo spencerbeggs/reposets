@@ -3,7 +3,7 @@ module: reposets
 title: Configuration Format
 status: current
 completeness: 95
-last-synced: 2026-04-20
+last-synced: 2026-04-22
 ---
 
 ## Files
@@ -273,14 +273,53 @@ labels referenced by config templates.
 
 ## JSON Schema Generation
 
-Effect Schema definitions generate JSON schemas via `JSONSchema.make()`.
-The generation script (`package/lib/scripts/generate-json-schema.ts`):
+Effect Schema definitions generate JSON schemas via `JsonSchemaExporter`
+from xdg-effect (v0.3.1). The generation script
+(`package/lib/scripts/generate-json-schema.ts`):
 
-1. Generates schemas from Effect Schema definitions
-2. Inlines the root `$ref` so Tombi can read root-level properties
-3. Adds `x-tombi-toml-version` at the root
-4. Outputs to `package/schemas/`
+1. Calls `JsonSchemaExporter.generateMany()` with schema definitions,
+   root def names, and SchemaStore `$id` URLs
+2. Runs Ajv strict-mode validation on the generated schemas with all
+   custom extension keywords registered (`x-tombi-*`, `x-taplo`)
+3. Writes output via `JsonSchemaExporter.writeMany()` to
+   `package/schemas/` (only writes when content changed)
 
-Tombi annotations are defined inline on schemas via `jsonSchema: { ... }`
-annotation property. Standard annotations (title, description, examples,
-default) are also set on all fields.
+SchemaStore `$id` values:
+
+- Config: `https://json.schemastore.org/reposets.config.json`
+- Credentials: `https://json.schemastore.org/reposets.credentials.json`
+
+### Schema Annotations
+
+Schemas use two typed annotation helpers from xdg-effect:
+
+- `tombi({ ... })` -- generates `x-tombi-*` annotations for Tombi TOML
+  LSP: `additionalKeyLabel`, `tableKeysOrder`, `arrayValuesOrder`,
+  `arrayValuesOrderBy`, `stringFormats`, `tomlVersion`
+- `taplo({ ... })` -- generates `x-taplo` annotations for Taplo TOML
+  LSP: `initKeys` (scaffolding hints) and `links.key` (documentation
+  URLs)
+
+Both helpers are applied via the `jsonSchema: { ... }` annotation
+property. When a schema needs both, the results are spread together:
+`jsonSchema: { ...tombi({ ... }), ...taplo({ ... }) }`.
+
+Standard annotations (`title`, `description`, `examples`, `default`)
+are set directly on all fields.
+
+### Jsonifiable Type
+
+Schema fields that accept arbitrary JSON-compatible values (settings
+pass-through, inline credential values) use the `Jsonifiable` schema
+from xdg-effect instead of `Schema.Unknown`. This ensures generated
+JSON schemas produce `{}` instead of `{ "$id": "/schemas/unknown" }`
+for those positions. Three files use `Jsonifiable`: `common.ts`
+(resource value kind), `credentials.ts` (resolve value entries), and
+`config.ts` (settings group index signature).
+
+### Dependencies
+
+- `xdg-effect` (^0.3.1) -- `JsonSchemaExporter`, `Jsonifiable`,
+  `tombi()`, `taplo()` helpers
+- `ajv` (^8.18.0, devDependency) -- strict-mode schema validation
+  during generation

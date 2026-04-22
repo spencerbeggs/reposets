@@ -3,7 +3,7 @@ module: reposets
 title: Effect Services
 status: current
 completeness: 95
-last-synced: 2026-04-20
+last-synced: 2026-04-22
 ---
 
 ## ConfigLoader
@@ -71,12 +71,13 @@ for test capture. Test layer uses `logLevel: "silent"` to suppress output.
 
 ## GitHubClient
 
-Wraps Octokit with typed methods for all GitHub API operations. 16 methods
+Wraps Octokit with typed methods for all GitHub API operations. 20 methods
 organized into four domains: repo-level resources, environments, and
 environment-scoped resources.
 
 ### Repo-Level Methods
 
+- `getOwnerType(owner)` - determine if owner is a User or Organization
 - `syncSecret(owner, repo, name, value, scope)` - encrypt and upsert
   (actions/dependabot/codespaces)
 - `syncVariable(owner, repo, name, value)` - create or update
@@ -126,7 +127,7 @@ appropriate Octokit API namespace. The `SecretScope` type is
 
 Live: `GitHubClientLive(token)` creates an Octokit instance per token.
 Test: `GitHubClientTest()` returns `{ layer, calls() }` recorder covering
-all 16 methods.
+all 20 methods.
 
 ## SyncEngine
 

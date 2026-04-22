@@ -58,12 +58,13 @@
 		"effect": "^3.21.1",
 		"smol-toml": ">=1.6.1",
 		"tweetnacl": "^1.0.3",
-		"xdg-effect": "^0.2.0"
+		"xdg-effect": "^0.3.1"
 	},
 	"devDependencies": {
 		"@savvy-web/rslib-builder": "^0.20.1",
 		"@types/node": "catalog:silk",
 		"@typescript/native-preview": "catalog:silk",
+		"ajv": "^8.18.0",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:silk"
 	},
@@ -73,7 +74,7 @@
 	"publishConfig": {
 		"access": "public",
 		"directory": "dist/npm",
-		"linkDiectory": true,
+		"linkDirectory": true,
 		"targets": [
 			{
 				"protocol": "npm",

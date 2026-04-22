@@ -88,9 +88,14 @@ rulesets = ["branch-protection"]
 
 ## Editor Support
 
-JSON schemas are generated for [Tombi](https://tombi-toml.github.io/tombi/) TOML language server support. Schema files include `x-tombi-*` annotations for inline documentation and completion.
+reposets publishes JSON schemas for both config files to [SchemaStore](https://www.schemastore.org/). Editors that support SchemaStore (VS Code, IntelliJ, Neovim, and others) will automatically detect `reposets.config.toml` and `reposets.credentials.toml` and provide validation, completion, and inline documentation with no manual setup required.
 
-Run `pnpm --filter reposets generate:json-schema` to regenerate schemas after config schema changes.
+The schemas also include annotations for two TOML-specific language servers:
+
+- [Tombi](https://tombi-toml.github.io/tombi/) -- `x-tombi-*` annotations for key ordering, additional key labels, and array value ordering
+- [Taplo](https://taplo.tamasfe.dev/) -- `x-taplo` annotations for documentation links and key scaffolding via `initKeys`
+
+If you use Tombi or Taplo as your TOML language server, you get richer editor integration including contextual documentation links that point to the relevant section of this documentation.
 
 ## Complete Example
 

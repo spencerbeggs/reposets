@@ -20,19 +20,15 @@
 		},
 		"settings": {
 			"type": "object",
-			"required": [],
-			"properties": {},
 			"additionalProperties": {
 				"$ref": "#/$defs/SettingsGroup"
 			},
-			"description": "Named groups of GitHub repository settings (passed to the repos.update API)",
+			"description": "Named groups of GitHub repository settings to apply",
 			"title": "Settings groups",
 			"x-tombi-additional-key-label": "setting_group"
 		},
 		"secrets": {
 			"type": "object",
-			"required": [],
-			"properties": {},
 			"additionalProperties": {
 				"$ref": "#/$defs/SecretGroup"
 			},
@@ -42,8 +38,6 @@
 		},
 		"variables": {
 			"type": "object",
-			"required": [],
-			"properties": {},
 			"additionalProperties": {
 				"$ref": "#/$defs/VariableGroup"
 			},
@@ -53,19 +47,15 @@
 		},
 		"rulesets": {
 			"type": "object",
-			"required": [],
-			"properties": {},
 			"additionalProperties": {
 				"$ref": "#/$defs/Ruleset"
 			},
-			"description": "Named rulesets defining branch/tag/push protection rules",
+			"description": "Named rulesets defining branch and tag protection rules",
 			"title": "Rulesets",
 			"x-tombi-additional-key-label": "ruleset_name"
 		},
 		"environments": {
 			"type": "object",
-			"required": [],
-			"properties": {},
 			"additionalProperties": {
 				"$ref": "#/$defs/Environment"
 			},
@@ -75,20 +65,24 @@
 		},
 		"groups": {
 			"type": "object",
-			"required": [],
-			"properties": {},
 			"additionalProperties": {
 				"$ref": "#/$defs/Group"
 			},
-			"description": "Named groups of repositories with their settings, secrets, variables, and ruleset assignments",
+			"description": "Named groups of repositories with their settings, secrets, variables, rulesets, and environment assignments",
 			"title": "Groups",
 			"x-tombi-additional-key-label": "group_name"
 		}
 	},
 	"additionalProperties": false,
-	"description": "Configuration for syncing GitHub repository settings, secrets, variables, and rulesets",
+	"description": "Configuration for syncing GitHub repository settings, secrets, variables, rulesets, and deployment environments",
 	"title": "reposets Configuration",
 	"x-tombi-table-keys-order": "schema",
+	"x-taplo": {
+		"links": {
+			"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md"
+		},
+		"initKeys": ["owner", "groups"]
+	},
 	"$defs": {
 		"LogLevel": {
 			"type": "string",
@@ -98,7 +92,6 @@
 		},
 		"SettingsGroup": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"is_template": {
 					"type": "boolean",
@@ -200,13 +193,15 @@
 					"title": "Require commit signoff"
 				}
 			},
-			"additionalProperties": {
-				"$id": "/schemas/unknown",
-				"title": "unknown"
-			},
+			"additionalProperties": {},
 			"description": "GitHub repository settings to apply. Known fields are typed; additional fields are passed through to the API.",
 			"title": "Settings group",
-			"x-tombi-table-keys-order": "schema"
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md"
+				}
+			}
 		},
 		"SecretGroup": {
 			"anyOf": [
@@ -216,8 +211,6 @@
 					"properties": {
 						"file": {
 							"type": "object",
-							"required": [],
-							"properties": {},
 							"additionalProperties": {
 								"type": "string"
 							},
@@ -234,8 +227,6 @@
 					"properties": {
 						"value": {
 							"type": "object",
-							"required": [],
-							"properties": {},
 							"additionalProperties": {
 								"anyOf": [
 									{
@@ -243,12 +234,7 @@
 									},
 									{
 										"type": "object",
-										"required": [],
-										"properties": {},
-										"additionalProperties": {
-											"$id": "/schemas/unknown",
-											"title": "unknown"
-										}
+										"additionalProperties": {}
 									}
 								]
 							},
@@ -265,8 +251,6 @@
 					"properties": {
 						"resolved": {
 							"type": "object",
-							"required": [],
-							"properties": {},
 							"additionalProperties": {
 								"type": "string"
 							},
@@ -279,7 +263,12 @@
 				}
 			],
 			"description": "A group of secrets. Must be exactly one kind: file, value, or resolved.",
-			"title": "Secret group"
+			"title": "Secret group",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/secrets-and-variables.md"
+				}
+			}
 		},
 		"VariableGroup": {
 			"anyOf": [
@@ -289,8 +278,6 @@
 					"properties": {
 						"file": {
 							"type": "object",
-							"required": [],
-							"properties": {},
 							"additionalProperties": {
 								"type": "string"
 							},
@@ -307,8 +294,6 @@
 					"properties": {
 						"value": {
 							"type": "object",
-							"required": [],
-							"properties": {},
 							"additionalProperties": {
 								"anyOf": [
 									{
@@ -316,12 +301,7 @@
 									},
 									{
 										"type": "object",
-										"required": [],
-										"properties": {},
-										"additionalProperties": {
-											"$id": "/schemas/unknown",
-											"title": "unknown"
-										}
+										"additionalProperties": {}
 									}
 								]
 							},
@@ -338,8 +318,6 @@
 					"properties": {
 						"resolved": {
 							"type": "object",
-							"required": [],
-							"properties": {},
 							"additionalProperties": {
 								"type": "string"
 							},
@@ -352,7 +330,12 @@
 				}
 			],
 			"description": "A group of variables. Must be exactly one kind: file, value, or resolved.",
-			"title": "Variable group"
+			"title": "Variable group",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/secrets-and-variables.md"
+				}
+			}
 		},
 		"Ruleset": {
 			"anyOf": [
@@ -365,7 +348,12 @@
 			],
 			"description": "A set of rules to apply when specified conditions are met",
 			"title": "Repository ruleset",
-			"x-tombi-table-keys-order": "schema"
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md"
+				}
+			}
 		},
 		"BranchRuleset": {
 			"type": "object",
@@ -394,32 +382,32 @@
 				"creation": {
 					"type": "boolean",
 					"description": "When true, adds a creation rule",
-					"title": "Creation shorthand"
+					"title": "Restrict creation"
 				},
 				"update": {
 					"type": "boolean",
 					"description": "When true, adds an update rule with update_allows_fetch_and_merge: true",
-					"title": "Update shorthand"
+					"title": "Restrict updates"
 				},
 				"deletion": {
 					"type": "boolean",
 					"description": "When true, adds a deletion rule",
-					"title": "Deletion shorthand"
+					"title": "Restrict deletion"
 				},
 				"required_linear_history": {
 					"type": "boolean",
 					"description": "When true, adds a required_linear_history rule",
-					"title": "Required linear history shorthand"
+					"title": "Require linear history"
 				},
 				"required_signatures": {
 					"type": "boolean",
 					"description": "When true, adds a required_signatures rule",
-					"title": "Required signatures shorthand"
+					"title": "Require signatures"
 				},
 				"non_fast_forward": {
 					"type": "boolean",
 					"description": "When true, adds a non_fast_forward rule",
-					"title": "Non-fast-forward shorthand"
+					"title": "Prevent non-fast-forward"
 				},
 				"deployments": {
 					"type": "array",
@@ -427,7 +415,7 @@
 						"type": "string"
 					},
 					"description": "Deployment environments that must succeed; converts to required_deployments rule",
-					"title": "Deployments shorthand"
+					"title": "Required deployments"
 				},
 				"targets": {
 					"$ref": "#/$defs/Targets"
@@ -497,11 +485,16 @@
 			"additionalProperties": false,
 			"description": "A ruleset that applies to branches",
 			"title": "Branch ruleset",
-			"x-tombi-table-keys-order": "schema"
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md"
+				},
+				"initKeys": ["name", "type", "enforcement", "targets"]
+			}
 		},
 		"RulesetConditions": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"ref_name": {
 					"$ref": "#/$defs/RefNameCondition"
@@ -513,7 +506,6 @@
 		},
 		"RefNameCondition": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"include": {
 					"type": "array",
@@ -673,7 +665,8 @@
 						"properties": {
 							"context": {
 								"type": "string",
-								"description": "The status check context name that must be present on the commit"
+								"description": "The status check context name that must be present on the commit",
+								"title": "Context"
 							},
 							"integration_id": {
 								"anyOf": [
@@ -684,7 +677,8 @@
 										"$ref": "#/$defs/ResolvedRef"
 									}
 								],
-								"description": "The integration ID, or a { resolved } reference to a credential label"
+								"description": "The integration ID, or a { resolved } reference to a credential label",
+								"title": "Integration ID"
 							}
 						},
 						"additionalProperties": false
@@ -729,7 +723,6 @@
 		},
 		"PullRequestsShorthand": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"approvals": {
 					"allOf": [
@@ -784,12 +777,13 @@
 								"items": {
 									"type": "string"
 								},
-								"description": "File patterns this reviewer must approve (fnmatch syntax)"
+								"description": "File patterns this reviewer must approve (fnmatch syntax)",
+								"title": "File patterns"
 							},
 							"minimum_approvals": {
 								"type": "integer",
 								"description": "Minimum approvals required from this team (0 = optional)",
-								"title": "int"
+								"title": "Minimum approvals"
 							},
 							"reviewer": {
 								"type": "object",
@@ -798,14 +792,15 @@
 									"id": {
 										"type": "integer",
 										"description": "Team ID",
-										"title": "int"
+										"title": "Team ID"
 									},
 									"type": {
 										"type": "string",
 										"enum": ["Team"]
 									}
 								},
-								"additionalProperties": false
+								"additionalProperties": false,
+								"title": "Reviewer team"
 							}
 						},
 						"additionalProperties": false
@@ -876,7 +871,6 @@
 		},
 		"CopilotReviewShorthand": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"draft_prs": {
 					"type": "boolean",
@@ -936,11 +930,13 @@
 						"properties": {
 							"path": {
 								"type": "string",
-								"description": "Path to the workflow file"
+								"description": "Path to the workflow file",
+								"title": "Workflow path"
 							},
 							"ref": {
 								"type": "string",
-								"description": "Branch or tag of the workflow file"
+								"description": "Branch or tag of the workflow file",
+								"title": "Ref"
 							},
 							"repository_id": {
 								"anyOf": [
@@ -951,11 +947,13 @@
 										"$ref": "#/$defs/ResolvedRef"
 									}
 								],
-								"description": "Repository ID, or a { resolved } reference to a credential label"
+								"description": "Repository ID, or a { resolved } reference to a credential label",
+								"title": "Repository ID"
 							},
 							"sha": {
 								"type": "string",
-								"description": "Commit SHA of the workflow file"
+								"description": "Commit SHA of the workflow file",
+								"title": "SHA"
 							}
 						},
 						"additionalProperties": false
@@ -995,32 +993,32 @@
 				"creation": {
 					"type": "boolean",
 					"description": "When true, adds a creation rule",
-					"title": "Creation shorthand"
+					"title": "Restrict creation"
 				},
 				"update": {
 					"type": "boolean",
 					"description": "When true, adds an update rule with update_allows_fetch_and_merge: true",
-					"title": "Update shorthand"
+					"title": "Restrict updates"
 				},
 				"deletion": {
 					"type": "boolean",
 					"description": "When true, adds a deletion rule",
-					"title": "Deletion shorthand"
+					"title": "Restrict deletion"
 				},
 				"required_linear_history": {
 					"type": "boolean",
 					"description": "When true, adds a required_linear_history rule",
-					"title": "Required linear history shorthand"
+					"title": "Require linear history"
 				},
 				"required_signatures": {
 					"type": "boolean",
 					"description": "When true, adds a required_signatures rule",
-					"title": "Required signatures shorthand"
+					"title": "Require signatures"
 				},
 				"non_fast_forward": {
 					"type": "boolean",
 					"description": "When true, adds a non_fast_forward rule",
-					"title": "Non-fast-forward shorthand"
+					"title": "Prevent non-fast-forward"
 				},
 				"deployments": {
 					"type": "array",
@@ -1028,7 +1026,7 @@
 						"type": "string"
 					},
 					"description": "Deployment environments that must succeed; converts to required_deployments rule",
-					"title": "Deployments shorthand"
+					"title": "Required deployments"
 				},
 				"targets": {
 					"$ref": "#/$defs/Targets"
@@ -1078,11 +1076,16 @@
 			"additionalProperties": false,
 			"description": "A ruleset that applies to tags",
 			"title": "Tag ruleset",
-			"x-tombi-table-keys-order": "schema"
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md"
+				},
+				"initKeys": ["name", "type", "enforcement", "targets"]
+			}
 		},
 		"Environment": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"wait_timer": {
 					"$ref": "#/$defs/Int",
@@ -1111,7 +1114,12 @@
 			"additionalProperties": false,
 			"description": "Configuration for a GitHub deployment environment",
 			"title": "Deployment environment",
-			"x-tombi-table-keys-order": "schema"
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/environments.md"
+				}
+			}
 		},
 		"Reviewer": {
 			"type": "object",
@@ -1125,7 +1133,7 @@
 				},
 				"id": {
 					"type": "integer",
-					"description": "The ID of the user or team",
+					"description": "The numeric GitHub ID of the user or team",
 					"title": "Reviewer ID"
 				}
 			},
@@ -1239,11 +1247,16 @@
 			"additionalProperties": false,
 			"description": "A named group of repositories with their resource assignments",
 			"title": "Repository group",
-			"x-tombi-table-keys-order": "schema"
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md"
+				},
+				"initKeys": ["repos"]
+			}
 		},
 		"SecretScopes": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"actions": {
 					"type": "array",
@@ -1274,8 +1287,6 @@
 				},
 				"environments": {
 					"type": "object",
-					"required": [],
-					"properties": {},
 					"additionalProperties": {
 						"type": "array",
 						"items": {
@@ -1295,7 +1306,6 @@
 		},
 		"VariableScopes": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"actions": {
 					"type": "array",
@@ -1308,8 +1318,6 @@
 				},
 				"environments": {
 					"type": "object",
-					"required": [],
-					"properties": {},
 					"additionalProperties": {
 						"type": "array",
 						"items": {
@@ -1329,7 +1337,6 @@
 		},
 		"Cleanup": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"secrets": {
 					"allOf": [
@@ -1372,11 +1379,15 @@
 			},
 			"additionalProperties": false,
 			"description": "Controls deletion of resources not declared in config. All disabled by default.",
-			"title": "Cleanup configuration"
+			"title": "Cleanup configuration",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/cleanup.md"
+				}
+			}
 		},
 		"CleanupSecrets": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"actions": {
 					"allOf": [
@@ -1450,7 +1461,6 @@
 		},
 		"CleanupVariables": {
 			"type": "object",
-			"required": [],
 			"properties": {
 				"actions": {
 					"allOf": [
@@ -1478,5 +1488,6 @@
 			"title": "Variables cleanup configuration"
 		}
 	},
+	"$id": "https://json.schemastore.org/reposets.config.json",
 	"x-tombi-toml-version": "v1.1.0"
 }

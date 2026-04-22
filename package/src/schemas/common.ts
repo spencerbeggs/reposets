@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { Jsonifiable, taplo, tombi } from "xdg-effect";
 
 // --- Resource Group Schemas ---
 
@@ -6,18 +7,18 @@ const ResourceFileKind = Schema.Struct({
 	file: Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
 		title: "File entries",
 		description: "Named entries with file path values, resolved relative to config directory",
-		jsonSchema: { "x-tombi-additional-key-label": "name" },
+		jsonSchema: tombi({ additionalKeyLabel: "name" }),
 	}),
 });
 
 const ResourceValueKind = Schema.Struct({
 	value: Schema.Record({
 		key: Schema.String,
-		value: Schema.Union(Schema.String, Schema.Record({ key: Schema.String, value: Schema.Unknown })),
+		value: Schema.Union(Schema.String, Schema.Record({ key: Schema.String, value: Jsonifiable })),
 	}).annotations({
 		title: "Value entries",
 		description: "Named entries with inline values. Strings used as-is, objects JSON-stringified.",
-		jsonSchema: { "x-tombi-additional-key-label": "name" },
+		jsonSchema: tombi({ additionalKeyLabel: "name" }),
 	}),
 });
 
@@ -25,7 +26,7 @@ const ResourceResolvedKind = Schema.Struct({
 	resolved: Schema.Record({ key: Schema.String, value: Schema.String }).annotations({
 		title: "Resolved entries",
 		description: "Named entries mapped to credential labels. Values come from the active credential profile.",
-		jsonSchema: { "x-tombi-additional-key-label": "name" },
+		jsonSchema: tombi({ additionalKeyLabel: "name" }),
 	}),
 });
 
@@ -33,6 +34,9 @@ export const SecretGroupSchema = Schema.Union(ResourceFileKind, ResourceValueKin
 	identifier: "SecretGroup",
 	title: "Secret group",
 	description: "A group of secrets. Must be exactly one kind: file, value, or resolved.",
+	jsonSchema: taplo({
+		links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/secrets-and-variables.md" },
+	}),
 });
 
 export type SecretGroup = typeof SecretGroupSchema.Type;
@@ -41,6 +45,9 @@ export const VariableGroupSchema = Schema.Union(ResourceFileKind, ResourceValueK
 	identifier: "VariableGroup",
 	title: "Variable group",
 	description: "A group of variables. Must be exactly one kind: file, value, or resolved.",
+	jsonSchema: taplo({
+		links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/secrets-and-variables.md" },
+	}),
 });
 
 export type VariableGroup = typeof VariableGroupSchema.Type;
@@ -144,6 +151,9 @@ export const CleanupSchema = Schema.Struct({
 	identifier: "Cleanup",
 	title: "Cleanup configuration",
 	description: "Controls deletion of resources not declared in config. All disabled by default.",
+	jsonSchema: taplo({
+		links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/cleanup.md" },
+	}),
 });
 
 export type Cleanup = typeof CleanupSchema.Type;

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { taplo, tombi } from "xdg-effect";
 
 export const ResolvedRefSchema = Schema.Struct({
 	resolved: Schema.String.annotations({
@@ -84,35 +85,40 @@ export const RulesetConditionsSchema = Schema.Struct({
 
 const RequiredReviewerSchema = Schema.Struct({
 	file_patterns: Schema.Array(Schema.String).annotations({
+		title: "File patterns",
 		description: "File patterns this reviewer must approve (fnmatch syntax)",
 	}),
 	minimum_approvals: Schema.Int.annotations({
+		title: "Minimum approvals",
 		description: "Minimum approvals required from this team (0 = optional)",
 	}),
 	reviewer: Schema.Struct({
-		id: Schema.Int.annotations({ description: "Team ID" }),
+		id: Schema.Int.annotations({ title: "Team ID", description: "Team ID" }),
 		type: Schema.Literal("Team"),
-	}),
+	}).annotations({ title: "Reviewer team" }),
 });
 
 const StatusCheckSchema = Schema.Struct({
 	context: Schema.String.annotations({
+		title: "Context",
 		description: "The status check context name that must be present on the commit",
 	}),
 	integration_id: Schema.optional(
 		Schema.Union(Schema.Int, ResolvedRefSchema).annotations({
+			title: "Integration ID",
 			description: "The integration ID, or a { resolved } reference to a credential label",
 		}),
 	),
 });
 
 const WorkflowFileSchema = Schema.Struct({
-	path: Schema.String.annotations({ description: "Path to the workflow file" }),
-	ref: Schema.optional(Schema.String.annotations({ description: "Branch or tag of the workflow file" })),
+	path: Schema.String.annotations({ title: "Workflow path", description: "Path to the workflow file" }),
+	ref: Schema.optional(Schema.String.annotations({ title: "Ref", description: "Branch or tag of the workflow file" })),
 	repository_id: Schema.Union(Schema.Int, ResolvedRefSchema).annotations({
+		title: "Repository ID",
 		description: "Repository ID, or a { resolved } reference to a credential label",
 	}),
-	sha: Schema.optional(Schema.String.annotations({ description: "Commit SHA of the workflow file" })),
+	sha: Schema.optional(Schema.String.annotations({ title: "SHA", description: "Commit SHA of the workflow file" })),
 });
 
 // --- Targets Shorthand ---
@@ -379,43 +385,43 @@ const sharedRulesetFields = {
 	// Boolean shorthands
 	creation: Schema.optional(
 		Schema.Boolean.annotations({
-			title: "Creation shorthand",
+			title: "Restrict creation",
 			description: "When true, adds a creation rule",
 		}),
 	),
 	update: Schema.optional(
 		Schema.Boolean.annotations({
-			title: "Update shorthand",
+			title: "Restrict updates",
 			description: "When true, adds an update rule with update_allows_fetch_and_merge: true",
 		}),
 	),
 	deletion: Schema.optional(
 		Schema.Boolean.annotations({
-			title: "Deletion shorthand",
+			title: "Restrict deletion",
 			description: "When true, adds a deletion rule",
 		}),
 	),
 	required_linear_history: Schema.optional(
 		Schema.Boolean.annotations({
-			title: "Required linear history shorthand",
+			title: "Require linear history",
 			description: "When true, adds a required_linear_history rule",
 		}),
 	),
 	required_signatures: Schema.optional(
 		Schema.Boolean.annotations({
-			title: "Required signatures shorthand",
+			title: "Require signatures",
 			description: "When true, adds a required_signatures rule",
 		}),
 	),
 	non_fast_forward: Schema.optional(
 		Schema.Boolean.annotations({
-			title: "Non-fast-forward shorthand",
+			title: "Prevent non-fast-forward",
 			description: "When true, adds a non_fast_forward rule",
 		}),
 	),
 	deployments: Schema.optional(
 		Schema.Array(Schema.String).annotations({
-			title: "Deployments shorthand",
+			title: "Required deployments",
 			description: "Deployment environments that must succeed; converts to required_deployments rule",
 		}),
 	),
@@ -470,7 +476,13 @@ export const BranchRulesetSchema = Schema.Struct({
 	identifier: "BranchRuleset",
 	title: "Branch ruleset",
 	description: "A ruleset that applies to branches",
-	jsonSchema: { "x-tombi-table-keys-order": "schema" },
+	jsonSchema: {
+		...tombi({ tableKeysOrder: "schema" }),
+		...taplo({
+			initKeys: ["name", "type", "enforcement", "targets"],
+			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md" },
+		}),
+	},
 });
 
 // --- Tag Ruleset ---
@@ -491,7 +503,13 @@ export const TagRulesetSchema = Schema.Struct({
 	identifier: "TagRuleset",
 	title: "Tag ruleset",
 	description: "A ruleset that applies to tags",
-	jsonSchema: { "x-tombi-table-keys-order": "schema" },
+	jsonSchema: {
+		...tombi({ tableKeysOrder: "schema" }),
+		...taplo({
+			initKeys: ["name", "type", "enforcement", "targets"],
+			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md" },
+		}),
+	},
 });
 
 // --- Top-level Ruleset (discriminated union) ---
@@ -500,7 +518,12 @@ export const RulesetSchema = Schema.Union(BranchRulesetSchema, TagRulesetSchema)
 	identifier: "Ruleset",
 	title: "Repository ruleset",
 	description: "A set of rules to apply when specified conditions are met",
-	jsonSchema: { "x-tombi-table-keys-order": "schema" },
+	jsonSchema: {
+		...tombi({ tableKeysOrder: "schema" }),
+		...taplo({
+			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md" },
+		}),
+	},
 });
 
 export type Ruleset = typeof RulesetSchema.Type;

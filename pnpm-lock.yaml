@@ -85,8 +85,8 @@ importers:
         specifier: ^1.0.3
         version: 1.0.3
       xdg-effect:
-        specifier: ^0.2.0
-        version: 0.2.0(03f80dd67552833d8eca5052e274b981)
+        specifier: ^0.3.1
+        version: 0.3.1(f48556a8145cf8e2eb56e6c16980f1a6)
     devDependencies:
       '@savvy-web/rslib-builder':
         specifier: ^0.20.1
@@ -97,6 +97,9 @@ importers:
       '@typescript/native-preview':
         specifier: catalog:silk
         version: 7.0.0-dev.20260418.1
+      ajv:
+        specifier: ^8.18.0
+        version: 8.18.0
       tsx:
         specifier: catalog:silk
         version: 4.21.0
@@ -4292,13 +4295,14 @@ packages:
       utf-8-validate:
         optional: true
 
-  xdg-effect@0.2.0:
-    resolution: {integrity: sha512-fUWxvUvfYIbWc1lU45bhkAm/vHuik+ymlA2phbuL5/re+R+lrOt9ZJrqZHi6mYGIhJNfmGBhEhPSiB5a7glcPw==}
+  xdg-effect@0.3.1:
+    resolution: {integrity: sha512-6Ka/Kf4NI8w+LJF6gkC6ChCTq7lP38RvMntSDFd09rUfFoBMIeq4mQ24LHORq0yF26sAE6FHA4M6OJiNQqjOjg==}
     peerDependencies:
       '@effect/platform': '>=0.96.0'
       '@effect/platform-node': '>=0.106.0'
       '@effect/sql': '>=0.51.0'
       '@effect/sql-sqlite-node': '>=0.52.0'
+      ajv: '>=8.0.0'
       effect: '>=3.21.0'
     peerDependenciesMeta:
       '@effect/platform-node':
@@ -4306,6 +4310,8 @@ packages:
       '@effect/sql':
         optional: true
       '@effect/sql-sqlite-node':
+        optional: true
+      ajv:
         optional: true
 
   y18n@5.0.8:
@@ -8943,7 +8949,7 @@ snapshots:
 
   ws@8.20.0: {}
 
-  xdg-effect@0.2.0(03f80dd67552833d8eca5052e274b981):
+  xdg-effect@0.3.1(f48556a8145cf8e2eb56e6c16980f1a6):
     dependencies:
       '@effect/platform': 0.96.0(effect@3.21.1)
       effect: 3.21.1
@@ -8952,6 +8958,7 @@ snapshots:
       '@effect/platform-node': 0.106.0(@effect/cluster@0.58.1(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/sql@0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/workflow@0.18.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(@effect/rpc@0.75.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/sql@0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(effect@3.21.1)
       '@effect/sql': 0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1)
       '@effect/sql-sqlite-node': 0.52.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(@effect/sql@0.51.0(@effect/experimental@0.60.0(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(@effect/platform@0.96.0(effect@3.21.1))(effect@3.21.1))(effect@3.21.1)
+      ajv: 8.18.0
 
   y18n@5.0.8: {}
 

@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { Jsonifiable, taplo, tombi } from "xdg-effect";
 import { CleanupSchema, SecretGroupSchema, VariableGroupSchema } from "./common.js";
 import { EnvironmentSchema } from "./environment.js";
 import { RulesetSchema } from "./ruleset.js";
@@ -35,7 +36,7 @@ export const SecretScopesSchema = Schema.Struct({
 		}).annotations({
 			title: "Environment secret scopes",
 			description: "Map of environment names to secret group references",
-			jsonSchema: { "x-tombi-additional-key-label": "environment_name" },
+			jsonSchema: tombi({ additionalKeyLabel: "environment_name" }),
 		}),
 	),
 }).annotations({
@@ -62,7 +63,7 @@ export const VariableScopesSchema = Schema.Struct({
 		}).annotations({
 			title: "Environment variable scopes",
 			description: "Map of environment names to variable group references",
-			jsonSchema: { "x-tombi-additional-key-label": "environment_name" },
+			jsonSchema: tombi({ additionalKeyLabel: "environment_name" }),
 		}),
 	),
 }).annotations({
@@ -83,7 +84,7 @@ export const GroupSchema = Schema.Struct({
 		title: "Repository names",
 		description: "List of repository names (without owner prefix) to sync in this group",
 		examples: [["repo-one", "repo-two", "repo-three"]],
-		jsonSchema: { "x-tombi-array-values-order": "ascending" },
+		jsonSchema: tombi({ arrayValuesOrder: "ascending" }),
 	}),
 	credentials: Schema.optional(
 		Schema.String.annotations({
@@ -120,7 +121,13 @@ export const GroupSchema = Schema.Struct({
 	identifier: "Group",
 	title: "Repository group",
 	description: "A named group of repositories with their resource assignments",
-	jsonSchema: { "x-tombi-table-keys-order": "schema" },
+	jsonSchema: {
+		...tombi({ tableKeysOrder: "schema" }),
+		...taplo({
+			initKeys: ["repos"],
+			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md" },
+		}),
+	},
 });
 
 export type Group = typeof GroupSchema.Type;
@@ -246,13 +253,18 @@ const SettingsGroupSchema = Schema.Struct(
 			}),
 		),
 	},
-	{ key: Schema.String, value: Schema.Unknown },
+	{ key: Schema.String, value: Jsonifiable },
 ).annotations({
 	identifier: "SettingsGroup",
 	title: "Settings group",
 	description:
 		"GitHub repository settings to apply. Known fields are typed; additional fields are passed through to the API.",
-	jsonSchema: { "x-tombi-table-keys-order": "schema" },
+	jsonSchema: {
+		...tombi({ tableKeysOrder: "schema" }),
+		...taplo({
+			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md" },
+		}),
+	},
 });
 
 export const LogLevelSchema = Schema.Literal("silent", "info", "verbose", "debug").annotations({
@@ -279,8 +291,8 @@ export const ConfigSchema = Schema.Struct({
 	settings: Schema.optionalWith(
 		Schema.Record({ key: Schema.String, value: SettingsGroupSchema }).annotations({
 			title: "Settings groups",
-			description: "Named groups of GitHub repository settings (passed to the repos.update API)",
-			jsonSchema: { "x-tombi-additional-key-label": "setting_group" },
+			description: "Named groups of GitHub repository settings to apply",
+			jsonSchema: tombi({ additionalKeyLabel: "setting_group" }),
 		}),
 		{ default: () => ({}) },
 	),
@@ -288,7 +300,7 @@ export const ConfigSchema = Schema.Struct({
 		Schema.Record({ key: Schema.String, value: SecretGroupSchema }).annotations({
 			title: "Secret groups",
 			description: "Named groups of secrets. Each group is one kind: file, value, or resolved.",
-			jsonSchema: { "x-tombi-additional-key-label": "secret_group" },
+			jsonSchema: tombi({ additionalKeyLabel: "secret_group" }),
 		}),
 		{ default: () => ({}) },
 	),
@@ -296,7 +308,7 @@ export const ConfigSchema = Schema.Struct({
 		Schema.Record({ key: Schema.String, value: VariableGroupSchema }).annotations({
 			title: "Variable groups",
 			description: "Named groups of variables. Each group is one kind: file, value, or resolved.",
-			jsonSchema: { "x-tombi-additional-key-label": "variable_group" },
+			jsonSchema: tombi({ additionalKeyLabel: "variable_group" }),
 		}),
 		{ default: () => ({}) },
 	),
@@ -306,8 +318,8 @@ export const ConfigSchema = Schema.Struct({
 			value: RulesetSchema,
 		}).annotations({
 			title: "Rulesets",
-			description: "Named rulesets defining branch/tag/push protection rules",
-			jsonSchema: { "x-tombi-additional-key-label": "ruleset_name" },
+			description: "Named rulesets defining branch and tag protection rules",
+			jsonSchema: tombi({ additionalKeyLabel: "ruleset_name" }),
 		}),
 		{ default: () => ({}) },
 	),
@@ -318,7 +330,7 @@ export const ConfigSchema = Schema.Struct({
 		}).annotations({
 			title: "Environments",
 			description: "Named deployment environment configurations",
-			jsonSchema: { "x-tombi-additional-key-label": "environment_name" },
+			jsonSchema: tombi({ additionalKeyLabel: "environment_name" }),
 		}),
 		{ default: () => ({}) },
 	),
@@ -327,14 +339,22 @@ export const ConfigSchema = Schema.Struct({
 		value: GroupSchema,
 	}).annotations({
 		title: "Groups",
-		description: "Named groups of repositories with their settings, secrets, variables, and ruleset assignments",
-		jsonSchema: { "x-tombi-additional-key-label": "group_name" },
+		description:
+			"Named groups of repositories with their settings, secrets, variables, rulesets, and environment assignments",
+		jsonSchema: tombi({ additionalKeyLabel: "group_name" }),
 	}),
 }).annotations({
 	identifier: "Config",
 	title: "reposets Configuration",
-	description: "Configuration for syncing GitHub repository settings, secrets, variables, and rulesets",
-	jsonSchema: { "x-tombi-table-keys-order": "schema" },
+	description:
+		"Configuration for syncing GitHub repository settings, secrets, variables, rulesets, and deployment environments",
+	jsonSchema: {
+		...tombi({ tableKeysOrder: "schema" }),
+		...taplo({
+			initKeys: ["owner", "groups"],
+			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md" },
+		}),
+	},
 });
 
 export type Config = typeof ConfigSchema.Type;
