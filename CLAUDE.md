@@ -30,7 +30,7 @@ pnpm run typecheck         # Type-check all workspaces via Turbo
 pnpm sync                  # Alias: tsx package/src/cli/index.ts
 
 # Testing
-pnpm run test              # Run all tests (186 passing)
+pnpm run test              # Run all tests (235 passing)
 pnpm run test:watch        # Run tests in watch mode
 pnpm run test:coverage     # Run tests with coverage report
 
@@ -51,7 +51,7 @@ at `package/` (workspace name: `reposets`).
 ```text
 package/                   # reposets CLI package
 package/src/cli/           # CLI entrypoint and commands
-package/src/services/      # Effect services (6 services, 19 GitHubClient methods)
+package/src/services/      # Effect services (6 services, 20 GitHubClient methods)
 package/src/schemas/       # Effect Schema definitions (config, credentials, environment, ruleset) + JSON schema generation
 package/src/lib/           # Utilities (XDG paths, config resolution, crypto)
 package/__test__/          # Tests mirroring src/ structure
@@ -115,8 +115,8 @@ Six services compose the sync pipeline:
 - `CredentialResolver` — Resolves named values from credential profile
   `[resolve]` sections (value, file, and op sub-groups)
 - `OnePasswordClient` — Wraps `@1password/sdk` for 1Password secret references
-- `GitHubClient` — Octokit wrapper (19 methods); handles settings
-  (REST + GraphQL mutation), secrets by scope
+- `GitHubClient` — Octokit wrapper (20 methods, including `getOwnerType`);
+  handles settings (REST + GraphQL mutation), secrets by scope
   (actions/dependabot/codespaces/environments), variables by scope
   (actions/environments), rulesets, and deployment environments
 - `SyncEngine` — Orchestrates the full sync lifecycle: environments synced
@@ -158,8 +158,12 @@ undeclared), or `{ preserve = [...] }`.
 #### JSON Schema
 
 Run `pnpm --filter reposets generate:json-schema` to regenerate
-`package/schemas/`. Schema files use `x-tombi-*` annotations for
-[Tombi](https://tombi-toml.github.io/tombi/) TOML language server support.
+`package/schemas/`. The generation pipeline uses `xdg-effect` v0.3.1's
+`JsonSchemaExporter` service with `tombi()` helper for TOML language
+server annotations (`x-tombi-*`, `x-taplo`). Each schema includes a
+`$id` pointing to SchemaStore URLs. Ajv validates generated schemas in
+strict mode before writing. Script location:
+`package/lib/scripts/generate-json-schema.ts`.
 
 #### Fine-Grained Token Permissions
 

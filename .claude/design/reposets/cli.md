@@ -3,7 +3,7 @@ module: reposets
 title: CLI Commands
 status: current
 completeness: 95
-last-synced: 2026-04-20
+last-synced: 2026-04-22
 ---
 
 ## Entry Point

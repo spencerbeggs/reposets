@@ -1,4 +1,5 @@
 import { Schema } from "effect";
+import { taplo, tombi } from "xdg-effect";
 
 // --- Reviewer ---
 
@@ -11,7 +12,7 @@ const ReviewerSchema = Schema.Struct({
 	type: ReviewerTypeSchema,
 	id: Schema.Int.annotations({
 		title: "Reviewer ID",
-		description: "The ID of the user or team",
+		description: "The numeric GitHub ID of the user or team",
 	}),
 }).annotations({
 	identifier: "Reviewer",
@@ -82,7 +83,12 @@ export const EnvironmentSchema = Schema.Struct({
 	identifier: "Environment",
 	title: "Deployment environment",
 	description: "Configuration for a GitHub deployment environment",
-	jsonSchema: { "x-tombi-table-keys-order": "schema" },
+	jsonSchema: {
+		...tombi({ tableKeysOrder: "schema" }),
+		...taplo({
+			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/environments.md" },
+		}),
+	},
 });
 
 export type Environment = typeof EnvironmentSchema.Type;

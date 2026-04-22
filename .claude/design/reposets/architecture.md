@@ -3,7 +3,7 @@ module: reposets
 title: Architecture
 status: current
 completeness: 95
-last-synced: 2026-04-20
+last-synced: 2026-04-22
 ---
 
 ## Overview
@@ -86,10 +86,11 @@ All errors are `Data.TaggedError` subclasses:
 Each service has Live and Test layer implementations:
 
 - `GitHubClientTest()` - records API calls, returns empty lists (covers
-  all 16 service methods including environment operations)
+  all 20 service methods including environment operations)
 - `OnePasswordClientTest(stubs)` - returns deterministic values
 - `ConfigLoaderLive` - used directly in tests (pure parsing, no I/O)
 - `CredentialResolverLive` - tested with real filesystem + mock OP client
 - `SyncLoggerLive` - tested with Ref-based output capture
 
-186 unit tests cover schemas, services, and utilities.
+235 tests (unit + integration) cover schemas, services, CLI commands,
+and utilities.
