@@ -1,4 +1,3 @@
-// @ts-nocheck -- Effect Scope requirement in scoped test helpers causes variance mismatch with FileSystem constraint
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -325,6 +324,7 @@ describe("ConfigFileService credentials loading", () => {
 describe("ConfigFiles filesystem integration", () => {
 	it("writes and reads config round-trip via ConfigFileService", async () => {
 		const result = await runScoped(
+			// @ts-expect-error -- Scope requirement from makeTempDirectoryScoped widens R beyond FileSystem constraint
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const tmpDir = yield* fs.makeTempDirectoryScoped();
@@ -410,6 +410,7 @@ describe("ConfigFiles filesystem integration", () => {
 
 	it("loads both config and credentials from temp directory", async () => {
 		const result = await runScoped(
+			// @ts-expect-error -- Scope requirement from makeTempDirectoryScoped widens R beyond FileSystem constraint
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const tmpDir = yield* fs.makeTempDirectoryScoped();

@@ -99,7 +99,7 @@ export function validateConfigRefs(config: Config): Effect.Effect<Config, Config
 					}
 					for (const ref of secretGroups) {
 						if (!definedSecrets.has(ref)) {
-							errors.push(`group '${groupName}': unknown secrets group '${ref}'`);
+							errors.push(`group '${groupName}': in secrets.environments.'${envName}': unknown secrets group '${ref}'`);
 						}
 					}
 				}
@@ -122,7 +122,9 @@ export function validateConfigRefs(config: Config): Effect.Effect<Config, Config
 					}
 					for (const ref of varGroups) {
 						if (!definedVariables.has(ref)) {
-							errors.push(`group '${groupName}': unknown variables group '${ref}'`);
+							errors.push(
+								`group '${groupName}': in variables.environments.'${envName}': unknown variables group '${ref}'`,
+							);
 						}
 					}
 				}

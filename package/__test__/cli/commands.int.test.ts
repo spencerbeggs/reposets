@@ -516,8 +516,8 @@ describe("validate command", () => {
 		const errors = result.errors.join("\n");
 		// These cross-ref errors now surface during discover via validateConfigRefs
 		expect(errors).toContain("unknown environment 'nonexistent-env'");
-		expect(errors).toContain("unknown secrets group 'missing-secrets'");
-		expect(errors).toContain("unknown variables group 'missing-vars'");
+		expect(errors).toContain("in secrets.environments.'ghost': unknown secrets group 'missing-secrets'");
+		expect(errors).toContain("in variables.environments.'ghost': unknown variables group 'missing-vars'");
 	});
 });
 
