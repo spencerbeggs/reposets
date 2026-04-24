@@ -1,0 +1,5 @@
+[groups.my-projects]
+repos = ["repo-one"]
+environments = ["nonexistent-env"]
+secrets = { environments = { ghost = ["missing-secrets"] } }
+variables = { environments = { ghost = ["missing-vars"] } }

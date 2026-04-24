@@ -1,7 +1,8 @@
+import { dirname } from "node:path";
 import { Command, Options } from "@effect/cli";
-import { Console, Effect, Layer } from "effect";
+import { Effect, Layer } from "effect";
 import type { LogLevel } from "../../schemas/config.js";
-import { ReposetsConfigFile, ReposetsCredentialsFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
+import { ReposetsConfigFile, ReposetsCredentialsFile, makeConfigFilesLive } from "../../services/ConfigFiles.js";
 import { CredentialResolverLive } from "../../services/CredentialResolver.js";
 import { GitHubClientLive } from "../../services/GitHubClient.js";
 import { OnePasswordClientLive } from "../../services/OnePasswordClient.js";
@@ -48,7 +49,13 @@ export const syncCommand = Command.make(
 	({ config, group, repo, dryRun, noCleanup, logLevel: logLevelFlag }) =>
 		Effect.gen(function* () {
 			const configFile = yield* ReposetsConfigFile;
-			const { config: parsedConfig, configDir } = yield* loadConfigWithDir(configFile, config);
+			const sources = yield* configFile.discover;
+			if (sources.length === 0) {
+				yield* Effect.logError("No config file found.");
+				return;
+			}
+			const parsedConfig = sources[0].value;
+			const configDir = dirname(sources[0].path);
 
 			const credentialsFile = yield* ReposetsCredentialsFile;
 			const credentials = yield* credentialsFile.loadOrDefault({ profiles: {} });
@@ -58,7 +65,7 @@ export const syncCommand = Command.make(
 			const token = defaultProfile ? credentials.profiles[defaultProfile]?.github_token : undefined;
 
 			if (!token) {
-				yield* Console.error("No GitHub token found. Run 'reposets credentials create' first.");
+				yield* Effect.logError("No GitHub token found. Run 'reposets credentials create' first.");
 				return;
 			}
 
@@ -78,7 +85,7 @@ export const syncCommand = Command.make(
 			const repoFilter = repo._tag === "Some" ? repo.value : undefined;
 
 			if (dryRun && logLevel !== "silent") {
-				yield* Console.log("DRY RUN \u2014 no changes will be made\n");
+				yield* Effect.log("DRY RUN \u2014 no changes will be made\n");
 			}
 
 			yield* Effect.provide(
@@ -94,5 +101,5 @@ export const syncCommand = Command.make(
 				}),
 				engineLayer,
 			);
-		}),
+		}).pipe(Effect.provide(makeConfigFilesLive(config))),
 ).pipe(Command.withDescription("Sync repos with GitHub"));

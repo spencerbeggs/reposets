@@ -3,7 +3,7 @@ module: reposets
 title: CLI Commands
 status: current
 completeness: 95
-last-synced: 2026-04-22
+last-synced: 2026-04-23
 ---
 
 ## Entry Point
@@ -14,8 +14,11 @@ last-synced: 2026-04-22
 2. All subcommands registered via `Command.withSubcommands`
 3. `Command.run` creates the CLI handler
 4. `Effect.suspend(() => cli(process.argv))` defers evaluation
-5. `ConfigLoaderLive` and `NodeContext.layer` provided at root
-6. `NodeRuntime.runMain` executes the program
+5. `NodeContext.layer` and `CliLogger` provided at root (CliLogger
+   replaces the default Effect logger, routing `Effect.log` to stdout
+   and `Effect.logError` to stderr via `globalThis.console`)
+6. Each command provides its own `makeConfigFilesLive(config)` layer
+7. `NodeRuntime.runMain` executes the program
 
 ## Global Options
 
@@ -61,9 +64,12 @@ profile.
 Schema compliance + reference integrity checks without hitting the
 GitHub API:
 
-- Config and credentials schema validation
-- Cross-reference checks (do referenced groups exist?)
-- File path existence checks
+- Config and credentials schema validation (via `configFile.discover`
+  which runs `validateConfigRefs` automatically)
+- Cross-reference validation (settings, secrets, variables, rulesets,
+  environments group references) performed by `validateConfigRefs`
+  callback during config loading
+- File path existence checks (file-kind secret/variable groups)
 - Credential profile reference checks
 
 ## doctor

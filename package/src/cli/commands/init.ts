@@ -1,8 +1,9 @@
 import { appendFileSync, existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { Command, Options } from "@effect/cli";
-import { Console, Effect } from "effect";
+import { Effect, Option } from "effect";
 import { AppDirs } from "xdg-effect";
+import { makeConfigFilesLive } from "../../services/ConfigFiles.js";
 
 const projectOption = Options.boolean("project").pipe(
 	Options.withDescription("Create config in current directory instead of XDG/home location"),
@@ -94,17 +95,17 @@ export const initCommand = Command.make("init", { project: projectOption }, ({ p
 		const credsPath = join(targetDir, CREDENTIALS_FILE);
 
 		if (existsSync(configPath)) {
-			yield* Console.log(`Config already exists: ${configPath}`);
+			yield* Effect.log(`Config already exists: ${configPath}`);
 		} else {
 			writeFileSync(configPath, CONFIG_TEMPLATE);
-			yield* Console.log(`Created: ${configPath}`);
+			yield* Effect.log(`Created: ${configPath}`);
 		}
 
 		if (existsSync(credsPath)) {
-			yield* Console.log(`Credentials already exists: ${credsPath}`);
+			yield* Effect.log(`Credentials already exists: ${credsPath}`);
 		} else {
 			writeFileSync(credsPath, CREDENTIALS_TEMPLATE);
-			yield* Console.log(`Created: ${credsPath}`);
+			yield* Effect.log(`Created: ${credsPath}`);
 		}
 
 		if (project) {
@@ -113,20 +114,20 @@ export const initCommand = Command.make("init", { project: projectOption }, ({ p
 				const content = readFileSync(gitignorePath, "utf-8");
 				if (!content.includes(CREDENTIALS_FILE)) {
 					appendFileSync(gitignorePath, `\n${CREDENTIALS_FILE}\n`);
-					yield* Console.log(`Added ${CREDENTIALS_FILE} to .gitignore`);
+					yield* Effect.log(`Added ${CREDENTIALS_FILE} to .gitignore`);
 				}
 			} else {
 				writeFileSync(gitignorePath, `${CREDENTIALS_FILE}\n`);
-				yield* Console.log(`Created .gitignore with ${CREDENTIALS_FILE}`);
+				yield* Effect.log(`Created .gitignore with ${CREDENTIALS_FILE}`);
 			}
 		} else {
 			const gitignorePath = join(targetDir, ".gitignore");
 			if (!existsSync(gitignorePath)) {
 				writeFileSync(gitignorePath, `${CREDENTIALS_FILE}\n`);
-				yield* Console.log(`Created .gitignore in ${targetDir}`);
+				yield* Effect.log(`Created .gitignore in ${targetDir}`);
 			}
 		}
 
-		yield* Console.log("\nDone! Edit your config and credentials files to get started.");
-	}),
+		yield* Effect.log("\nDone! Edit your config and credentials files to get started.");
+	}).pipe(Effect.provide(makeConfigFilesLive(Option.none()))),
 ).pipe(Command.withDescription("Scaffold config files"));

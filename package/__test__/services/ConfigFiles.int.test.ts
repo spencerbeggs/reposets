@@ -1,10 +1,9 @@
-// @ts-nocheck -- Effect Scope requirement in scoped test helpers causes variance mismatch with FileSystem constraint
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { FileSystem } from "@effect/platform";
 import { NodeFileSystem } from "@effect/platform-node";
-import { ConfigProvider, Effect, Layer, Option } from "effect";
+import { ConfigProvider, Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 import type { ConfigError } from "xdg-effect";
 import { AppDirs, AppDirsConfig, ConfigFile, ExplicitPath, FirstMatch, TomlCodec, XdgConfigLive } from "xdg-effect";
@@ -12,7 +11,7 @@ import type { Config } from "../../src/schemas/config.js";
 import { ConfigSchema } from "../../src/schemas/config.js";
 import type { Credentials } from "../../src/schemas/credentials.js";
 import { CredentialsSchema } from "../../src/schemas/credentials.js";
-import { loadConfigWithDir, resolveConfigFlag } from "../../src/services/ConfigFiles.js";
+import { validateConfigRefs } from "../../src/services/ConfigFiles.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const fixturesDir = join(__dirname, "../fixtures");
@@ -42,6 +41,7 @@ function makeConfigLayer(configPath: string) {
 			codec: TomlCodec,
 			strategy: FirstMatch,
 			resolvers: [ExplicitPath(configPath)],
+			validate: validateConfigRefs,
 		},
 	});
 }
@@ -73,25 +73,6 @@ function runScoped<A, E, R extends FileSystem.FileSystem>(effect: Effect.Effect<
 		) as Effect.Effect<A, E>,
 	);
 }
-
-// ---------------------------------------------------------------------------
-// resolveConfigFlag (pure function)
-// ---------------------------------------------------------------------------
-
-describe("resolveConfigFlag", () => {
-	it("returns undefined for Option.none", () => {
-		expect(resolveConfigFlag(Option.none())).toBeUndefined();
-	});
-
-	it("returns the file path as-is when it points to a file", () => {
-		const path = fixture("valid-minimal.toml");
-		expect(resolveConfigFlag(Option.some(path))).toBe(path);
-	});
-
-	it("appends config filename when flag points to a directory", () => {
-		expect(resolveConfigFlag(Option.some(fixturesDir))).toBe(join(fixturesDir, "reposets.config.toml"));
-	});
-});
 
 // ---------------------------------------------------------------------------
 // ConfigFileService - loading valid configs
@@ -212,6 +193,76 @@ describe("ConfigFileService error handling", () => {
 });
 
 // ---------------------------------------------------------------------------
+// validateConfigRefs
+// ---------------------------------------------------------------------------
+
+describe("validateConfigRefs", () => {
+	it("rejects config with unknown settings group reference", async () => {
+		const layer = makeConfigLayer(fixture("bad-refs.toml"));
+		const result = await runWithProvider(
+			Effect.gen(function* () {
+				const cf = yield* TestConfigFile;
+				return yield* Effect.either(cf.load);
+			}).pipe(Effect.provide(layer)),
+		);
+
+		expect(result._tag).toBe("Left");
+		if (result._tag === "Left") {
+			const error = result.left as ConfigError;
+			expect(error._tag).toBe("ConfigError");
+			expect(error.reason).toContain("unknown settings group 'nonexistent-settings'");
+		}
+	});
+
+	it("rejects config with unknown secrets group reference", async () => {
+		const layer = makeConfigLayer(fixture("bad-refs.toml"));
+		const result = await runWithProvider(
+			Effect.gen(function* () {
+				const cf = yield* TestConfigFile;
+				return yield* Effect.either(cf.load);
+			}).pipe(Effect.provide(layer)),
+		);
+
+		expect(result._tag).toBe("Left");
+		if (result._tag === "Left") {
+			const error = result.left as ConfigError;
+			expect(error._tag).toBe("ConfigError");
+			expect(error.reason).toContain("unknown secrets group 'nonexistent-secrets'");
+		}
+	});
+
+	it("rejects config with unknown environment reference", async () => {
+		const layer = makeConfigLayer(fixture("bad-env-refs.toml"));
+		const result = await runWithProvider(
+			Effect.gen(function* () {
+				const cf = yield* TestConfigFile;
+				return yield* Effect.either(cf.load);
+			}).pipe(Effect.provide(layer)),
+		);
+
+		expect(result._tag).toBe("Left");
+		if (result._tag === "Left") {
+			const error = result.left as ConfigError;
+			expect(error._tag).toBe("ConfigError");
+			expect(error.reason).toContain("unknown environment 'nonexistent-env'");
+		}
+	});
+
+	it("accepts config with all valid cross-references", async () => {
+		const layer = makeConfigLayer(fixture("valid-full.toml"));
+		const result = await runWithProvider(
+			Effect.gen(function* () {
+				const cf = yield* TestConfigFile;
+				return yield* cf.load;
+			}).pipe(Effect.provide(layer)),
+		);
+
+		expect(result.owner).toBe("test-owner");
+		expect(result.groups["my-projects"]).toBeDefined();
+	});
+});
+
+// ---------------------------------------------------------------------------
 // CredentialsFileService
 // ---------------------------------------------------------------------------
 
@@ -267,115 +318,13 @@ describe("ConfigFileService credentials loading", () => {
 });
 
 // ---------------------------------------------------------------------------
-// loadConfigWithDir
-// ---------------------------------------------------------------------------
-
-describe("loadConfigWithDir", () => {
-	it("loads config and returns configDir when given explicit file path", async () => {
-		const configPath = fixture("valid-full.toml");
-		const layer = makeConfigLayer(configPath);
-
-		const result = await runWithProvider(
-			Effect.gen(function* () {
-				const cf = yield* TestConfigFile;
-				return yield* loadConfigWithDir(cf, Option.some(configPath));
-			}).pipe(Effect.provide(layer)),
-		);
-
-		expect(result.config.owner).toBe("test-owner");
-		expect(result.configDir).toBe(fixturesDir);
-	});
-
-	it("loads config and returns configDir when given a directory flag", async () => {
-		// Create a temp dir with a properly-named config file
-		const result = await runScoped(
-			Effect.gen(function* () {
-				const fs = yield* FileSystem.FileSystem;
-				const tmpDir = yield* fs.makeTempDirectoryScoped();
-				yield* fs.writeFileString(join(tmpDir, "reposets.config.toml"), fixtureContent("valid-minimal.toml"));
-
-				const layer = makeConfigLayer(join(tmpDir, "reposets.config.toml"));
-				return yield* Effect.provide(
-					Effect.gen(function* () {
-						const cf = yield* TestConfigFile;
-						return yield* loadConfigWithDir(cf, Option.some(tmpDir));
-					}),
-					layer,
-				);
-			}),
-		);
-
-		expect(result.config.groups["my-projects"]).toBeDefined();
-		expect(result.configDir).toBeDefined();
-	});
-
-	it("discovers config via resolver chain when no flag is provided", async () => {
-		const layer = makeConfigLayer(fixture("valid-minimal.toml"));
-
-		const result = await runWithProvider(
-			Effect.gen(function* () {
-				const cf = yield* TestConfigFile;
-				return yield* loadConfigWithDir(cf, Option.none());
-			}).pipe(Effect.provide(layer)),
-		);
-
-		expect(result.config.groups["my-projects"]).toBeDefined();
-		expect(result.configDir).toBe(fixturesDir);
-	});
-
-	it("fails with ConfigError when no config file is found", async () => {
-		const layer = makeConfigLayer(fixture("nonexistent.toml"));
-
-		const result = await runWithProvider(
-			Effect.gen(function* () {
-				const cf = yield* TestConfigFile;
-				return yield* Effect.either(loadConfigWithDir(cf, Option.none()));
-			}).pipe(Effect.provide(layer)),
-		);
-
-		expect(result._tag).toBe("Left");
-		if (result._tag === "Left") {
-			const error = result.left as ConfigError;
-			expect(error._tag).toBe("ConfigError");
-		}
-	});
-
-	it("fails when explicit path points to invalid TOML", async () => {
-		const configPath = fixture("invalid-syntax.toml");
-		const layer = makeConfigLayer(configPath);
-
-		const result = await runWithProvider(
-			Effect.gen(function* () {
-				const cf = yield* TestConfigFile;
-				return yield* Effect.either(loadConfigWithDir(cf, Option.some(configPath)));
-			}).pipe(Effect.provide(layer)),
-		);
-
-		expect(result._tag).toBe("Left");
-	});
-
-	it("fails when explicit path has invalid schema", async () => {
-		const configPath = fixture("invalid-schema.toml");
-		const layer = makeConfigLayer(configPath);
-
-		const result = await runWithProvider(
-			Effect.gen(function* () {
-				const cf = yield* TestConfigFile;
-				return yield* Effect.either(loadConfigWithDir(cf, Option.some(configPath)));
-			}).pipe(Effect.provide(layer)),
-		);
-
-		expect(result._tag).toBe("Left");
-	});
-});
-
-// ---------------------------------------------------------------------------
 // Full layer with temp directories (filesystem integration)
 // ---------------------------------------------------------------------------
 
 describe("ConfigFiles filesystem integration", () => {
 	it("writes and reads config round-trip via ConfigFileService", async () => {
 		const result = await runScoped(
+			// @ts-expect-error -- Scope requirement from makeTempDirectoryScoped widens R beyond FileSystem constraint
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const tmpDir = yield* fs.makeTempDirectoryScoped();
@@ -461,6 +410,7 @@ describe("ConfigFiles filesystem integration", () => {
 
 	it("loads both config and credentials from temp directory", async () => {
 		const result = await runScoped(
+			// @ts-expect-error -- Scope requirement from makeTempDirectoryScoped widens R beyond FileSystem constraint
 			Effect.gen(function* () {
 				const fs = yield* FileSystem.FileSystem;
 				const tmpDir = yield* fs.makeTempDirectoryScoped();

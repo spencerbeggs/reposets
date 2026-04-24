@@ -1,9 +1,8 @@
 import { readFileSync } from "node:fs";
-import { join } from "node:path";
 import { Command, Options } from "@effect/cli";
-import { Console, Effect } from "effect";
+import { Effect } from "effect";
 import { parse } from "smol-toml";
-import { ReposetsConfigFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
+import { ReposetsConfigFile, makeConfigFilesLive } from "../../services/ConfigFiles.js";
 
 const configOption = Options.file("config").pipe(
 	Options.withDescription("Path to config directory or reposets.config.toml file"),
@@ -71,15 +70,20 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 		const configFile = yield* ReposetsConfigFile;
 
 		// Use discover to find and validate config; also get the file path for raw parsing
-		const discoverResult = yield* Effect.either(loadConfigWithDir(configFile, config));
+		const discoverResult = yield* Effect.either(configFile.discover);
 
 		if (discoverResult._tag === "Left") {
-			yield* Console.error("No config found. Run 'reposets init' to create one.");
+			yield* Effect.logError("No config found. Run 'reposets init' to create one.");
 			return;
 		}
 
-		const { configDir } = discoverResult.right;
-		const configPath = join(configDir, "reposets.config.toml");
+		const sources = discoverResult.right;
+		if (sources.length === 0) {
+			yield* Effect.logError("No config found. Run 'reposets init' to create one.");
+			return;
+		}
+
+		const configPath = sources[0].path;
 
 		// Raw TOML parsing for typo detection (schema validation strips unknown keys)
 		let raw: Record<string, unknown>;
@@ -87,7 +91,7 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 			const configToml = readFileSync(configPath, "utf-8");
 			raw = parse(configToml);
 		} catch (err) {
-			yield* Console.error(`TOML parse error: ${err instanceof Error ? err.message : String(err)}`);
+			yield* Effect.logError(`TOML parse error: ${err instanceof Error ? err.message : String(err)}`);
 			return;
 		}
 
@@ -97,7 +101,7 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 			if (!KNOWN_CONFIG_KEYS.has(key)) {
 				const suggestion = findClosestMatch(key, KNOWN_CONFIG_KEYS);
 				const hint = suggestion ? ` -- did you mean '${suggestion}'?` : "";
-				yield* Console.log(`Warning: unknown top-level key '${key}'${hint}`);
+				yield* Effect.log(`Warning: unknown top-level key '${key}'${hint}`);
 				warnings++;
 			}
 		}
@@ -110,7 +114,7 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 						if (!KNOWN_GROUP_KEYS.has(key)) {
 							const suggestion = findClosestMatch(key, KNOWN_GROUP_KEYS);
 							const hint = suggestion ? ` -- did you mean '${suggestion}'?` : "";
-							yield* Console.log(`Warning: unknown key '${key}' in groups.${groupName}${hint}`);
+							yield* Effect.log(`Warning: unknown key '${key}' in groups.${groupName}${hint}`);
 							warnings++;
 						}
 					}
@@ -129,7 +133,7 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 					if (!KNOWN_CLEANUP_KEYS.has(key)) {
 						const suggestion = findClosestMatch(key, KNOWN_CLEANUP_KEYS);
 						const hint = suggestion ? ` -- did you mean '${suggestion}'?` : "";
-						yield* Console.log(`Warning: unknown key '${key}' in ${prefix}${hint}`);
+						yield* Effect.log(`Warning: unknown key '${key}' in ${prefix}${hint}`);
 						warnings++;
 					}
 				}
@@ -139,7 +143,7 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 						if (!KNOWN_CLEANUP_SECRETS_KEYS.has(key)) {
 							const suggestion = findClosestMatch(key, KNOWN_CLEANUP_SECRETS_KEYS);
 							const hint = suggestion ? ` -- did you mean '${suggestion}'?` : "";
-							yield* Console.log(`Warning: unknown key '${key}' in ${prefix}.secrets${hint}`);
+							yield* Effect.log(`Warning: unknown key '${key}' in ${prefix}.secrets${hint}`);
 							warnings++;
 						}
 					}
@@ -150,7 +154,7 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 						if (!KNOWN_CLEANUP_VARIABLES_KEYS.has(key)) {
 							const suggestion = findClosestMatch(key, KNOWN_CLEANUP_VARIABLES_KEYS);
 							const hint = suggestion ? ` -- did you mean '${suggestion}'?` : "";
-							yield* Console.log(`Warning: unknown key '${key}' in ${prefix}.variables${hint}`);
+							yield* Effect.log(`Warning: unknown key '${key}' in ${prefix}.variables${hint}`);
 							warnings++;
 						}
 					}
@@ -158,20 +162,20 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 			}
 		}
 
-		// Schema validation already passed via loadConfigWithDir
-		yield* Console.log("Schema validation: passed");
+		// Schema validation already passed via discover
+		yield* Effect.log("Schema validation: passed");
 
-		yield* Console.log("\nRequired fine-grained token permissions:");
-		yield* Console.log("  Repository permissions > Administration (Read and write) -- settings sync");
-		yield* Console.log("  Repository permissions > Secrets (Read and write) -- Actions secrets");
-		yield* Console.log("  Repository permissions > Variables (Read and write) -- Actions variables");
-		yield* Console.log("  Repository permissions > Environments (Read and write) -- environment sync");
-		yield* Console.log("  Account permissions > GPG keys (Read and write) -- secrets encryption key");
+		yield* Effect.log("\nRequired fine-grained token permissions:");
+		yield* Effect.log("  Repository permissions > Administration (Read and write) -- settings sync");
+		yield* Effect.log("  Repository permissions > Secrets (Read and write) -- Actions secrets");
+		yield* Effect.log("  Repository permissions > Variables (Read and write) -- Actions variables");
+		yield* Effect.log("  Repository permissions > Environments (Read and write) -- environment sync");
+		yield* Effect.log("  Account permissions > GPG keys (Read and write) -- secrets encryption key");
 
 		if (warnings === 0) {
-			yield* Console.log("\nNo unknown keys detected.");
+			yield* Effect.log("\nNo unknown keys detected.");
 		} else {
-			yield* Console.log(`\n${warnings} warning(s) found.`);
+			yield* Effect.log(`\n${warnings} warning(s) found.`);
 		}
-	}),
+	}).pipe(Effect.provide(makeConfigFilesLive(config))),
 ).pipe(Command.withDescription("Deep config diagnostics with typo detection"));

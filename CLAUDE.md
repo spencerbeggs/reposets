@@ -30,7 +30,7 @@ pnpm run typecheck         # Type-check all workspaces via Turbo
 pnpm sync                  # Alias: tsx package/src/cli/index.ts
 
 # Testing
-pnpm run test              # Run all tests (235 passing)
+pnpm run test              # Run all tests (230 passing)
 pnpm run test:watch        # Run tests in watch mode
 pnpm run test:coverage     # Run tests with coverage report
 
@@ -110,8 +110,10 @@ Global option: `--log-level silent|info|verbose|debug` (overrides
 
 Six services compose the sync pipeline:
 
-- `ConfigLoader` — Parses and validates TOML config/credentials via
-  Effect Schema
+- `ConfigFiles` (`ReposetsConfigFile` + `ReposetsCredentialsFile`) —
+  Declarative config file loading via xdg-effect `ConfigFile.Tag`;
+  `makeConfigFilesLive(configFlag)` factory builds resolver chains per
+  command; `validateConfigRefs` callback validates cross-references
 - `CredentialResolver` — Resolves named values from credential profile
   `[resolve]` sections (value, file, and op sub-groups)
 - `OnePasswordClient` — Wraps `@1password/sdk` for 1Password secret references
@@ -158,7 +160,7 @@ undeclared), or `{ preserve = [...] }`.
 #### JSON Schema
 
 Run `pnpm --filter reposets generate:json-schema` to regenerate
-`package/schemas/`. The generation pipeline uses `xdg-effect` v0.3.3's
+`package/schemas/`. The generation pipeline uses `xdg-effect` v1.0.0's
 `JsonSchemaExporter` and `JsonSchemaValidator` services with `tombi()`
 and `taplo()` helpers for TOML language server annotations. Each schema
 includes a `$id` pointing to the raw GitHub hosting URL.
@@ -194,6 +196,12 @@ The CLI requires a fine-grained personal access token with:
 ### Effect Patterns
 
 - Services use `Context.Tag` + `Layer.succeed` / `Layer.effect`
+- Config files use xdg-effect `ConfigFile.Tag` with declarative resolver
+  chains; each CLI command provides its own `makeConfigFilesLive(config)`
+  layer
+- CLI commands use `Effect.log`/`Effect.logError` (not `Console.log`/
+  `Console.error`); a custom `CliLogger` in the entrypoint routes output
+  to stdout/stderr
 - Errors are tagged data classes extending `Data.TaggedError`
 - All I/O wrapped in `Effect.try` / `Effect.tryPromise`
 - Provide layers at the CLI entrypoint, not inside service implementations

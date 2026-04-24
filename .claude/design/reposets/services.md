@@ -3,19 +3,34 @@ module: reposets
 title: Effect Services
 status: current
 completeness: 95
-last-synced: 2026-04-22
+last-synced: 2026-04-23
 ---
 
-## ConfigLoader
+## ConfigFiles
 
-Parses and validates TOML config and credentials files.
+Declarative config file loading via xdg-effect `ConfigFile.Tag` services.
+Replaces the former `ConfigLoader` service.
 
-- `parseConfig(toml: string)` - parse TOML, validate against ConfigSchema
-- `parseCredentials(toml: string)` - parse TOML, validate against
-  CredentialsSchema; empty string returns default empty profiles
+- `ReposetsConfigFile` (`ConfigFile.Tag<Config>`) - config file service
+  with `discover` (find and parse), `load`, `loadOrDefault`, `save`,
+  `update` methods; schema validation via `ConfigSchema`; cross-reference
+  validation via `validateConfigRefs` callback
+- `ReposetsCredentialsFile` (`ConfigFile.Tag<Credentials>`) - credentials
+  file service with same methods; schema validation via
+  `CredentialsSchema`; default XDG save path
+- `makeConfigFilesLive(configFlag: Option<string>)` - factory that builds
+  resolver chains based on the `--config` flag:
+  - `Some(file)` -> prepends `ExplicitPath(flag)`
+  - `Some(directory)` -> prepends `StaticDir({ dir, filename })`
+  - Always appends `UpwardWalk` + `XdgConfigResolver` as fallbacks
+- `ConfigFilesLive` - convenience alias for `makeConfigFilesLive(Option.none())`
+- `validateConfigRefs(config)` - validates all internal cross-references
+  (settings, secrets, variables, rulesets, environments) and collects
+  errors into a single `ConfigError`
 
-Implementation: `Layer.succeed` (pure parsing, no I/O). File reading is
-handled by the CLI command layer.
+Implementation: `XdgConfigLive.multi()` with `TomlCodec` and
+`FirstMatch` strategy. Each command provides its own layer via
+`makeConfigFilesLive(config)`. No direct I/O in the service definition.
 
 ## OnePasswordClient
 
@@ -47,7 +62,9 @@ across sub-groups are a validation error.
 ## SyncLogger
 
 Tiered output service for the sync pipeline. All sync output flows through
-this service rather than direct `Console.log` calls.
+this service rather than direct console calls. CLI commands use
+`Effect.log`/`Effect.logError` with a custom `CliLogger` (defined in
+the entrypoint) that routes to stdout/stderr.
 
 Methods: `groupStart`, `repoStart`, `repoSkip`, `syncSummary`,
 `settingsApplied`, `cleanupSummary`, `syncOperation`, `syncError`, `finish`

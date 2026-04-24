@@ -24,11 +24,13 @@ export { CredentialProfileSchema, CredentialsSchema, ResolveSectionSchema } from
 export type { BypassActor, ResolvedRef, Ruleset, RulesetPayload } from "./schemas/ruleset.js";
 export { BypassActorSchema, ResolvedRefSchema, RulesetSchema, buildRulesetPayload } from "./schemas/ruleset.js";
 export {
+	CONFIG_FILENAME,
+	CREDENTIALS_FILENAME,
 	ConfigFilesLive,
 	ReposetsConfigFile,
 	ReposetsCredentialsFile,
-	loadConfigWithDir,
-	resolveConfigFlag,
+	makeConfigFilesLive,
+	validateConfigRefs,
 } from "./services/ConfigFiles.js";
 export { CredentialResolver, CredentialResolverLive } from "./services/CredentialResolver.js";
 export type { RecordedCall } from "./services/GitHubClient.js";

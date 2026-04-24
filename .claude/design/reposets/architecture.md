@@ -3,7 +3,7 @@ module: reposets
 title: Architecture
 status: current
 completeness: 95
-last-synced: 2026-04-22
+last-synced: 2026-04-23
 ---
 
 ## Overview
@@ -16,10 +16,16 @@ values are resolved from credential profiles at runtime.
 ## Service Graph
 
 ```text
-CLI Commands (--log-level flag)
+CLI Commands (--log-level flag, CliLogger)
   |
   v
-ConfigLoader (TOML parsing + Schema validation)
+ConfigFile services (xdg-effect ConfigFile.Tag)
+  |--- ReposetsConfigFile (schema + validate callback)
+  |--- ReposetsCredentialsFile (schema + XDG default path)
+  |--- makeConfigFilesLive(configFlag) factory
+  |      |--- ExplicitPath / StaticDir (--config flag)
+  |      |--- UpwardWalk (directory walk)
+  |      |--- XdgConfigResolver (XDG fallback)
   |
   v
 SyncEngine (orchestration)
@@ -34,19 +40,28 @@ SyncEngine (orchestration)
 
 ## Layer Composition
 
-Layers are composed at the CLI entrypoint, not inside services:
+Layers are composed at two levels:
 
-- `ConfigLoaderLive` provided at root command level
-- `NodeContext.layer` provided at root command level
-- Per-sync invocation: `GitHubClientLive(token)` + `OnePasswordClientLive` +
-  `CredentialResolverLive` + `SyncLoggerLive({ dryRun, logLevel })` +
-  `SyncEngineLive` composed in the sync command handler
+- **Root entrypoint** (`index.ts`): provides `NodeContext.layer` and
+  `CliLogger` (custom logger routing `Effect.log` to stdout and
+  `Effect.logError` to stderr)
+- **Per-command**: each command calls `makeConfigFilesLive(config)` to
+  provide `ReposetsConfigFile` and `ReposetsCredentialsFile` layers,
+  using the `--config` flag option to configure resolver chains
+- **Per-sync invocation**: `GitHubClientLive(token)` +
+  `OnePasswordClientLive` + `CredentialResolverLive` +
+  `SyncLoggerLive({ dryRun, logLevel })` + `SyncEngineLive` composed
+  in the sync command handler
 
 ## Data Flow
 
 1. CLI parses args via @effect/cli (global `--log-level` flag)
-2. Config path resolved: --config flag > directory walk > XDG fallback
-3. TOML files read from disk, parsed by smol-toml, validated by Effect Schema
+2. Config path resolved via declarative resolver chain:
+   `ExplicitPath`/`StaticDir` (--config flag) > `UpwardWalk` (directory
+   walk) > `XdgConfigResolver` (XDG fallback)
+3. TOML files read from disk, parsed by smol-toml, validated by Effect
+   Schema; config cross-references validated by `validateConfigRefs`
+   callback
 4. SyncEngine iterates groups (`config.groups`), resolving credential
    profiles per group
 5. CredentialResolver resolves all labels from the active profile's
@@ -88,9 +103,10 @@ Each service has Live and Test layer implementations:
 - `GitHubClientTest()` - records API calls, returns empty lists (covers
   all 20 service methods including environment operations)
 - `OnePasswordClientTest(stubs)` - returns deterministic values
-- `ConfigLoaderLive` - used directly in tests (pure parsing, no I/O)
+- `makeConfigFilesLive` - used directly in tests (builds xdg-effect
+  resolver chains for config + credentials)
 - `CredentialResolverLive` - tested with real filesystem + mock OP client
 - `SyncLoggerLive` - tested with Ref-based output capture
 
-235 tests (unit + integration) cover schemas, services, CLI commands,
+230 tests (unit + integration) cover schemas, services, CLI commands,
 and utilities.

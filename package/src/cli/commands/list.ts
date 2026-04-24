@@ -1,6 +1,6 @@
 import { Command, Options } from "@effect/cli";
-import { Console, Effect } from "effect";
-import { ReposetsConfigFile, loadConfigWithDir } from "../../services/ConfigFiles.js";
+import { Effect } from "effect";
+import { ReposetsConfigFile, makeConfigFilesLive } from "../../services/ConfigFiles.js";
 
 const configOption = Options.file("config").pipe(
 	Options.withDescription("Path to config directory or reposets.config.toml file"),
@@ -10,25 +10,30 @@ const configOption = Options.file("config").pipe(
 export const listCommand = Command.make("list", { config: configOption }, ({ config }) =>
 	Effect.gen(function* () {
 		const configFile = yield* ReposetsConfigFile;
-		const { config: parsedConfig } = yield* loadConfigWithDir(configFile, config);
+		const sources = yield* configFile.discover;
+		if (sources.length === 0) {
+			yield* Effect.logError("No config file found.");
+			return;
+		}
+		const parsedConfig = sources[0].value;
 
 		const defaultOwner = parsedConfig.owner ?? "(not set)";
-		yield* Console.log(`Default owner: ${defaultOwner}\n`);
+		yield* Effect.log(`Default owner: ${defaultOwner}\n`);
 
 		for (const [groupName, group] of Object.entries(parsedConfig.groups)) {
 			const owner = group.owner ?? parsedConfig.owner ?? "(not set)";
-			yield* Console.log(`[${groupName}] (owner: ${owner})`);
+			yield* Effect.log(`[${groupName}] (owner: ${owner})`);
 
 			for (const repo of group.repos) {
-				yield* Console.log(`  - ${owner}/${repo}`);
+				yield* Effect.log(`  - ${owner}/${repo}`);
 			}
 
 			if (group.settings?.length) {
-				yield* Console.log(`  settings: ${group.settings.join(", ")}`);
+				yield* Effect.log(`  settings: ${group.settings.join(", ")}`);
 			}
 
 			if (group.environments?.length) {
-				yield* Console.log(`  environments: ${group.environments.join(", ")}`);
+				yield* Effect.log(`  environments: ${group.environments.join(", ")}`);
 			}
 
 			if (group.secrets) {
@@ -49,7 +54,7 @@ export const listCommand = Command.make("list", { config: configOption }, ({ con
 						}
 					}
 				}
-				if (parts.length) yield* Console.log(`  secrets: ${parts.join(", ")}`);
+				if (parts.length) yield* Effect.log(`  secrets: ${parts.join(", ")}`);
 			}
 
 			if (group.variables) {
@@ -64,16 +69,16 @@ export const listCommand = Command.make("list", { config: configOption }, ({ con
 						}
 					}
 				}
-				if (parts.length) yield* Console.log(`  variables: ${parts.join(", ")}`);
+				if (parts.length) yield* Effect.log(`  variables: ${parts.join(", ")}`);
 			}
 
 			if (group.rulesets?.length) {
-				yield* Console.log(`  rulesets: ${group.rulesets.join(", ")}`);
+				yield* Effect.log(`  rulesets: ${group.rulesets.join(", ")}`);
 			}
 			if (group.credentials) {
-				yield* Console.log(`  credentials: ${group.credentials}`);
+				yield* Effect.log(`  credentials: ${group.credentials}`);
 			}
-			yield* Console.log("");
+			yield* Effect.log("");
 		}
-	}),
+	}).pipe(Effect.provide(makeConfigFilesLive(config))),
 ).pipe(Command.withDescription("Show config summary"));

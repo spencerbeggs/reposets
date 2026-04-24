@@ -64,13 +64,12 @@ Validate `reposets.config.toml` against its schema without making any API calls.
 reposets validate
 ```
 
-Example output when validation finds reference errors:
+Cross-reference validation (settings, secrets, variables, rulesets, environments) runs automatically during config loading via the `validateConfigRefs` callback. If references are invalid, the error is reported as a config validation failure:
 
 ```text
 $ reposets validate
-Config schema: valid
-Group 'my-projects': references unknown settings group 'typo-settings'
-Group 'my-projects': references unknown environment 'nonexistent'
+Config validation failed: group 'my-projects': unknown settings group 'typo-settings'
+group 'my-projects': unknown environment 'nonexistent'
 ```
 
 ## doctor

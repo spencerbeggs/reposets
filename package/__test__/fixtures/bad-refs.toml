@@ -1,0 +1,9 @@
+[settings.defaults]
+has_wiki = false
+
+[groups.my-projects]
+repos = ["repo-one"]
+settings = ["nonexistent-settings"]
+secrets = { actions = ["nonexistent-secrets"] }
+variables = { actions = ["nonexistent-vars"] }
+rulesets = ["nonexistent-ruleset"]

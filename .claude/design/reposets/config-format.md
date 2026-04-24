@@ -3,7 +3,7 @@ module: reposets
 title: Configuration Format
 status: current
 completeness: 95
-last-synced: 2026-04-22
+last-synced: 2026-04-23
 ---
 
 ## Files
@@ -15,11 +15,19 @@ last-synced: 2026-04-22
 
 ## Config Path Resolution
 
-Resolution order (first match wins):
+Resolution uses a declarative resolver chain (`FirstMatch` strategy,
+first match wins). `makeConfigFilesLive(configFlag)` builds the chain:
 
-1. `--config` flag (directory or file path)
-2. Walk up from cwd looking for `reposets.config.toml`
-3. `$XDG_CONFIG_HOME/reposets/` or `~/.config/reposets/`
+1. `--config` flag: `ExplicitPath(flag)` if file, `StaticDir({ dir,
+   filename })` if directory (prepended when `--config` is provided)
+2. `UpwardWalk({ filename })` - walk up from cwd looking for
+   `reposets.config.toml`
+3. `XdgConfigResolver({ filename })` - `$XDG_CONFIG_HOME/reposets/` or
+   `~/.config/reposets/`
+
+Credentials use a separate chain: `UpwardWalk` + `XdgConfigResolver`
+only (no `--config` flag support), with `XdgSavePath` as the default
+save location.
 
 File references in `file`-kind groups resolve relative to the directory
 containing `reposets.config.toml`.
@@ -274,7 +282,7 @@ labels referenced by config templates.
 ## JSON Schema Generation
 
 Effect Schema definitions generate JSON schemas via `JsonSchemaExporter`
-from xdg-effect (v0.3.3). The generation script
+from xdg-effect (v1.0.0). The generation script
 (`package/lib/scripts/generate-json-schema.ts`) uses the standard
 `generateMany` -> `validateMany` -> `writeMany` pipeline:
 
@@ -321,5 +329,5 @@ for those positions. Three files use `Jsonifiable`: `common.ts`
 
 ### Dependencies
 
-- `xdg-effect` (^0.3.3) -- `JsonSchemaExporter`, `JsonSchemaValidator`,
+- `xdg-effect` (^1.0.0) -- `JsonSchemaExporter`, `JsonSchemaValidator`,
   `Jsonifiable`, `tombi()`, `taplo()` helpers

@@ -4,18 +4,14 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { Command } from "@effect/cli";
 import { NodeContext } from "@effect/platform-node";
-import { ConfigProvider, Effect, Layer, Option } from "effect";
+import { ConfigProvider, Effect, LogLevel, Logger } from "effect";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { AppDirsConfig, ConfigFile, ExplicitPath, FirstMatch, TomlCodec, XdgConfigLive } from "xdg-effect";
 import { credentialsCommand } from "../../src/cli/commands/credentials.js";
 import { doctorCommand } from "../../src/cli/commands/doctor.js";
 import { initCommand } from "../../src/cli/commands/init.js";
 import { listCommand } from "../../src/cli/commands/list.js";
 import { syncCommand } from "../../src/cli/commands/sync.js";
 import { validateCommand } from "../../src/cli/commands/validate.js";
-import { ConfigSchema } from "../../src/schemas/config.js";
-import { CredentialsSchema } from "../../src/schemas/credentials.js";
-import { ReposetsConfigFile, ReposetsCredentialsFile } from "../../src/services/ConfigFiles.js";
 
 // ---------------------------------------------------------------------------
 // Fixtures
@@ -178,93 +174,41 @@ afterEach(() => {
 	vi.restoreAllMocks();
 });
 
-const testProvider = ConfigProvider.fromMap(new Map([["HOME", "/test/home"]]));
-
-function makeTestConfigLayer(configPath: string) {
-	return XdgConfigLive({
-		app: new AppDirsConfig({ namespace: "reposets", fallbackDir: Option.none(), dirs: Option.none() }),
-		config: {
-			tag: ReposetsConfigFile,
-			schema: ConfigSchema,
-			codec: TomlCodec,
-			strategy: FirstMatch,
-			resolvers: [ExplicitPath(configPath)],
-		},
-	});
-}
-
-function makeTestCredentialsLayer(credentialsPath: string, configLayer: ReturnType<typeof makeTestConfigLayer>) {
-	return ConfigFile.Live({
-		tag: ReposetsCredentialsFile,
-		schema: CredentialsSchema,
-		codec: TomlCodec,
-		strategy: FirstMatch,
-		resolvers: [ExplicitPath(credentialsPath)],
-	}).pipe(Layer.provide(configLayer));
-}
-
-/**
- * Build a layer with AppDirs pointing config dir at the given path.
- * Uses an explicit dirs override so no real XDG resolution happens.
- */
-function makeAppDirsLayer(configDir: string) {
-	return XdgConfigLive({
-		app: new AppDirsConfig({
-			namespace: "reposets",
-			fallbackDir: Option.none(),
-			dirs: Option.some({
-				config: Option.some(configDir),
-				data: Option.none(),
-				cache: Option.none(),
-				state: Option.none(),
-				runtime: Option.none(),
-			}),
-		}),
-		config: {
-			tag: ReposetsConfigFile,
-			schema: ConfigSchema,
-			codec: TomlCodec,
-			strategy: FirstMatch,
-			resolvers: [ExplicitPath(join(configDir, "reposets.config.toml"))],
-		},
-	});
-}
-
-/**
- * Build a layer with AppDirs + ReposetsCredentialsFile pointing at the given config dir.
- * Used for credentials command tests that need the credentials service.
- */
-function makeAppDirsWithCredsLayer(configDir: string) {
-	const credsPath = join(configDir, "reposets.credentials.toml");
-	const base = makeAppDirsLayer(configDir);
-	const credsLayer = ConfigFile.Live({
-		tag: ReposetsCredentialsFile,
-		schema: CredentialsSchema,
-		codec: TomlCodec,
-		strategy: FirstMatch,
-		resolvers: [ExplicitPath(credsPath)],
-		defaultPath: Effect.succeed(credsPath),
-	}).pipe(Layer.provide(base));
-	return Layer.mergeAll(base, credsLayer);
-}
-
 function writeFixture(dir: string, filename: string, content: string): string {
 	const path = join(dir, filename);
 	writeFileSync(path, content);
 	return path;
 }
 
+/**
+ * Run a CLI command in isolation. Commands provide their own config layers
+ * via makeConfigFilesLive() internally; this helper only supplies
+ * NodeContext, a custom ConfigProvider (for HOME etc.), and a test logger
+ * that captures output into arrays instead of writing to console.
+ */
 // biome-ignore lint/suspicious/noExplicitAny: Effect Command/Layer variance prevents precise typing in test helpers
-function runCommand(command: any, args: string[], layer: any) {
+function runCommand(command: any, args: string[], provider?: ConfigProvider.ConfigProvider) {
+	const messages: string[] = [];
+	const errors: string[] = [];
+	const testLogger = Logger.make(({ logLevel, message }) => {
+		const text = typeof message === "string" ? message : String(message);
+		if (LogLevel.greaterThanEqual(logLevel, LogLevel.Error)) {
+			errors.push(text);
+		} else {
+			messages.push(text);
+		}
+	});
+
 	const root = Command.make("reposets").pipe(Command.withSubcommands([command]));
 	const cli = Command.run(root, { name: "reposets", version: "0.0.0" });
-	return Effect.runPromise(
+	const promise = Effect.runPromise(
 		Effect.suspend(() => cli(["node", "reposets", ...args])).pipe(
-			Effect.withConfigProvider(testProvider),
-			Effect.provide(layer),
+			Effect.withConfigProvider(provider ?? ConfigProvider.fromMap(new Map([["HOME", tmpDir]]))),
+			Effect.provide(Logger.replace(Logger.defaultLogger, testLogger)),
 			Effect.provide(NodeContext.layer),
 		),
 	);
+	return Object.assign(promise, { messages, errors });
 }
 
 // ---------------------------------------------------------------------------
@@ -273,10 +217,9 @@ function runCommand(command: any, args: string[], layer: any) {
 
 describe("init command", () => {
 	it("creates config and credentials files in project directory", async () => {
-		const layer = makeAppDirsLayer(tmpDir);
 		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		await runCommand(initCommand, ["init", "--project"], layer);
+		await runCommand(initCommand, ["init", "--project"]);
 
 		expect(existsSync(join(tmpDir, "reposets.config.toml"))).toBe(true);
 		expect(existsSync(join(tmpDir, "reposets.credentials.toml"))).toBe(true);
@@ -289,10 +232,9 @@ describe("init command", () => {
 	});
 
 	it("creates .gitignore with credentials file in project mode", async () => {
-		const layer = makeAppDirsLayer(tmpDir);
 		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		await runCommand(initCommand, ["init", "--project"], layer);
+		await runCommand(initCommand, ["init", "--project"]);
 
 		const gitignore = readFileSync(join(tmpDir, ".gitignore"), "utf-8");
 		expect(gitignore).toContain("reposets.credentials.toml");
@@ -300,36 +242,33 @@ describe("init command", () => {
 
 	it("does not overwrite existing config files", async () => {
 		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
-		const layer = makeAppDirsLayer(tmpDir);
 		writeFixture(tmpDir, "reposets.config.toml", "# existing config");
 		writeFixture(tmpDir, "reposets.credentials.toml", "# existing creds");
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(initCommand, ["init", "--project"], layer);
+		const result = runCommand(initCommand, ["init", "--project"]);
+		await result;
 
 		const config = readFileSync(join(tmpDir, "reposets.config.toml"), "utf-8");
 		expect(config).toBe("# existing config");
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("already exists");
+		expect(result.messages.join("\n")).toContain("already exists");
 	});
 
 	it("creates files in XDG config dir when --project is not set", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "reposets");
-		const layer = makeAppDirsLayer(xdgDir);
+		// With HOME=tmpDir, AppDirs resolves config to tmpDir/.reposets
+		const expectedDir = join(tmpDir, ".reposets");
 
-		await runCommand(initCommand, ["init"], layer);
+		await runCommand(initCommand, ["init"]);
 
-		expect(existsSync(join(xdgDir, "reposets.config.toml"))).toBe(true);
-		expect(existsSync(join(xdgDir, "reposets.credentials.toml"))).toBe(true);
+		expect(existsSync(join(expectedDir, "reposets.config.toml"))).toBe(true);
+		expect(existsSync(join(expectedDir, "reposets.credentials.toml"))).toBe(true);
 	});
 
 	it("appends to existing .gitignore in project mode", async () => {
 		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
-		const layer = makeAppDirsLayer(tmpDir);
 		writeFixture(tmpDir, ".gitignore", "node_modules\n");
 
-		await runCommand(initCommand, ["init", "--project"], layer);
+		await runCommand(initCommand, ["init", "--project"]);
 
 		const gitignore = readFileSync(join(tmpDir, ".gitignore"), "utf-8");
 		expect(gitignore).toContain("node_modules");
@@ -343,17 +282,20 @@ describe("init command", () => {
 
 describe("credentials command", () => {
 	it("creates a new credential profile", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "reposets");
-		mkdirSync(xdgDir, { recursive: true });
-		const layer = makeAppDirsWithCredsLayer(xdgDir);
+		// Mock cwd so UpwardWalk doesn't find real credentials
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		await runCommand(
-			credentialsCommand,
-			["credentials", "create", "--profile", "test", "--github-token", "ghp_testtoken123"],
-			layer,
-		);
+		await runCommand(credentialsCommand, [
+			"credentials",
+			"create",
+			"--profile",
+			"test",
+			"--github-token",
+			"ghp_testtoken123",
+		]);
 
-		const credsPath = join(xdgDir, "reposets.credentials.toml");
+		// With HOME=tmpDir, AppDirs resolves to tmpDir/.reposets
+		const credsPath = join(tmpDir, ".reposets", "reposets.credentials.toml");
 		expect(existsSync(credsPath)).toBe(true);
 		const content = readFileSync(credsPath, "utf-8");
 		expect(content).toContain("ghp_testtoken123");
@@ -361,83 +303,79 @@ describe("credentials command", () => {
 	});
 
 	it("lists credential profiles", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "reposets");
-		mkdirSync(xdgDir, { recursive: true });
-		writeFixture(xdgDir, "reposets.credentials.toml", VALID_CREDENTIALS);
-		const layer = makeAppDirsWithCredsLayer(xdgDir);
+		// Write credentials to where UpwardWalk from cwd will find them
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
+		writeFixture(tmpDir, "reposets.credentials.toml", VALID_CREDENTIALS);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(credentialsCommand, ["credentials", "list"], layer);
+		const result = runCommand(credentialsCommand, ["credentials", "list"]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("[personal]");
 		expect(output).toContain("ghp_");
 	});
 
 	it("deletes a credential profile", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "reposets");
+		// Write credentials to XDG dir (HOME/.reposets) since delete uses ensureConfig + loadOrDefault
+		const xdgDir = join(tmpDir, ".reposets");
 		mkdirSync(xdgDir, { recursive: true });
 		writeFixture(xdgDir, "reposets.credentials.toml", VALID_CREDENTIALS);
-		const layer = makeAppDirsWithCredsLayer(xdgDir);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		await runCommand(credentialsCommand, ["credentials", "delete", "--profile", "personal"], layer);
+		await runCommand(credentialsCommand, ["credentials", "delete", "--profile", "personal"]);
 
 		const content = readFileSync(join(xdgDir, "reposets.credentials.toml"), "utf-8");
 		expect(content).not.toContain("personal");
 	});
 
 	it("reports error when creating duplicate profile", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "reposets");
+		// Write credentials to XDG dir
+		const xdgDir = join(tmpDir, ".reposets");
 		mkdirSync(xdgDir, { recursive: true });
 		writeFixture(xdgDir, "reposets.credentials.toml", VALID_CREDENTIALS);
-		const layer = makeAppDirsWithCredsLayer(xdgDir);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		await runCommand(
-			credentialsCommand,
-			["credentials", "create", "--profile", "personal", "--github-token", "ghp_new"],
-			layer,
-		);
+		const result = runCommand(credentialsCommand, [
+			"credentials",
+			"create",
+			"--profile",
+			"personal",
+			"--github-token",
+			"ghp_new",
+		]);
+		await result;
 
-		const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("already exists");
+		expect(result.errors.join("\n")).toContain("already exists");
 	});
 
 	it("reports error when deleting nonexistent profile", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "reposets");
+		const xdgDir = join(tmpDir, ".reposets");
 		mkdirSync(xdgDir, { recursive: true });
 		writeFixture(xdgDir, "reposets.credentials.toml", VALID_CREDENTIALS);
-		const layer = makeAppDirsWithCredsLayer(xdgDir);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		await runCommand(credentialsCommand, ["credentials", "delete", "--profile", "nonexistent"], layer);
+		const result = runCommand(credentialsCommand, ["credentials", "delete", "--profile", "nonexistent"]);
+		await result;
 
-		const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("not found");
+		expect(result.errors.join("\n")).toContain("not found");
 	});
 
 	it("shows message when no profiles exist", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "reposets");
-		mkdirSync(xdgDir, { recursive: true });
-		const layer = makeAppDirsWithCredsLayer(xdgDir);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(credentialsCommand, ["credentials", "list"], layer);
+		const result = runCommand(credentialsCommand, ["credentials", "list"]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("No credential profiles");
+		expect(result.messages.join("\n")).toContain("No credential profiles");
 	});
 
 	it("rejects create with no tokens provided", async () => {
-		const xdgDir = join(tmpDir, "xdg-config", "reposets");
-		mkdirSync(xdgDir, { recursive: true });
-		const layer = makeAppDirsWithCredsLayer(xdgDir);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		await runCommand(credentialsCommand, ["credentials", "create", "--profile", "empty"], layer);
+		const result = runCommand(credentialsCommand, ["credentials", "create", "--profile", "empty"]);
+		await result;
 
-		const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("--github-token or --op-token");
+		expect(result.errors.join("\n")).toContain("--github-token or --op-token");
 	});
 });
 
@@ -448,12 +386,12 @@ describe("credentials command", () => {
 describe("list command", () => {
 	it("lists groups and repos from a valid config", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", VALID_FULL_CONFIG);
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(listCommand, ["list", "--config", configPath], configLayer);
+		const result = runCommand(listCommand, ["list", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("test-owner");
 		expect(output).toContain("[my-projects]");
 		expect(output).toContain("repo-one");
@@ -463,24 +401,24 @@ describe("list command", () => {
 
 	it("lists minimal config with defaults", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", VALID_MINIMAL_CONFIG);
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(listCommand, ["list", "--config", configPath], configLayer);
+		const result = runCommand(listCommand, ["list", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("(not set)");
 		expect(output).toContain("[my-projects]");
 	});
 
 	it("lists all scope types (secrets, variables, rulesets, credentials, environments)", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", CONFIG_WITH_ALL_SCOPES);
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(listCommand, ["list", "--config", configPath], configLayer);
+		const result = runCommand(listCommand, ["list", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("secrets:");
 		expect(output).toContain("actions:");
 		expect(output).toContain("dependabot:");
@@ -500,30 +438,23 @@ describe("list command", () => {
 describe("validate command", () => {
 	it("validates a correct config successfully", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", VALID_FULL_CONFIG);
-		const credsPath = writeFixture(tmpDir, "creds.toml", VALID_CREDENTIALS);
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(credsPath, configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(validateCommand, ["validate", "--config", configPath], layer);
+		const result = runCommand(validateCommand, ["validate", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("Config schema: valid");
+		expect(result.messages.join("\n")).toContain("Config schema: valid");
 	});
 
 	it("reports cross-reference errors", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", CONFIG_WITH_BAD_REFS);
-		const configLayer = makeTestConfigLayer(configPath);
-		// No credentials file — provide a failing credentials layer
-		const credsLayer = makeTestCredentialsLayer(join(tmpDir, "nonexistent.toml"), configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(validateCommand, ["validate", "--config", configPath], layer);
+		const result = runCommand(validateCommand, ["validate", "--config", configPath]);
+		await result;
 
-		const errors = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+		const errors = result.errors.join("\n");
+		// Cross-ref errors now surface during discover via validateConfigRefs callback
 		expect(errors).toContain("unknown settings group 'nonexistent-settings'");
 		expect(errors).toContain("unknown secrets group 'nonexistent-secrets'");
 		expect(errors).toContain("unknown variables group 'nonexistent-vars'");
@@ -532,75 +463,61 @@ describe("validate command", () => {
 
 	it("reports config validation failure for invalid schema", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", INVALID_SCHEMA);
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(join(tmpDir, "nonexistent.toml"), configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(validateCommand, ["validate", "--config", configPath], layer);
+		const result = runCommand(validateCommand, ["validate", "--config", configPath]);
+		await result;
 
-		const errors = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(errors).toContain("validation failed");
+		expect(result.errors.join("\n")).toContain("validation failed");
 	});
 
 	it("reports credentials as optional when not found", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", VALID_MINIMAL_CONFIG);
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(join(tmpDir, "nonexistent.toml"), configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		// Mock cwd to tmpDir so UpwardWalk doesn't find real credentials
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(validateCommand, ["validate", "--config", configPath], layer);
+		const result = runCommand(validateCommand, ["validate", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("not found (optional)");
+		expect(result.messages.join("\n")).toContain("not found (optional)");
 	});
 
 	it("reports missing file references in secrets and variables", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", CONFIG_WITH_FILE_SECRETS);
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(join(tmpDir, "nonexistent.toml"), configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(validateCommand, ["validate", "--config", configPath], layer);
+		const result = runCommand(validateCommand, ["validate", "--config", configPath]);
+		await result;
 
-		const errors = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+		const errors = result.errors.join("\n");
 		expect(errors).toContain("secrets.from-files.file.APP_KEY: file not found");
 		expect(errors).toContain("variables.from-files.file.CERT: file not found");
 	});
 
 	it("reports unknown credentials profile reference", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", CONFIG_WITH_CREDS_REF);
-		const credsPath = writeFixture(tmpDir, "creds.toml", CREDENTIALS_WITH_BAD_PROFILE_REF);
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(credsPath, configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		// Write credentials where UpwardWalk from cwd will find them
+		writeFixture(tmpDir, "reposets.credentials.toml", CREDENTIALS_WITH_BAD_PROFILE_REF);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(validateCommand, ["validate", "--config", configPath], layer);
+		const result = runCommand(validateCommand, ["validate", "--config", configPath]);
+		await result;
 
-		const errors = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(errors).toContain("unknown credentials profile 'nonexistent-profile'");
+		expect(result.errors.join("\n")).toContain("unknown credentials profile 'nonexistent-profile'");
 	});
 
 	it("reports unknown environment and environment-scoped group references", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", CONFIG_WITH_BAD_ENV_REFS);
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(join(tmpDir, "nonexistent.toml"), configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(validateCommand, ["validate", "--config", configPath], layer);
+		const result = runCommand(validateCommand, ["validate", "--config", configPath]);
+		await result;
 
-		const errors = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+		const errors = result.errors.join("\n");
+		// These cross-ref errors now surface during discover via validateConfigRefs
 		expect(errors).toContain("unknown environment 'nonexistent-env'");
-		expect(errors).toContain("secrets.environments.ghost references unknown secrets group 'missing-secrets'");
-		expect(errors).toContain("variables.environments.ghost references unknown variables group 'missing-vars'");
+		expect(errors).toContain("in secrets.environments.'ghost': unknown secrets group 'missing-secrets'");
+		expect(errors).toContain("in variables.environments.'ghost': unknown variables group 'missing-vars'");
 	});
 });
 
@@ -611,24 +528,24 @@ describe("validate command", () => {
 describe("doctor command", () => {
 	it("passes schema validation on valid config", async () => {
 		const configPath = writeFixture(tmpDir, "reposets.config.toml", VALID_MINIMAL_CONFIG);
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(doctorCommand, ["doctor", "--config", configPath], configLayer);
+		const result = runCommand(doctorCommand, ["doctor", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("Schema validation: passed");
 		expect(output).toContain("No unknown keys detected");
 	});
 
 	it("detects unknown top-level keys and suggests corrections", async () => {
 		const configPath = writeFixture(tmpDir, "reposets.config.toml", CONFIG_WITH_TYPOS);
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(doctorCommand, ["doctor", "--config", configPath], configLayer);
+		const result = runCommand(doctorCommand, ["doctor", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("unknown top-level key 'ownr'");
 		expect(output).toContain("did you mean 'owner'");
 		expect(output).toContain("unknown top-level key 'log_levl'");
@@ -638,24 +555,24 @@ describe("doctor command", () => {
 
 	it("detects unknown group keys", async () => {
 		const configPath = writeFixture(tmpDir, "reposets.config.toml", CONFIG_WITH_TYPOS);
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(doctorCommand, ["doctor", "--config", configPath], configLayer);
+		const result = runCommand(doctorCommand, ["doctor", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("unknown key 'rpos' in groups.my-projects");
 		expect(output).toContain("did you mean 'repos'");
 	});
 
 	it("detects cleanup section typos including secrets and variables sub-keys", async () => {
 		const configPath = writeFixture(tmpDir, "reposets.config.toml", CONFIG_WITH_CLEANUP_TYPOS);
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(doctorCommand, ["doctor", "--config", configPath], configLayer);
+		const result = runCommand(doctorCommand, ["doctor", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("unknown key 'secerts' in groups.my-projects.cleanup");
 		expect(output).toContain("did you mean 'secrets'");
 		expect(output).toContain("unknown key 'variabls' in groups.my-projects.cleanup");
@@ -667,27 +584,24 @@ describe("doctor command", () => {
 
 	it("reports TOML parse error on invalid syntax", async () => {
 		const configPath = writeFixture(tmpDir, "reposets.config.toml", INVALID_TOML);
-		// The config layer will fail, but doctor catches loadConfigWithDir failure
-		// However, doctor then tries raw TOML parsing separately
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(doctorCommand, ["doctor", "--config", configPath], configLayer);
+		const result = runCommand(doctorCommand, ["doctor", "--config", configPath]);
+		await result;
 
-		const errors = errorSpy.mock.calls.map((c) => c[0]).join("\n");
+		const errors = result.errors.join("\n");
 		// Doctor should report either the config load error or the TOML parse error
 		expect(errors.length).toBeGreaterThan(0);
 	});
 
 	it("displays token permission requirements", async () => {
 		const configPath = writeFixture(tmpDir, "reposets.config.toml", VALID_MINIMAL_CONFIG);
-		const configLayer = makeTestConfigLayer(configPath);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
-		await runCommand(doctorCommand, ["doctor", "--config", configPath], configLayer);
+		const result = runCommand(doctorCommand, ["doctor", "--config", configPath]);
+		await result;
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
+		const output = result.messages.join("\n");
 		expect(output).toContain("Administration");
 		expect(output).toContain("Secrets");
 		expect(output).toContain("Variables");
@@ -702,48 +616,41 @@ describe("doctor command", () => {
 describe("sync command", () => {
 	it("reports error when no GitHub token is found (no credentials)", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", VALID_MINIMAL_CONFIG);
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(join(tmpDir, "nonexistent.toml"), configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		await runCommand(syncCommand, ["sync", "--config", configPath], layer);
+		const result = runCommand(syncCommand, ["sync", "--config", configPath]);
+		await result;
 
-		const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("No GitHub token found");
+		expect(result.errors.join("\n")).toContain("No GitHub token found");
 	});
 
 	it("reports error when credentials exist but have no token", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", VALID_MINIMAL_CONFIG);
-		const credsPath = writeFixture(tmpDir, "creds.toml", "[profiles]\n");
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(credsPath, configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		// Write empty credentials where UpwardWalk from cwd will find them
+		writeFixture(tmpDir, "reposets.credentials.toml", "[profiles]\n");
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
-		await runCommand(syncCommand, ["sync", "--config", configPath], layer);
+		const result = runCommand(syncCommand, ["sync", "--config", configPath]);
+		await result;
 
-		const output = errorSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("No GitHub token found");
+		expect(result.errors.join("\n")).toContain("No GitHub token found");
 	});
 
 	it("applies --log-level flag and prints dry-run banner before engine invocation", async () => {
 		const configPath = writeFixture(tmpDir, "config.toml", VALID_MINIMAL_CONFIG);
-		const credsPath = writeFixture(tmpDir, "creds.toml", VALID_CREDENTIALS);
-		const configLayer = makeTestConfigLayer(configPath);
-		const credsLayer = makeTestCredentialsLayer(credsPath, configLayer);
-		const layer = Layer.mergeAll(configLayer, credsLayer);
+		// Write credentials with a valid token
+		writeFixture(tmpDir, "reposets.credentials.toml", VALID_CREDENTIALS);
+		vi.spyOn(process, "cwd").mockReturnValue(tmpDir);
 
-		const logSpy = vi.spyOn(console, "log").mockImplementation(() => {});
 		// This will fail at the SyncEngine layer (no real API), but we exercise
 		// the --log-level and --dry-run branches before that point
+		const result = runCommand(syncCommand, ["sync", "--config", configPath, "--dry-run", "--log-level", "verbose"]);
 		try {
-			await runCommand(syncCommand, ["sync", "--config", configPath, "--dry-run", "--log-level", "verbose"], layer);
+			await result;
 		} catch {
 			// Expected: SyncEngine layer construction fails without real API client
 		}
 
-		const output = logSpy.mock.calls.map((c) => c[0]).join("\n");
-		expect(output).toContain("DRY RUN");
+		expect(result.messages.join("\n")).toContain("DRY RUN");
 	});
 });

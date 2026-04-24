@@ -1,8 +1,8 @@
 import { Command, Options } from "@effect/cli";
-import { Console, Effect } from "effect";
+import { Effect, Option } from "effect";
 import { AppDirs } from "xdg-effect";
 import type { Credentials } from "../../schemas/credentials.js";
-import { ReposetsCredentialsFile } from "../../services/ConfigFiles.js";
+import { ReposetsCredentialsFile, makeConfigFilesLive } from "../../services/ConfigFiles.js";
 
 const EMPTY_CREDENTIALS: Credentials = { profiles: {} };
 
@@ -35,7 +35,7 @@ const createCommand = Command.make(
 			const creds = yield* credentialsFile.loadOrDefault(EMPTY_CREDENTIALS);
 
 			if (creds.profiles[profile]) {
-				yield* Console.error(`Profile '${profile}' already exists. Delete it first.`);
+				yield* Effect.logError(`Profile '${profile}' already exists. Delete it first.`);
 				return;
 			}
 
@@ -48,7 +48,7 @@ const createCommand = Command.make(
 			}
 
 			if (!newProfile.github_token && !newProfile.op_service_account_token) {
-				yield* Console.error("Provide at least --github-token or --op-token.");
+				yield* Effect.logError("Provide at least --github-token or --op-token.");
 				return;
 			}
 
@@ -62,8 +62,8 @@ const createCommand = Command.make(
 				EMPTY_CREDENTIALS,
 			);
 
-			yield* Console.log(`Created profile '${profile}'.`);
-		}),
+			yield* Effect.log(`Created profile '${profile}'.`);
+		}).pipe(Effect.provide(makeConfigFilesLive(Option.none()))),
 ).pipe(Command.withDescription("Add a credential profile"));
 
 const listCredsCommand = Command.make("list", {}, () =>
@@ -72,21 +72,21 @@ const listCredsCommand = Command.make("list", {}, () =>
 		const creds = yield* credentialsFile.loadOrDefault(EMPTY_CREDENTIALS);
 
 		if (Object.keys(creds.profiles).length === 0) {
-			yield* Console.log("No credential profiles configured.");
+			yield* Effect.log("No credential profiles configured.");
 			return;
 		}
 
 		for (const [name, profile] of Object.entries(creds.profiles)) {
-			yield* Console.log(`[${name}]`);
+			yield* Effect.log(`[${name}]`);
 			if (profile.github_token) {
-				yield* Console.log(`  github_token: ${redactToken(profile.github_token)}`);
+				yield* Effect.log(`  github_token: ${redactToken(profile.github_token)}`);
 			}
 			if (profile.op_service_account_token) {
-				yield* Console.log(`  op_service_account_token: ${redactToken(profile.op_service_account_token)}`);
+				yield* Effect.log(`  op_service_account_token: ${redactToken(profile.op_service_account_token)}`);
 			}
-			yield* Console.log("");
+			yield* Effect.log("");
 		}
-	}),
+	}).pipe(Effect.provide(makeConfigFilesLive(Option.none()))),
 ).pipe(Command.withDescription("List profiles (tokens redacted)"));
 
 const deleteCommand = Command.make("delete", { profile: profileOption }, ({ profile }) =>
@@ -98,15 +98,15 @@ const deleteCommand = Command.make("delete", { profile: profileOption }, ({ prof
 		const creds = yield* credentialsFile.loadOrDefault(EMPTY_CREDENTIALS);
 
 		if (!creds.profiles[profile]) {
-			yield* Console.error(`Profile '${profile}' not found.`);
+			yield* Effect.logError(`Profile '${profile}' not found.`);
 			return;
 		}
 
 		const { [profile]: _, ...remainingProfiles } = creds.profiles;
 		yield* credentialsFile.save({ profiles: remainingProfiles });
 
-		yield* Console.log(`Deleted profile '${profile}'.`);
-	}),
+		yield* Effect.log(`Deleted profile '${profile}'.`);
+	}).pipe(Effect.provide(makeConfigFilesLive(Option.none()))),
 ).pipe(Command.withDescription("Remove a profile"));
 
 export const credentialsCommand = Command.make("credentials").pipe(
