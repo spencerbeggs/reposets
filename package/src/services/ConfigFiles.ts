@@ -40,6 +40,8 @@ export function validateConfigRefs(config: Config): Effect.Effect<Config, Config
 	const definedVariables = new Set(Object.keys(config.variables));
 	const definedRulesets = new Set(Object.keys(config.rulesets));
 	const definedEnvironments = new Set(Object.keys(config.environments));
+	const definedSecurity = new Set(Object.keys(config.security));
+	const definedCodeScanning = new Set(Object.keys(config.code_scanning));
 
 	for (const [groupName, group] of Object.entries(config.groups)) {
 		// Check settings references
@@ -65,6 +67,24 @@ export function validateConfigRefs(config: Config): Effect.Effect<Config, Config
 			for (const ref of group.environments) {
 				if (!definedEnvironments.has(ref)) {
 					errors.push(`group '${groupName}': unknown environment '${ref}'`);
+				}
+			}
+		}
+
+		// Check security references
+		if (group.security) {
+			for (const ref of group.security) {
+				if (!definedSecurity.has(ref)) {
+					errors.push(`group '${groupName}': unknown security group '${ref}'`);
+				}
+			}
+		}
+
+		// Check code_scanning references
+		if (group.code_scanning) {
+			for (const ref of group.code_scanning) {
+				if (!definedCodeScanning.has(ref)) {
+					errors.push(`group '${groupName}': unknown code_scanning group '${ref}'`);
 				}
 			}
 		}

@@ -5,6 +5,7 @@ import {
 	GitHubClient,
 	GitHubClientTest,
 	ORG_ONLY_SETTINGS,
+	transformSecurityAndAnalysis,
 } from "../../src/services/GitHubClient.js";
 
 describe("GitHubClient", () => {
@@ -257,6 +258,194 @@ describe("GitHubClient", () => {
 	describe("ORG_ONLY_SETTINGS", () => {
 		it("contains allow_forking", () => {
 			expect(ORG_ONLY_SETTINGS.has("allow_forking")).toBe(true);
+		});
+	});
+
+	describe("transformSecurityAndAnalysis", () => {
+		it("wraps status fields in { status } objects", () => {
+			const result = transformSecurityAndAnalysis({
+				secret_scanning: "enabled",
+				secret_scanning_push_protection: "disabled",
+				dependabot_security_updates: "enabled",
+			});
+			expect(result).toEqual({
+				secret_scanning: { status: "enabled" },
+				secret_scanning_push_protection: { status: "disabled" },
+				dependabot_security_updates: { status: "enabled" },
+			});
+		});
+
+		it("renames delegated_bypass_reviewers to secret_scanning_delegated_bypass_options.reviewers", () => {
+			const result = transformSecurityAndAnalysis({
+				secret_scanning_delegated_bypass: "enabled",
+				delegated_bypass_reviewers: [{ reviewer_id: 12345, reviewer_type: "TEAM", mode: "ALWAYS" }],
+			});
+			expect(result).toEqual({
+				secret_scanning_delegated_bypass: { status: "enabled" },
+				secret_scanning_delegated_bypass_options: {
+					reviewers: [{ reviewer_id: 12345, reviewer_type: "TEAM", mode: "ALWAYS" }],
+				},
+			});
+		});
+
+		it("ignores unknown fields", () => {
+			const result = transformSecurityAndAnalysis({ secret_scanning: "enabled", random_field: "x" });
+			expect(result).toEqual({ secret_scanning: { status: "enabled" } });
+		});
+
+		it("returns undefined for non-object input", () => {
+			expect(transformSecurityAndAnalysis(null)).toBeUndefined();
+			expect(transformSecurityAndAnalysis("string")).toBeUndefined();
+			expect(transformSecurityAndAnalysis(undefined)).toBeUndefined();
+		});
+
+		it("returns undefined when no recognised fields are present", () => {
+			expect(transformSecurityAndAnalysis({})).toBeUndefined();
+			expect(transformSecurityAndAnalysis({ random_field: "x" })).toBeUndefined();
+		});
+
+		it("ignores invalid status values", () => {
+			expect(transformSecurityAndAnalysis({ secret_scanning: "on" })).toBeUndefined();
+		});
+
+		it("treats empty delegated_bypass_reviewers array as no-op (not as a clear-all)", () => {
+			expect(
+				transformSecurityAndAnalysis({
+					secret_scanning_delegated_bypass: "enabled",
+					delegated_bypass_reviewers: [],
+				}),
+			).toEqual({
+				secret_scanning_delegated_bypass: { status: "enabled" },
+			});
+		});
+	});
+
+	describe("Test implementation - security methods", () => {
+		it("records setVulnerabilityAlerts calls", async () => {
+			const recorder = GitHubClientTest();
+
+			const program = Effect.gen(function* () {
+				const client = yield* GitHubClient;
+				yield* client.setVulnerabilityAlerts("owner", "repo", true);
+				yield* client.setVulnerabilityAlerts("owner", "repo2", false);
+			}).pipe(Effect.provide(recorder.layer));
+
+			await Effect.runPromise(program);
+			expect(recorder.calls()).toContainEqual({
+				method: "setVulnerabilityAlerts",
+				args: { owner: "owner", repo: "repo", enabled: true },
+			});
+			expect(recorder.calls()).toContainEqual({
+				method: "setVulnerabilityAlerts",
+				args: { owner: "owner", repo: "repo2", enabled: false },
+			});
+		});
+
+		it("records setAutomatedSecurityFixes and setPrivateVulnerabilityReporting calls", async () => {
+			const recorder = GitHubClientTest();
+
+			const program = Effect.gen(function* () {
+				const client = yield* GitHubClient;
+				yield* client.setAutomatedSecurityFixes("owner", "repo", true);
+				yield* client.setPrivateVulnerabilityReporting("owner", "repo", true);
+			}).pipe(Effect.provide(recorder.layer));
+
+			await Effect.runPromise(program);
+			const calls = recorder.calls();
+			expect(calls).toContainEqual({
+				method: "setAutomatedSecurityFixes",
+				args: { owner: "owner", repo: "repo", enabled: true },
+			});
+			expect(calls).toContainEqual({
+				method: "setPrivateVulnerabilityReporting",
+				args: { owner: "owner", repo: "repo", enabled: true },
+			});
+		});
+
+		it("getters return false in test implementation", async () => {
+			const recorder = GitHubClientTest();
+
+			const program = Effect.gen(function* () {
+				const client = yield* GitHubClient;
+				const va = yield* client.getVulnerabilityAlerts("o", "r");
+				const asf = yield* client.getAutomatedSecurityFixes("o", "r");
+				const pvr = yield* client.getPrivateVulnerabilityReporting("o", "r");
+				return { va, asf, pvr };
+			}).pipe(Effect.provide(recorder.layer));
+
+			const result = await Effect.runPromise(program);
+			expect(result).toEqual({ va: false, asf: false, pvr: false });
+		});
+
+		it("records updateCodeScanningDefaultSetup calls", async () => {
+			const recorder = GitHubClientTest();
+
+			const program = Effect.gen(function* () {
+				const client = yield* GitHubClient;
+				yield* client.updateCodeScanningDefaultSetup("owner", "repo", {
+					state: "configured",
+					languages: ["javascript-typescript"],
+					query_suite: "extended",
+				});
+			}).pipe(Effect.provide(recorder.layer));
+
+			await Effect.runPromise(program);
+			expect(recorder.calls()).toContainEqual({
+				method: "updateCodeScanningDefaultSetup",
+				args: {
+					owner: "owner",
+					repo: "repo",
+					config: {
+						state: "configured",
+						languages: ["javascript-typescript"],
+						query_suite: "extended",
+					},
+				},
+			});
+		});
+
+		it("listRepoLanguages returns empty array", async () => {
+			const recorder = GitHubClientTest();
+
+			const program = Effect.gen(function* () {
+				const client = yield* GitHubClient;
+				return yield* client.listRepoLanguages("o", "r");
+			}).pipe(Effect.provide(recorder.layer));
+
+			const result = await Effect.runPromise(program);
+			expect(result).toEqual([]);
+		});
+
+		it("records resolveTeamId calls and returns 0", async () => {
+			const recorder = GitHubClientTest();
+
+			const program = Effect.gen(function* () {
+				const client = yield* GitHubClient;
+				return yield* client.resolveTeamId("my-org", "security-team");
+			}).pipe(Effect.provide(recorder.layer));
+
+			const result = await Effect.runPromise(program);
+			expect(result).toBe(0);
+			expect(recorder.calls()).toContainEqual({
+				method: "resolveTeamId",
+				args: { org: "my-org", slug: "security-team" },
+			});
+		});
+
+		it("records resolveRoleId calls and returns 0", async () => {
+			const recorder = GitHubClientTest();
+
+			const program = Effect.gen(function* () {
+				const client = yield* GitHubClient;
+				return yield* client.resolveRoleId("my-org", "all_repo_admin");
+			}).pipe(Effect.provide(recorder.layer));
+
+			const result = await Effect.runPromise(program);
+			expect(result).toBe(0);
+			expect(recorder.calls()).toContainEqual({
+				method: "resolveRoleId",
+				args: { org: "my-org", name: "all_repo_admin" },
+			});
 		});
 	});
 });

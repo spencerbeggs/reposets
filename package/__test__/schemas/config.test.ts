@@ -1,11 +1,22 @@
 import { Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { ConfigSchema, GroupSchema, SecretScopesSchema, VariableScopesSchema } from "../../src/schemas/config.js";
+import {
+	CodeScanningGroupSchema,
+	CodeScanningLanguageSchema,
+	ConfigSchema,
+	GroupSchema,
+	SecretScopesSchema,
+	SecurityGroupSchema,
+	VariableScopesSchema,
+} from "../../src/schemas/config.js";
 
 const decodeConfig = Schema.decodeUnknownSync(ConfigSchema);
 const decodeGroup = Schema.decodeUnknownSync(GroupSchema);
 const decodeSecretScopes = Schema.decodeUnknownSync(SecretScopesSchema);
 const decodeVariableScopes = Schema.decodeUnknownSync(VariableScopesSchema);
+const decodeSecurityGroup = Schema.decodeUnknownSync(SecurityGroupSchema);
+const decodeCodeScanningGroup = Schema.decodeUnknownSync(CodeScanningGroupSchema);
+const decodeCodeScanningLanguage = Schema.decodeUnknownSync(CodeScanningLanguageSchema);
 
 describe("GroupSchema", () => {
 	it("accepts minimal group", () => {
@@ -222,5 +233,208 @@ describe("VariableScopesSchema", () => {
 		const result = decodeVariableScopes({ actions: ["common"] });
 		expect(result.actions).toEqual(["common"]);
 		expect(result.environments).toBeUndefined();
+	});
+});
+
+describe("SecurityAndAnalysis (nested in SettingsGroupSchema)", () => {
+	it("accepts security_and_analysis nested in a settings group", () => {
+		const result = decodeConfig({
+			settings: {
+				oss: {
+					security_and_analysis: {
+						secret_scanning: "enabled",
+						secret_scanning_push_protection: "enabled",
+						dependabot_security_updates: "enabled",
+					},
+				},
+			},
+			groups: { g: { repos: ["r"] } },
+		});
+		const saa = result.settings.oss?.security_and_analysis;
+		expect(saa?.secret_scanning).toBe("enabled");
+		expect(saa?.secret_scanning_push_protection).toBe("enabled");
+		expect(saa?.dependabot_security_updates).toBe("enabled");
+	});
+
+	it("rejects invalid status values", () => {
+		expect(() =>
+			decodeConfig({
+				settings: { oss: { security_and_analysis: { secret_scanning: "on" } } },
+				groups: { g: { repos: ["r"] } },
+			}),
+		).toThrow();
+	});
+
+	it("accepts delegated_bypass_reviewers with team and role variants", () => {
+		const result = decodeConfig({
+			settings: {
+				oss: {
+					security_and_analysis: {
+						secret_scanning_delegated_bypass: "enabled",
+						delegated_bypass_reviewers: [{ team: "security-team", mode: "ALWAYS" }, { role: "admin" }],
+					},
+				},
+			},
+			groups: { g: { repos: ["r"] } },
+		});
+		const reviewers = result.settings.oss?.security_and_analysis?.delegated_bypass_reviewers;
+		expect(reviewers).toHaveLength(2);
+		expect(reviewers?.[0]).toMatchObject({ team: "security-team", mode: "ALWAYS" });
+		expect(reviewers?.[1]).toMatchObject({ role: "admin" });
+	});
+
+	it("rejects invalid reviewer mode", () => {
+		expect(() =>
+			decodeConfig({
+				settings: {
+					oss: {
+						security_and_analysis: {
+							delegated_bypass_reviewers: [{ team: "x", mode: "MAYBE" }],
+						},
+					},
+				},
+				groups: { g: { repos: ["r"] } },
+			}),
+		).toThrow();
+	});
+});
+
+describe("SecurityGroupSchema", () => {
+	it("accepts all toggles", () => {
+		const result = decodeSecurityGroup({
+			vulnerability_alerts: true,
+			automated_security_fixes: true,
+			private_vulnerability_reporting: false,
+		});
+		expect(result.vulnerability_alerts).toBe(true);
+		expect(result.automated_security_fixes).toBe(true);
+		expect(result.private_vulnerability_reporting).toBe(false);
+	});
+
+	it("accepts an empty group (all fields optional)", () => {
+		const result = decodeSecurityGroup({});
+		expect(result.vulnerability_alerts).toBeUndefined();
+	});
+
+	it("accepts automated_security_fixes = true with vulnerability_alerts omitted (leave-alone semantic)", () => {
+		const result = decodeSecurityGroup({ automated_security_fixes: true });
+		expect(result.automated_security_fixes).toBe(true);
+		expect(result.vulnerability_alerts).toBeUndefined();
+	});
+
+	it("rejects automated_security_fixes = true with vulnerability_alerts = false (explicit contradiction)", () => {
+		expect(() =>
+			decodeSecurityGroup({
+				automated_security_fixes: true,
+				vulnerability_alerts: false,
+			}),
+		).toThrow(/automated_security_fixes/);
+	});
+});
+
+describe("CodeScanningLanguageSchema", () => {
+	it("accepts every documented default-setup language", () => {
+		for (const lang of [
+			"actions",
+			"c-cpp",
+			"csharp",
+			"go",
+			"java-kotlin",
+			"javascript-typescript",
+			"python",
+			"ruby",
+			"swift",
+		]) {
+			expect(decodeCodeScanningLanguage(lang)).toBe(lang);
+		}
+	});
+
+	it("rejects rust (CodeQL supports it but default setup does not)", () => {
+		expect(() => decodeCodeScanningLanguage("rust")).toThrow();
+	});
+
+	it("rejects arbitrary strings", () => {
+		expect(() => decodeCodeScanningLanguage("kotlin")).toThrow();
+	});
+});
+
+describe("CodeScanningGroupSchema", () => {
+	it("accepts a fully-populated group", () => {
+		const result = decodeCodeScanningGroup({
+			state: "configured",
+			languages: ["javascript-typescript", "python"],
+			query_suite: "extended",
+			threat_model: "remote",
+			runner_type: "standard",
+		});
+		expect(result.state).toBe("configured");
+		expect(result.languages).toEqual(["javascript-typescript", "python"]);
+		expect(result.query_suite).toBe("extended");
+	});
+
+	it("accepts state = not-configured to disable scanning", () => {
+		const result = decodeCodeScanningGroup({ state: "not-configured" });
+		expect(result.state).toBe("not-configured");
+	});
+
+	it("accepts labeled runner with runner_label", () => {
+		const result = decodeCodeScanningGroup({
+			runner_type: "labeled",
+			runner_label: "ubuntu-large",
+		});
+		expect(result.runner_type).toBe("labeled");
+		expect(result.runner_label).toBe("ubuntu-large");
+	});
+
+	it("rejects unsupported query suite", () => {
+		expect(() => decodeCodeScanningGroup({ query_suite: "minimal" })).toThrow();
+	});
+
+	it('rejects runner_type = "labeled" without runner_label', () => {
+		expect(() => decodeCodeScanningGroup({ runner_type: "labeled" })).toThrow(/runner_label is required/);
+	});
+
+	it('accepts runner_type = "standard" without runner_label', () => {
+		const result = decodeCodeScanningGroup({ runner_type: "standard" });
+		expect(result.runner_type).toBe("standard");
+		expect(result.runner_label).toBeUndefined();
+	});
+});
+
+describe("ConfigSchema with security and code_scanning", () => {
+	it("accepts top-level security and code_scanning groups", () => {
+		const result = decodeConfig({
+			security: {
+				oss: { vulnerability_alerts: true, automated_security_fixes: true },
+			},
+			code_scanning: {
+				oss: { state: "configured", languages: ["javascript-typescript"] },
+			},
+			groups: {
+				g: { repos: ["r"], security: ["oss"], code_scanning: ["oss"] },
+			},
+		});
+		expect(result.security?.oss?.vulnerability_alerts).toBe(true);
+		expect(result.code_scanning?.oss?.state).toBe("configured");
+		expect(result.groups.g?.security).toEqual(["oss"]);
+		expect(result.groups.g?.code_scanning).toEqual(["oss"]);
+	});
+
+	it("applies empty defaults for security and code_scanning when omitted", () => {
+		const result = decodeConfig({ groups: { g: { repos: ["r"] } } });
+		expect(result.security).toEqual({});
+		expect(result.code_scanning).toEqual({});
+	});
+});
+
+describe("GroupSchema with security/code_scanning refs", () => {
+	it("accepts security and code_scanning string arrays on a group", () => {
+		const result = decodeGroup({
+			repos: ["r"],
+			security: ["oss-defaults"],
+			code_scanning: ["oss-defaults"],
+		});
+		expect(result.security).toEqual(["oss-defaults"]);
+		expect(result.code_scanning).toEqual(["oss-defaults"]);
 	});
 });

@@ -231,6 +231,40 @@ describe("validateConfigRefs", () => {
 		}
 	});
 
+	it("rejects config with unknown security group reference", async () => {
+		const layer = makeConfigLayer(fixture("bad-security-refs.toml"));
+		const result = await runWithProvider(
+			Effect.gen(function* () {
+				const cf = yield* TestConfigFile;
+				return yield* Effect.either(cf.load);
+			}).pipe(Effect.provide(layer)),
+		);
+
+		expect(result._tag).toBe("Left");
+		if (result._tag === "Left") {
+			const error = result.left as ConfigError;
+			expect(error._tag).toBe("ConfigError");
+			expect(error.reason).toContain("unknown security group 'nonexistent-security'");
+		}
+	});
+
+	it("rejects config with unknown code_scanning group reference", async () => {
+		const layer = makeConfigLayer(fixture("bad-code-scanning-refs.toml"));
+		const result = await runWithProvider(
+			Effect.gen(function* () {
+				const cf = yield* TestConfigFile;
+				return yield* Effect.either(cf.load);
+			}).pipe(Effect.provide(layer)),
+		);
+
+		expect(result._tag).toBe("Left");
+		if (result._tag === "Left") {
+			const error = result.left as ConfigError;
+			expect(error._tag).toBe("ConfigError");
+			expect(error.reason).toContain("unknown code_scanning group 'nonexistent-code-scanning'");
+		}
+	});
+
 	it("rejects config with unknown environment reference", async () => {
 		const layer = makeConfigLayer(fixture("bad-env-refs.toml"));
 		const result = await runWithProvider(

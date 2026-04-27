@@ -75,6 +75,12 @@ export const listCommand = Command.make("list", { config: configOption }, ({ con
 			if (group.rulesets?.length) {
 				yield* Effect.log(`  rulesets: ${group.rulesets.join(", ")}`);
 			}
+			if (group.security?.length) {
+				yield* Effect.log(`  security: ${group.security.join(", ")}`);
+			}
+			if (group.code_scanning?.length) {
+				yield* Effect.log(`  code_scanning: ${group.code_scanning.join(", ")}`);
+			}
 			if (group.credentials) {
 				yield* Effect.log(`  credentials: ${group.credentials}`);
 			}

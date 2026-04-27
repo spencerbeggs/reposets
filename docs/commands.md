@@ -42,7 +42,7 @@ reposets sync --config ./my-config/
 
 ## list
 
-Show a config summary. Displays repo groups with their referenced settings, environments, secrets (by scope), variables, rulesets, and credential profile name.
+Show a config summary. Displays repo groups with their referenced settings, environments, secrets (by scope), variables, rulesets, security groups, code scanning groups, and credential profile name.
 
 | Flag | Type | Default | Description |
 | :--- | :--- | :------ | :---------- |
@@ -54,7 +54,7 @@ reposets list
 
 ## validate
 
-Validate `reposets.config.toml` against its schema without making any API calls. Checks schema compliance and reference integrity: verifies that referenced settings, secret, variable, and ruleset groups exist; that file paths in `file`-kind secret and variable groups exist on disk; that credential profiles referenced by groups exist in `reposets.credentials.toml`; that groups referencing environments point to environments that are actually defined; and that environment-scoped secret and variable group references are valid.
+Validate `reposets.config.toml` against its schema without making any API calls. Checks schema compliance and reference integrity: verifies that referenced settings, secret, variable, ruleset, security, and code scanning groups exist; that file paths in `file`-kind secret and variable groups exist on disk; that credential profiles referenced by groups exist in `reposets.credentials.toml`; that groups referencing environments point to environments that are actually defined; and that environment-scoped secret and variable group references are valid. Also enforces cross-field constraints inside `[security.*]` and `[code_scanning.*]` groups -- see [Configuration](./configuration.md#validation) for details.
 
 | Flag | Type | Default | Description |
 | :--- | :--- | :------ | :---------- |
@@ -64,7 +64,7 @@ Validate `reposets.config.toml` against its schema without making any API calls.
 reposets validate
 ```
 
-Cross-reference validation (settings, secrets, variables, rulesets, environments) runs automatically during config loading via the `validateConfigRefs` callback. If references are invalid, the error is reported as a config validation failure:
+Cross-reference validation (settings, secrets, variables, rulesets, environments, security, code scanning) runs automatically during config loading via the `validateConfigRefs` callback. If references are invalid, the error is reported as a config validation failure:
 
 ```text
 $ reposets validate
@@ -74,7 +74,7 @@ group 'my-projects': unknown environment 'nonexistent'
 
 ## doctor
 
-Deep config diagnostics. Runs everything `validate` does, plus Levenshtein-based typo detection for unknown keys at the top level, inside `[groups.*]` sections, and inside `[cleanup]`. This includes typo detection within `[groups.*.cleanup]` sections and their `secrets` and `variables` sub-keys. Reports suggestions such as `unknown key 'has_wikis' -- did you mean 'has_wiki'?`. Also displays the required fine-grained token permissions.
+Deep config diagnostics. Runs everything `validate` does, plus Levenshtein-based typo detection for unknown keys at the top level (now including `security` and `code_scanning`), inside `[groups.*]` sections (also including `security` and `code_scanning`), and inside `[cleanup]`. This includes typo detection within `[groups.*.cleanup]` sections and their `secrets` and `variables` sub-keys. Reports suggestions such as `unknown key 'has_wikis' -- did you mean 'has_wiki'?`. Also displays the required fine-grained token permissions; the printed list now includes Code scanning alerts, Dependabot alerts, Secret scanning alerts, and Organization > Members for advanced security and team-slug resolution.
 
 | Flag | Type | Default | Description |
 | :--- | :--- | :------ | :---------- |

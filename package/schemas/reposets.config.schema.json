@@ -64,18 +64,36 @@
 			"title": "Environments",
 			"x-tombi-additional-key-label": "environment_name"
 		},
+		"security": {
+			"type": "object",
+			"additionalProperties": {
+				"$ref": "#/$defs/SecurityGroup"
+			},
+			"description": "Named security groups for vulnerability alerts, automated security fixes, and private vulnerability reporting",
+			"title": "Security groups",
+			"x-tombi-additional-key-label": "security_group"
+		},
+		"code_scanning": {
+			"type": "object",
+			"additionalProperties": {
+				"$ref": "#/$defs/CodeScanningGroup"
+			},
+			"description": "Named code scanning groups for CodeQL default setup configuration",
+			"title": "Code scanning groups",
+			"x-tombi-additional-key-label": "code_scanning_group"
+		},
 		"groups": {
 			"type": "object",
 			"additionalProperties": {
 				"$ref": "#/$defs/Group"
 			},
-			"description": "Named groups of repositories with their settings, secrets, variables, rulesets, and environment assignments",
+			"description": "Named groups of repositories with their settings, secrets, variables, rulesets, environments, security, and code scanning assignments",
 			"title": "Groups",
 			"x-tombi-additional-key-label": "group_name"
 		}
 	},
 	"additionalProperties": false,
-	"description": "Configuration for syncing GitHub repository settings, secrets, variables, rulesets, and deployment environments",
+	"description": "Configuration for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, advanced security toggles, and CodeQL default setup",
 	"title": "reposets Configuration",
 	"x-tombi-table-keys-order": "schema",
 	"x-taplo": {
@@ -192,6 +210,9 @@
 					"type": "boolean",
 					"description": "Require contributors to sign off on web-based commits",
 					"title": "Require commit signoff"
+				},
+				"security_and_analysis": {
+					"$ref": "#/$defs/SecurityAndAnalysis"
 				}
 			},
 			"additionalProperties": {},
@@ -203,6 +224,126 @@
 					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md"
 				}
 			}
+		},
+		"SecurityAndAnalysis": {
+			"type": "object",
+			"properties": {
+				"advanced_security": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "(GHAS-licensed) Master toggle for GitHub Advanced Security features. Free on public repos; requires a GHAS license on private repos.",
+					"title": "GitHub Advanced Security"
+				},
+				"code_security": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "(GHAS-licensed) Toggle GitHub Code Security functionality.",
+					"title": "GitHub Code Security"
+				},
+				"secret_scanning": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "Detect exposed credentials and sensitive data committed to the repository.",
+					"title": "Secret scanning"
+				},
+				"secret_scanning_push_protection": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "Block git pushes that contain detected secrets.",
+					"title": "Secret scanning push protection"
+				},
+				"secret_scanning_ai_detection": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "(GHAS-licensed) AI-powered detection of generic secrets beyond standard provider patterns.",
+					"title": "Secret scanning AI detection"
+				},
+				"secret_scanning_non_provider_patterns": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "(GHAS-licensed) Detect custom secret patterns beyond the standard provider list.",
+					"title": "Secret scanning non-provider patterns"
+				},
+				"secret_scanning_delegated_alert_dismissal": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "(org-only) Allow delegated dismissal of secret scanning alerts.",
+					"title": "Delegated alert dismissal"
+				},
+				"secret_scanning_delegated_bypass": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "(org-only) Allow delegated approval of secret scanning push protection bypass requests.",
+					"title": "Delegated push protection bypass"
+				},
+				"delegated_bypass_reviewers": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/DelegatedBypassReviewer"
+					},
+					"description": "(org-only) Reviewers authorized to approve push protection bypass requests. Each entry must specify a team slug or role name.",
+					"title": "Delegated bypass reviewers"
+				},
+				"dependabot_security_updates": {
+					"type": "string",
+					"enum": ["enabled", "disabled"],
+					"description": "Automatically open pull requests to patch known dependency vulnerabilities.",
+					"title": "Dependabot security updates"
+				}
+			},
+			"additionalProperties": false,
+			"description": "GitHub repository security_and_analysis fields applied via the same PATCH /repos call as other settings. (GHAS-licensed) fields require a GHAS license on private repos; (org-only) fields are silently skipped on personal repos.",
+			"title": "Security and analysis",
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md"
+				}
+			}
+		},
+		"DelegatedBypassReviewer": {
+			"anyOf": [
+				{
+					"type": "object",
+					"required": ["team"],
+					"properties": {
+						"team": {
+							"type": "string",
+							"description": "GitHub team slug (e.g., \"security-team\"); resolved to numeric reviewer_id at sync time",
+							"title": "Team slug",
+							"examples": ["security-team"]
+						},
+						"mode": {
+							"$ref": "#/$defs/DelegatedBypassReviewerMode"
+						}
+					},
+					"additionalProperties": false
+				},
+				{
+					"type": "object",
+					"required": ["role"],
+					"properties": {
+						"role": {
+							"type": "string",
+							"description": "Organization role name as defined in `GET /orgs/{org}/organization-roles` (e.g., \"all_repo_admin\", \"security_manager\"). Resolved to the numeric role ID at sync time.",
+							"title": "Organization role name",
+							"examples": ["all_repo_admin", "all_repo_maintain", "security_manager"]
+						},
+						"mode": {
+							"$ref": "#/$defs/DelegatedBypassReviewerMode"
+						}
+					},
+					"additionalProperties": false
+				}
+			],
+			"description": "A reviewer who can approve secret-scanning push-protection bypass requests. Must specify exactly one of team or role.",
+			"title": "Delegated bypass reviewer"
+		},
+		"DelegatedBypassReviewerMode": {
+			"type": "string",
+			"enum": ["ALWAYS", "EXEMPT"],
+			"description": "ALWAYS: reviewer is always required to approve bypass; EXEMPT: reviewer can bypass without review",
+			"title": "Delegated bypass reviewer mode"
 		},
 		"SecretGroup": {
 			"anyOf": [
@@ -1181,6 +1322,105 @@
 			"description": "A custom branch or tag pattern that deployments are allowed from",
 			"title": "Deployment branch policy"
 		},
+		"SecurityGroup": {
+			"type": "object",
+			"properties": {
+				"vulnerability_alerts": {
+					"type": "boolean",
+					"description": "Enable Dependabot vulnerability alerts (PUT/DELETE /repos/{o}/{r}/vulnerability-alerts).",
+					"title": "Vulnerability alerts"
+				},
+				"automated_security_fixes": {
+					"type": "boolean",
+					"description": "Enable Dependabot security pull requests (PUT/DELETE /repos/{o}/{r}/automated-security-fixes). Requires vulnerability_alerts to also be enabled.",
+					"title": "Automated security fixes"
+				},
+				"private_vulnerability_reporting": {
+					"type": "boolean",
+					"description": "Enable the private vulnerability reporting inbox (PUT/DELETE /repos/{o}/{r}/private-vulnerability-reporting).",
+					"title": "Private vulnerability reporting"
+				}
+			},
+			"additionalProperties": false,
+			"description": "Toggles for repository-level security features that have dedicated PUT/DELETE endpoints (vulnerability alerts, automated security fixes, private vulnerability reporting). Omitted keys are left untouched.",
+			"title": "Security group",
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md"
+				}
+			}
+		},
+		"CodeScanningGroup": {
+			"type": "object",
+			"properties": {
+				"state": {
+					"$ref": "#/$defs/CodeScanningState"
+				},
+				"languages": {
+					"type": "array",
+					"items": {
+						"$ref": "#/$defs/CodeScanningLanguage"
+					},
+					"description": "CodeQL languages to analyze. Languages not detected in the repository are skipped with a warning at sync time.",
+					"title": "Languages",
+					"examples": [["javascript-typescript", "python"]]
+				},
+				"query_suite": {
+					"$ref": "#/$defs/CodeScanningQuerySuite"
+				},
+				"threat_model": {
+					"$ref": "#/$defs/CodeScanningThreatModel"
+				},
+				"runner_type": {
+					"$ref": "#/$defs/CodeScanningRunnerType"
+				},
+				"runner_label": {
+					"type": "string",
+					"description": "Self-hosted runner label. Required when runner_type = \"labeled\".",
+					"title": "Runner label"
+				}
+			},
+			"additionalProperties": false,
+			"description": "CodeQL default setup configuration applied via PATCH /repos/{o}/{r}/code-scanning/default-setup. The endpoint returns 202 Accepted and configures asynchronously; reposets sends the request and does not poll for completion.",
+			"title": "Code scanning group",
+			"x-tombi-table-keys-order": "schema",
+			"x-taplo": {
+				"links": {
+					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md"
+				}
+			}
+		},
+		"CodeScanningState": {
+			"type": "string",
+			"enum": ["configured", "not-configured"],
+			"description": "\"configured\" enables CodeQL default setup; \"not-configured\" disables it.",
+			"title": "Default setup state"
+		},
+		"CodeScanningLanguage": {
+			"type": "string",
+			"enum": ["actions", "c-cpp", "csharp", "go", "java-kotlin", "javascript-typescript", "python", "ruby", "swift"],
+			"description": "Languages supported by GitHub code scanning default setup. Note: this is narrower than the CodeQL analyzer (Rust is supported by CodeQL but not by default setup).",
+			"title": "CodeQL default-setup language"
+		},
+		"CodeScanningQuerySuite": {
+			"type": "string",
+			"enum": ["default", "extended"],
+			"description": "\"default\" runs the standard query set; \"extended\" includes additional security queries.",
+			"title": "Query suite"
+		},
+		"CodeScanningThreatModel": {
+			"type": "string",
+			"enum": ["remote", "remote_and_local"],
+			"description": "\"remote\" analyzes network sources only; \"remote_and_local\" also includes filesystem and environment access.",
+			"title": "Threat model"
+		},
+		"CodeScanningRunnerType": {
+			"type": "string",
+			"enum": ["standard", "labeled"],
+			"description": "\"standard\" uses GitHub-hosted runners; \"labeled\" uses runners matching runner_label.",
+			"title": "Runner type"
+		},
 		"Group": {
 			"type": "object",
 			"required": ["repos"],
@@ -1239,6 +1479,24 @@
 					"description": "Names of rulesets to apply to these repos",
 					"title": "Rulesets",
 					"examples": [["workflow", "release"]]
+				},
+				"security": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Names of security groups (vulnerability alerts, automated security fixes, private vulnerability reporting) to apply to these repos",
+					"title": "Security groups",
+					"examples": [["oss-defaults"]]
+				},
+				"code_scanning": {
+					"type": "array",
+					"items": {
+						"type": "string"
+					},
+					"description": "Names of code_scanning groups (CodeQL default setup) to apply to these repos",
+					"title": "Code scanning groups",
+					"examples": [["oss-defaults"]]
 				},
 				"cleanup": {
 					"$ref": "#/$defs/Cleanup"

@@ -3,14 +3,14 @@ module: reposets
 title: Configuration Format
 status: current
 completeness: 95
-last-synced: 2026-04-23
+last-synced: 2026-04-27
 ---
 
 ## Files
 
 | File | Purpose | Location |
 | :--- | :------ | :------- |
-| `reposets.config.toml` | Groups, settings, environments, secrets, variables, rulesets, cleanup | XDG or project-local |
+| `reposets.config.toml` | Groups, settings, environments, secrets, variables, rulesets, security, code_scanning, cleanup | XDG or project-local |
 | `reposets.credentials.toml` | Named credential profiles with resolve sections (gitignored) | XDG config dir |
 
 ## Config Path Resolution
@@ -42,6 +42,21 @@ log_level = "info"
 has_wiki = false
 has_discussions = false
 delete_branch_on_merge = true
+
+[settings.default.security_and_analysis]
+secret_scanning = "enabled"
+secret_scanning_push_protection = "enabled"
+dependabot_security_updates = "enabled"
+
+[security.baseline]
+vulnerability_alerts = true
+automated_security_fixes = true
+private_vulnerability_reporting = true
+
+[code_scanning.baseline]
+state = "configured"
+languages = ["javascript-typescript", "python"]
+query_suite = "extended"
 
 [environments.staging]
 wait_timer = 0
@@ -95,6 +110,8 @@ environments = ["staging", "production"]
 secrets = { actions = ["deploy", "api"], dependabot = ["deploy"], environments = { production = ["api"] } }
 variables = { actions = ["turbo", "bot"], environments = { staging = ["turbo"] } }
 rulesets = ["branch-protection"]
+security = ["baseline"]
+code_scanning = ["baseline"]
 
 [groups.my-projects.cleanup]
 rulesets = true
@@ -202,6 +219,25 @@ Variables use a `VariableScopes` object with two fields:
 - `environments` - record mapping environment names to arrays of variable
   group names for environment-scoped variables
 
+## Group Reference Fields
+
+`[groups.<name>]` accepts the following reference arrays, each pointing
+into the matching top-level table:
+
+- `settings: string[]` -> `[settings.*]`
+- `rulesets: string[]` -> `[rulesets.*]`
+- `environments: string[]` -> `[environments.*]`
+- `security: string[]` -> `[security.*]` (new)
+- `code_scanning: string[]` -> `[code_scanning.*]` (new)
+
+Plus the `secrets: SecretScopes` and `variables: VariableScopes` structs
+described above.
+
+The `validateConfigRefs` callback (registered as the
+`ReposetsConfigFile` validator) collects errors across every reference
+array, including the new `security` and `code_scanning` arrays, and
+reports all unknown references in a single `ConfigError`.
+
 ## Settings Schema
 
 The `SettingsGroupSchema` is a typed struct with 20+ known fields and
@@ -222,6 +258,121 @@ fields include:
 
 Fields `has_sponsorships` and `has_pull_requests` are synced via GraphQL
 `updateRepository` mutation (not available in REST API).
+
+### `security_and_analysis` Block
+
+`SettingsGroupSchema` allows a nested `security_and_analysis` table whose
+fields ride along with the same `PATCH /repos/{owner}/{repo}` call as the
+rest of the settings block (see `transformSecurityAndAnalysis()` in
+`GitHubClient`). Status fields take `"enabled" | "disabled"`:
+
+- `advanced_security` (GHAS-licensed) - master GHAS toggle
+- `code_security` (GHAS-licensed)
+- `secret_scanning`
+- `secret_scanning_push_protection`
+- `secret_scanning_ai_detection` (GHAS-licensed)
+- `secret_scanning_non_provider_patterns` (GHAS-licensed)
+- `secret_scanning_delegated_alert_dismissal` (org-only)
+- `secret_scanning_delegated_bypass` (org-only)
+- `dependabot_security_updates`
+
+Plus an optional `delegated_bypass_reviewers` array (org-only). Each
+entry is a discriminated union: exactly one of `team` (a GitHub team
+slug) or `role` (an organization role name from
+`GET /orgs/{org}/organization-roles` such as `all_repo_admin` or a
+custom role like `security_manager`), with an optional
+`mode = "ALWAYS" | "EXEMPT"`. Both forms are resolved to numeric
+`reviewer_id`s at sync time -- team slugs via
+`GitHubClient.resolveTeamId()` and role names via
+`GitHubClient.resolveRoleId()`. Role IDs are per-org even for predefined
+roles, so the resolver must consult the live API per (org, role) pair.
+
+```toml
+[settings.oss-defaults.security_and_analysis]
+secret_scanning = "enabled"
+secret_scanning_push_protection = "enabled"
+secret_scanning_ai_detection = "enabled"
+dependabot_security_updates = "enabled"
+
+[[settings.oss-defaults.security_and_analysis.delegated_bypass_reviewers]]
+team = "security-team"
+mode = "ALWAYS"
+
+[[settings.oss-defaults.security_and_analysis.delegated_bypass_reviewers]]
+role = "admin"
+mode = "EXEMPT"
+```
+
+GHAS-licensed fields generally succeed on public repos and fail
+(HTTP 422) on unlicensed private repos; org-only fields are silently
+stripped from the merged block on personal accounts before the PATCH.
+Omitting any field means "leave alone" - no separate cleanup scope.
+
+## Security Group Schema
+
+Top-level `[security.<name>]` groups configure repository security
+features that have dedicated PUT/DELETE endpoints. Each field is an
+optional boolean; omitted fields are "leave alone".
+
+- `vulnerability_alerts` - Dependabot vulnerability alerts
+  (`PUT`/`DELETE /repos/{o}/{r}/vulnerability-alerts`)
+- `automated_security_fixes` - Dependabot security PRs
+  (`PUT`/`DELETE /repos/{o}/{r}/automated-security-fixes`); requires
+  `vulnerability_alerts` to also be enabled
+- `private_vulnerability_reporting` - private vulnerability reporting
+  inbox (`PUT`/`DELETE /repos/{o}/{r}/private-vulnerability-reporting`)
+
+```toml
+[security.baseline]
+vulnerability_alerts = true
+automated_security_fixes = true
+private_vulnerability_reporting = true
+```
+
+Groups reference security groups via the `security: string[]` field on
+`[groups.<name>]`. Multiple references are merged last-write-wins by
+`mergeSecurityGroups()` at sync time; the SyncEngine probes current
+state via the matching `getXxx` GitHubClient method and only PUTs/DELETEs
+on diff.
+
+## Code Scanning Group Schema
+
+Top-level `[code_scanning.<name>]` groups configure the
+CodeQL default-setup feature, applied via
+`PATCH /repos/{o}/{r}/code-scanning/default-setup`. Fields:
+
+- `state` - `"configured" | "not-configured"`
+- `languages` - array of CodeQL default-setup language literals (see
+  enum below); languages not detected in the repository are filtered
+  out at sync time with a warning rather than failing the run
+- `query_suite` - `"default" | "extended"`
+- `threat_model` - `"remote" | "remote_and_local"`
+- `runner_type` - `"standard" | "labeled"`
+- `runner_label` - free-form runner label string; required when
+  `runner_type = "labeled"`
+
+```toml
+[code_scanning.baseline]
+state = "configured"
+languages = ["javascript-typescript", "python"]
+query_suite = "extended"
+threat_model = "remote"
+runner_type = "standard"
+```
+
+Default-setup language enum (9 values):
+`actions`, `c-cpp`, `csharp`, `go`, `java-kotlin`,
+`javascript-typescript`, `python`, `ruby`, `swift`.
+
+This is intentionally narrower than the CodeQL analyzer language list -
+Rust is supported by CodeQL itself but not by default setup as of this
+writing. Add to the literal when GitHub widens default-setup support.
+
+Groups reference code scanning groups via the `code_scanning: string[]`
+field on `[groups.<name>]`. Multiple references are merged last-write-wins
+by `mergeCodeScanningGroups()`. The PATCH endpoint returns
+`202 Accepted`; reposets fires-and-forgets by default and polls in
+verbose mode.
 
 ## Cleanup Configuration
 

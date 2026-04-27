@@ -50,9 +50,9 @@
 	},
 	"dependencies": {
 		"@1password/sdk": "^0.4.0",
-		"@effect/cli": "^0.75.1",
-		"@effect/platform": "^0.96.0",
-		"@effect/platform-node": "^0.106.0",
+		"@effect/cli": "catalog:silk",
+		"@effect/platform": "catalog:silk",
+		"@effect/platform-node": "catalog:silk",
 		"@octokit/rest": "^22.0.1",
 		"blakejs": "^1.2.1",
 		"effect": "^3.21.1",
@@ -64,7 +64,7 @@
 		"@savvy-web/rslib-builder": "^0.20.2",
 		"@types/node": "catalog:silk",
 		"@typescript/native-preview": "catalog:silk",
-		"ajv": "^8.18.0",
+		"ajv": "^8.20.0",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:silk"
 	},

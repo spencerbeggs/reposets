@@ -55,6 +55,35 @@ const CONFIG_TEMPLATE = `# reposets configuration
 # [[rulesets.default-branch.rules]]
 # type = "deletion"
 
+# --- Advanced security ---
+# Nested inside a settings group (folded into the same PATCH /repos call).
+# Some fields are GHAS-licensed and only work on public repos or
+# private repos with a GHAS subscription. Org-only fields are silently
+# skipped on personal accounts.
+#
+# [settings.defaults.security_and_analysis]
+# secret_scanning = "enabled"
+# secret_scanning_push_protection = "enabled"
+# dependabot_security_updates = "enabled"
+
+# --- Security feature toggles ---
+# Dedicated PUT/DELETE endpoints; omit a key to leave it untouched.
+#
+# [security.oss-defaults]
+# vulnerability_alerts = true
+# automated_security_fixes = true
+# private_vulnerability_reporting = true
+
+# --- CodeQL default setup ---
+# Applies via PATCH /repos/{o}/{r}/code-scanning/default-setup.
+# Languages not detected in the repo are skipped with a warning.
+#
+# [code_scanning.oss-defaults]
+# state = "configured"
+# languages = ["javascript-typescript", "python"]
+# query_suite = "extended"
+# threat_model = "remote"
+
 # --- Cleanup defaults ---
 # [cleanup]
 # secrets = false
@@ -68,6 +97,8 @@ const CONFIG_TEMPLATE = `# reposets configuration
 # secrets = { actions = ["from-files", "from-creds"] }
 # variables = { actions = ["turbo", "bot"] }
 # rulesets = ["default-branch"]
+# security = ["oss-defaults"]
+# code_scanning = ["oss-defaults"]
 `;
 
 const CREDENTIALS_TEMPLATE = `# reposets credentials (keep this file private)

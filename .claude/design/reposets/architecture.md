@@ -3,15 +3,16 @@ module: reposets
 title: Architecture
 status: current
 completeness: 95
-last-synced: 2026-04-23
+last-synced: 2026-04-27
 ---
 
 ## Overview
 
 reposets is an Effect-based CLI for syncing GitHub repository settings,
-secrets, variables, rulesets, and deployment environments across personal
-repos. Config files serve as distributable templates; environment-specific
-values are resolved from credential profiles at runtime.
+secrets, variables, rulesets, deployment environments, repository security
+features, and CodeQL default setup across personal and organization repos.
+Config files serve as distributable templates; environment-specific values
+are resolved from credential profiles at runtime.
 
 ## Service Graph
 
@@ -73,14 +74,37 @@ Layers are composed at two levels:
    (`targets`, `pull_requests`, `status_checks`, boolean flags) normalized
    via `normalizeRuleset()` into API-compatible format; `{ resolved }`
    references substituted from the credential map with type coercion
-8. Environments synced before secrets/variables (environments must exist
-   before scoped resources can be attached)
-9. GitHubClient applies changes per repo: environments, secrets by scope
-   (actions/dependabot/codespaces/environments), variables by scope
-   (actions/environments), settings (REST + GraphQL mutation), rulesets
-10. Cleanup phase deletes undeclared resources per scope, respecting
-    preserve lists and per-group cleanup configuration
-11. SyncLogger emits tiered output throughout (info summaries, verbose
+8. Owner type detected once per group via `GitHubClient.getOwnerType()`;
+   used downstream to strip org-only fields (e.g., `allow_forking` from
+   settings, and `secret_scanning_delegated_*` /
+   `delegated_bypass_reviewers` from `security_and_analysis`) on personal
+   accounts
+9. Settings stage: merged settings (REST `repos.update`) plus a folded
+   `security_and_analysis` block (transformed via
+   `transformSecurityAndAnalysis()`) plus GraphQL mutation for
+   `has_sponsorships` / `has_pull_requests`. Org-owned repos resolve
+   `delegated_bypass_reviewers` team slugs to numeric `reviewer_id`s via
+   `GitHubClient.resolveTeamId()` (cached per `org:slug`) before the PATCH
+10. Security features stage (between settings and secrets, implemented
+    inline in `SyncEngine.syncAll`): for each of `vulnerability_alerts`,
+    `automated_security_fixes`, and `private_vulnerability_reporting`,
+    probe current state via the corresponding `getXxx` method, compare to
+    the merged desired value, and PUT/DELETE only on diff
+11. Code scanning stage (after the security features stage, also inline):
+    filter configured CodeQL languages by what `listRepoLanguages` detects
+    (mapped through `REPO_LANG_TO_CODEQL`); warn (don't fail) on
+    non-detected entries; PATCH the default-setup endpoint (`202 Accepted`,
+    sent without polling for completion)
+12. Environments synced before secrets/variables (environments must exist
+    before scoped resources can be attached)
+13. GitHubClient applies remaining changes per repo: environments, secrets
+    by scope (actions/dependabot/codespaces/environments), variables by
+    scope (actions/environments), rulesets
+14. Cleanup phase deletes undeclared resources per scope, respecting
+    preserve lists and per-group cleanup configuration. (Security feature
+    toggles and code scanning default setup follow "leave alone if
+    omitted" semantics and have no `cleanup` scope of their own.)
+15. SyncLogger emits tiered output throughout (info summaries, verbose
     per-operation, debug with source details)
 
 ## Error Model
@@ -101,7 +125,8 @@ All errors are `Data.TaggedError` subclasses:
 Each service has Live and Test layer implementations:
 
 - `GitHubClientTest()` - records API calls, returns empty lists (covers
-  all 20 service methods including environment operations)
+  all 30 service methods including environment, security feature, code
+  scanning, and team-resolver operations)
 - `OnePasswordClientTest(stubs)` - returns deterministic values
 - `makeConfigFilesLive` - used directly in tests (builds xdg-effect
   resolver chains for config + credentials)

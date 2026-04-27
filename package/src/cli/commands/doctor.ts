@@ -17,6 +17,8 @@ const KNOWN_CONFIG_KEYS = new Set([
 	"variables",
 	"rulesets",
 	"environments",
+	"security",
+	"code_scanning",
 	"groups",
 ]);
 const KNOWN_GROUP_KEYS = new Set([
@@ -28,6 +30,8 @@ const KNOWN_GROUP_KEYS = new Set([
 	"variables",
 	"rulesets",
 	"environments",
+	"security",
+	"code_scanning",
 	"cleanup",
 ]);
 const KNOWN_CLEANUP_KEYS = new Set(["secrets", "variables", "rulesets", "environments"]);
@@ -170,7 +174,13 @@ export const doctorCommand = Command.make("doctor", { config: configOption }, ({
 		yield* Effect.log("  Repository permissions > Secrets (Read and write) -- Actions secrets");
 		yield* Effect.log("  Repository permissions > Variables (Read and write) -- Actions variables");
 		yield* Effect.log("  Repository permissions > Environments (Read and write) -- environment sync");
+		yield* Effect.log("  Repository permissions > Code scanning alerts (Read and write) -- code_scanning sync");
+		yield* Effect.log("  Repository permissions > Dependabot alerts (Read and write) -- security feature sync");
+		yield* Effect.log(
+			"  Repository permissions > Secret scanning alerts (Read and write) -- secret scanning delegation",
+		);
 		yield* Effect.log("  Account permissions > GPG keys (Read and write) -- secrets encryption key");
+		yield* Effect.log("  Organization permissions > Members (Read) -- resolve team slugs (org-level only)");
 
 		if (warnings === 0) {
 			yield* Effect.log("\nNo unknown keys detected.");

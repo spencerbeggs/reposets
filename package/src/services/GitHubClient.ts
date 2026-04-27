@@ -2,6 +2,7 @@ import { Octokit } from "@octokit/rest";
 import { Context, Effect, Layer } from "effect";
 import { GitHubApiError } from "../errors.js";
 import { encryptSecret } from "../lib/crypto.js";
+import type { CodeScanningGroup } from "../schemas/config.js";
 import type { RulesetPayload } from "../schemas/ruleset.js";
 
 export type SecretScope = "actions" | "dependabot" | "codespaces";
@@ -130,12 +131,90 @@ export interface GitHubClientService {
 		envName: string,
 		name: string,
 	) => Effect.Effect<void, GitHubApiError>;
+
+	readonly getVulnerabilityAlerts: (owner: string, repo: string) => Effect.Effect<boolean, GitHubApiError>;
+
+	readonly setVulnerabilityAlerts: (
+		owner: string,
+		repo: string,
+		enabled: boolean,
+	) => Effect.Effect<void, GitHubApiError>;
+
+	readonly getAutomatedSecurityFixes: (owner: string, repo: string) => Effect.Effect<boolean, GitHubApiError>;
+
+	readonly setAutomatedSecurityFixes: (
+		owner: string,
+		repo: string,
+		enabled: boolean,
+	) => Effect.Effect<void, GitHubApiError>;
+
+	readonly getPrivateVulnerabilityReporting: (owner: string, repo: string) => Effect.Effect<boolean, GitHubApiError>;
+
+	readonly setPrivateVulnerabilityReporting: (
+		owner: string,
+		repo: string,
+		enabled: boolean,
+	) => Effect.Effect<void, GitHubApiError>;
+
+	readonly updateCodeScanningDefaultSetup: (
+		owner: string,
+		repo: string,
+		config: CodeScanningGroup,
+	) => Effect.Effect<void, GitHubApiError>;
+
+	readonly listRepoLanguages: (owner: string, repo: string) => Effect.Effect<ReadonlyArray<string>, GitHubApiError>;
+
+	readonly resolveTeamId: (org: string, slug: string) => Effect.Effect<number, GitHubApiError>;
+
+	readonly resolveRoleId: (org: string, name: string) => Effect.Effect<number, GitHubApiError>;
 }
 
 export class GitHubClient extends Context.Tag("GitHubClient")<GitHubClient, GitHubClientService>() {}
 
 /** Settings fields that are only valid for organization-owned repositories. */
 export const ORG_ONLY_SETTINGS = new Set(["allow_forking"]);
+
+/**
+ * Fields in the user-facing security_and_analysis block that GitHub's API
+ * accepts as `{ status: "enabled" | "disabled" }`. The value as stored in
+ * config is the literal string; we wrap it before sending.
+ */
+const SAA_STATUS_FIELDS = new Set([
+	"advanced_security",
+	"code_security",
+	"secret_scanning",
+	"secret_scanning_push_protection",
+	"secret_scanning_ai_detection",
+	"secret_scanning_non_provider_patterns",
+	"secret_scanning_delegated_alert_dismissal",
+	"secret_scanning_delegated_bypass",
+	"dependabot_security_updates",
+]);
+
+/**
+ * Translate the user-facing security_and_analysis config block into the
+ * shape GitHub expects on `PATCH /repos/{o}/{r}`. Reviewer entries are
+ * expected to already have a numeric `reviewer_id` and `reviewer_type`
+ * (resolution from team slugs happens in the SyncEngine).
+ */
+export function transformSecurityAndAnalysis(value: unknown): Record<string, unknown> | undefined {
+	if (value === null || typeof value !== "object") return undefined;
+	const input = value as Record<string, unknown>;
+	const out: Record<string, unknown> = {};
+
+	for (const [key, raw] of Object.entries(input)) {
+		if (raw === undefined) continue;
+		if (SAA_STATUS_FIELDS.has(key) && (raw === "enabled" || raw === "disabled")) {
+			out[key] = { status: raw };
+		} else if (key === "delegated_bypass_reviewers" && Array.isArray(raw) && raw.length > 0) {
+			// Empty arrays are treated as "no change" — sending { reviewers: [] }
+			// would be rejected by GitHub when delegated bypass is enabled.
+			out.secret_scanning_delegated_bypass_options = { reviewers: raw };
+		}
+	}
+
+	return Object.keys(out).length > 0 ? out : undefined;
+}
 
 /**
  * Settings fields only available via the GraphQL `updateRepository` mutation.
@@ -166,6 +245,8 @@ export function GitHubClientLive(token: string): Layer.Layer<GitHubClient> {
 			}
 
 			const ownerTypeCache = new Map<string, OwnerType>();
+			const teamIdCache = new Map<string, number>();
+			const roleIdCache = new Map<string, number>();
 
 			return {
 				getOwnerType(owner) {
@@ -243,6 +324,11 @@ export function GitHubClientLive(token: string): Layer.Layer<GitHubClient> {
 							const graphqlInput: Record<string, unknown> = {};
 
 							for (const [key, value] of Object.entries(settings)) {
+								if (key === "security_and_analysis") {
+									const saa = transformSecurityAndAnalysis(value);
+									if (saa !== undefined) restSettings.security_and_analysis = saa;
+									continue;
+								}
 								const graphqlField = GRAPHQL_SETTINGS[key];
 								if (graphqlField !== undefined) {
 									graphqlInput[graphqlField] = value;
@@ -522,6 +608,155 @@ export function GitHubClientLive(token: string): Layer.Layer<GitHubClient> {
 						catch: wrapError,
 					});
 				},
+
+				getVulnerabilityAlerts(owner, repo) {
+					return Effect.tryPromise({
+						try: async () => {
+							try {
+								await octokit.request("GET /repos/{owner}/{repo}/vulnerability-alerts", { owner, repo });
+								return true;
+							} catch (error) {
+								const status = (error as { status?: number }).status;
+								if (status === 404) return false;
+								throw error;
+							}
+						},
+						catch: wrapError,
+					});
+				},
+
+				setVulnerabilityAlerts(owner, repo, enabled) {
+					return Effect.tryPromise({
+						try: async () => {
+							if (enabled) {
+								await octokit.request("PUT /repos/{owner}/{repo}/vulnerability-alerts", { owner, repo });
+							} else {
+								await octokit.request("DELETE /repos/{owner}/{repo}/vulnerability-alerts", { owner, repo });
+							}
+						},
+						catch: wrapError,
+					});
+				},
+
+				getAutomatedSecurityFixes(owner, repo) {
+					return Effect.tryPromise({
+						try: async () => {
+							const { data } = await octokit.request("GET /repos/{owner}/{repo}/automated-security-fixes", {
+								owner,
+								repo,
+							});
+							return Boolean((data as { enabled?: boolean }).enabled);
+						},
+						catch: wrapError,
+					});
+				},
+
+				setAutomatedSecurityFixes(owner, repo, enabled) {
+					return Effect.tryPromise({
+						try: async () => {
+							if (enabled) {
+								await octokit.request("PUT /repos/{owner}/{repo}/automated-security-fixes", { owner, repo });
+							} else {
+								await octokit.request("DELETE /repos/{owner}/{repo}/automated-security-fixes", { owner, repo });
+							}
+						},
+						catch: wrapError,
+					});
+				},
+
+				getPrivateVulnerabilityReporting(owner, repo) {
+					return Effect.tryPromise({
+						try: async () => {
+							const { data } = await octokit.request("GET /repos/{owner}/{repo}/private-vulnerability-reporting", {
+								owner,
+								repo,
+							});
+							return Boolean((data as { enabled?: boolean }).enabled);
+						},
+						catch: wrapError,
+					});
+				},
+
+				setPrivateVulnerabilityReporting(owner, repo, enabled) {
+					return Effect.tryPromise({
+						try: async () => {
+							if (enabled) {
+								await octokit.request("PUT /repos/{owner}/{repo}/private-vulnerability-reporting", { owner, repo });
+							} else {
+								await octokit.request("DELETE /repos/{owner}/{repo}/private-vulnerability-reporting", {
+									owner,
+									repo,
+								});
+							}
+						},
+						catch: wrapError,
+					});
+				},
+
+				updateCodeScanningDefaultSetup(owner, repo, config) {
+					return Effect.tryPromise({
+						try: async () => {
+							const body: Record<string, unknown> = {};
+							if (config.state !== undefined) body.state = config.state;
+							if (config.languages !== undefined) body.languages = [...config.languages];
+							if (config.query_suite !== undefined) body.query_suite = config.query_suite;
+							if (config.threat_model !== undefined) body.threat_model = config.threat_model;
+							if (config.runner_type !== undefined) body.runner_type = config.runner_type;
+							if (config.runner_label !== undefined) body.runner_label = config.runner_label;
+							await octokit.request("PATCH /repos/{owner}/{repo}/code-scanning/default-setup", {
+								owner,
+								repo,
+								...body,
+							});
+						},
+						catch: wrapError,
+					});
+				},
+
+				listRepoLanguages(owner, repo) {
+					return Effect.tryPromise({
+						try: async () => {
+							const { data } = await octokit.repos.listLanguages({ owner, repo });
+							return Object.keys(data);
+						},
+						catch: wrapError,
+					});
+				},
+
+				resolveTeamId(org, slug) {
+					return Effect.tryPromise({
+						try: async () => {
+							const cacheKey = `${org}:${slug}`;
+							const cached = teamIdCache.get(cacheKey);
+							if (cached !== undefined) return cached;
+							const { data } = await octokit.teams.getByName({ org, team_slug: slug });
+							teamIdCache.set(cacheKey, data.id);
+							return data.id;
+						},
+						catch: wrapError,
+					});
+				},
+
+				resolveRoleId(org, name) {
+					return Effect.tryPromise({
+						try: async () => {
+							const cacheKey = `${org}:${name}`;
+							const cached = roleIdCache.get(cacheKey);
+							if (cached !== undefined) return cached;
+							const { data } = await octokit.request("GET /orgs/{org}/organization-roles", { org });
+							const roles = (data as { roles?: ReadonlyArray<{ id: number; name: string }> }).roles ?? [];
+							const role = roles.find((r) => r.name === name);
+							if (!role) {
+								throw new Error(
+									`organization role '${name}' not found in '${org}' (available: ${roles.map((r) => r.name).join(", ") || "none"})`,
+								);
+							}
+							roleIdCache.set(cacheKey, role.id);
+							return role.id;
+						},
+						catch: wrapError,
+					});
+				},
 			};
 		})(),
 	);
@@ -628,6 +863,52 @@ export function GitHubClientTest(): { layer: Layer.Layer<GitHubClient>; calls: (
 		deleteEnvironmentVariable(owner, repo, envName, name) {
 			recorded.push({ method: "deleteEnvironmentVariable", args: { owner, repo, envName, name } });
 			return Effect.void;
+		},
+
+		getVulnerabilityAlerts(_owner, _repo) {
+			return Effect.succeed(false);
+		},
+
+		setVulnerabilityAlerts(owner, repo, enabled) {
+			recorded.push({ method: "setVulnerabilityAlerts", args: { owner, repo, enabled } });
+			return Effect.void;
+		},
+
+		getAutomatedSecurityFixes(_owner, _repo) {
+			return Effect.succeed(false);
+		},
+
+		setAutomatedSecurityFixes(owner, repo, enabled) {
+			recorded.push({ method: "setAutomatedSecurityFixes", args: { owner, repo, enabled } });
+			return Effect.void;
+		},
+
+		getPrivateVulnerabilityReporting(_owner, _repo) {
+			return Effect.succeed(false);
+		},
+
+		setPrivateVulnerabilityReporting(owner, repo, enabled) {
+			recorded.push({ method: "setPrivateVulnerabilityReporting", args: { owner, repo, enabled } });
+			return Effect.void;
+		},
+
+		updateCodeScanningDefaultSetup(owner, repo, config) {
+			recorded.push({ method: "updateCodeScanningDefaultSetup", args: { owner, repo, config } });
+			return Effect.void;
+		},
+
+		listRepoLanguages(_owner, _repo) {
+			return Effect.succeed([]);
+		},
+
+		resolveTeamId(org, slug) {
+			recorded.push({ method: "resolveTeamId", args: { org, slug } });
+			return Effect.succeed(0);
+		},
+
+		resolveRoleId(org, name) {
+			recorded.push({ method: "resolveRoleId", args: { org, name } });
+			return Effect.succeed(0);
 		},
 	});
 

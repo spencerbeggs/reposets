@@ -12,7 +12,7 @@ export interface SyncLoggerService {
 	readonly repoStart: (owner: string, repo: string) => Effect.Effect<void>;
 	readonly repoSkip: (owner: string, repo: string, reason: string) => Effect.Effect<void>;
 	readonly syncSummary: (
-		resource: "secret" | "variable" | "ruleset" | "environment",
+		resource: "secret" | "variable" | "ruleset" | "environment" | "security feature" | "code scanning",
 		count: number,
 		detail: string,
 	) => Effect.Effect<void>;
@@ -34,6 +34,8 @@ export class SyncLogger extends Context.Tag("SyncLogger")<SyncLogger, SyncLogger
 function pluralize(resource: string, count: number): string {
 	if (count === 1) return resource;
 	if (resource === "ruleset") return "rulesets";
+	if (resource === "security feature") return "security features";
+	if (resource === "code scanning") return "code scanning";
 	return `${resource}s`;
 }
 

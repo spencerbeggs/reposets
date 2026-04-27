@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg)](https://www.typescriptlang.org/)
 
-Declarative GitHub repository management. Define your repo settings, secrets, variables, rulesets, and deployment environments in a TOML config file, then apply them across all your repositories with a single command.
+Declarative GitHub repository management. Define your repo settings, secrets, variables, rulesets, deployment environments, advanced security toggles, and CodeQL default setup in a TOML config file, then apply them across all your repositories with a single command.
 
 ## Why reposets
 
@@ -17,7 +17,8 @@ Managing repository settings by hand doesn't scale. When you have dozens of repo
 - **Multi-scope secret and variable management** — Assign the same secret group to Actions, Dependabot, Codespaces, and deployment environments with scoped targeting.
 - **Ruleset shorthand syntax** — Define branch and tag rulesets with compact inline syntax for pull request rules, status checks, and boolean flags instead of verbose API payloads.
 - **Deployment environment management** — Configure wait timers, reviewers, and branch policies for deployment environments alongside your other settings.
-- **Group-based targeting** — Organize repos into groups that share settings, secrets, variables, rulesets, and environments. Change the group config, sync once, and every repo updates.
+- **Advanced security and CodeQL** — Toggle secret scanning, push protection, vulnerability alerts, automated security fixes, private vulnerability reporting, and CodeQL default setup. License- and ownership-aware: GHAS-licensed fields warn instead of failing on private repos without a license, and org-only fields are silently skipped on personal accounts.
+- **Group-based targeting** — Organize repos into groups that share settings, secrets, variables, rulesets, environments, security toggles, and code scanning configuration. Change the group config, sync once, and every repo updates.
 - **Cleanup policies** — Automatically remove undeclared resources per scope with optional preserve lists, so your repos converge to the declared state.
 - **Dry-run and validation** — Preview changes before applying, validate config locally without touching the GitHub API, and catch typos with built-in diagnostics.
 
@@ -93,7 +94,7 @@ All commands accept `--log-level silent|info|verbose|debug`.
 
 reposets uses two TOML files:
 
-- `reposets.config.toml` — defines settings, secrets, variables, rulesets, environments, and groups
+- `reposets.config.toml` — defines settings, secrets, variables, rulesets, environments, security, code_scanning, and groups
 - `reposets.credentials.toml` — stores GitHub tokens and optional resolve sections for named values
 
 Config lookup order (first match wins):
@@ -112,7 +113,13 @@ reposets requires a fine-grained personal access token with:
 - Repository > Secrets (Read and write)
 - Repository > Variables (Read and write)
 - Repository > Environments (Read and write)
+- Repository > Code scanning alerts (Read and write) — for `[code_scanning.*]`
+- Repository > Dependabot alerts (Read and write) — for `[security.*]`
+- Repository > Secret scanning alerts (Read and write) — for `security_and_analysis`
+- Organization > Members (Read) — for `delegated_bypass_reviewers` team slugs on org-owned repos
 - Account > GPG keys (Read and write)
+
+The four security-related scopes are only required if you use the corresponding config sections.
 
 ## Documentation
 
@@ -124,6 +131,7 @@ Full reference guides are available in the [`docs/`](https://github.com/spencerb
 - [Secrets and Variables](https://github.com/spencerbeggs/reposets/blob/main/docs/secrets-and-variables.md) - resource groups, three kinds (file/value/resolved), and scoping
 - [Rulesets](https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md) - branch and tag ruleset configuration
 - [Environments](https://github.com/spencerbeggs/reposets/blob/main/docs/environments.md) - deployment environment setup
+- [Advanced Security](https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md#security-and-analysis-nested-block) - secret scanning, vulnerability alerts, automated security fixes, private vulnerability reporting, and CodeQL default setup
 - [Cleanup](https://github.com/spencerbeggs/reposets/blob/main/docs/cleanup.md) - automatic cleanup of undeclared resources
 - [Token Permissions](https://github.com/spencerbeggs/reposets/blob/main/docs/token-permissions.md) - GitHub PAT setup guide
 

@@ -1,6 +1,6 @@
 # reposets Documentation
 
-reposets is a CLI tool for syncing GitHub repository settings, secrets, variables, rulesets, and deployment environments across your personal repositories. Define your desired state once in a TOML config file and apply it everywhere with a single command.
+reposets is a CLI tool for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, advanced security toggles, and CodeQL default setup across your personal and organization repositories. Define your desired state once in a TOML config file and apply it everywhere with a single command.
 
 Rather than clicking through repository settings one by one, reposets lets you manage repository configuration as code. Group repositories together, assign shared secrets and variables to those groups, and let reposets reconcile the live state on GitHub against your declared config on every run.
 
@@ -70,5 +70,6 @@ reposets sync
 - [Secrets and Variables](secrets-and-variables.md) - resource groups, three kinds (file/value/resolved), and scoping
 - [Rulesets](rulesets.md) - branch and tag rulesets, shorthand fields, and rule types
 - [Environments](environments.md) - deployment environment definitions and configuration
+- [Advanced Security](configuration.md#security-and-analysis-nested-block) - secret scanning, push protection, vulnerability alerts, automated security fixes, private vulnerability reporting, and CodeQL default setup
 - [Cleanup](cleanup.md) - automatic cleanup of undeclared resources with preserve lists
 - [Token Permissions](token-permissions.md) - fine-grained PAT setup guide

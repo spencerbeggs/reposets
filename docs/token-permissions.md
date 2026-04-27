@@ -12,7 +12,13 @@ reposets requires a fine-grained personal access token (not a classic token). Fi
 | Repository | Secrets | Read and write | Manage Actions, Dependabot, and Codespaces secrets |
 | Repository | Variables | Read and write | Manage Actions and environment variables |
 | Repository | Environments | Read and write | Create and configure deployment environments |
+| Repository | Code scanning alerts | Read and write | Configure CodeQL default setup (`[code_scanning.*]`) |
+| Repository | Dependabot alerts | Read and write | Toggle vulnerability alerts and automated security fixes (`[security.*]`) |
+| Repository | Secret scanning alerts | Read and write | Configure `security_and_analysis` secret scanning fields |
+| Organization | Members | Read | Resolve team slugs in `delegated_bypass_reviewers` to numeric reviewer IDs (org-owned repos only) |
 | Account | GPG keys | Read and write | Retrieve the repository public key for encrypting secrets (see below) |
+
+The four security-related permissions (Code scanning alerts, Dependabot alerts, Secret scanning alerts, Members) are only required if you use the corresponding config sections (`[settings.*.security_and_analysis]`, `[security.*]`, `[code_scanning.*]`). Tokens without them can still sync settings, secrets, variables, rulesets, and environments.
 
 ### Why GPG Keys Access Is Required
 
@@ -24,9 +30,10 @@ The GitHub API does not accept secret values in plaintext. Before uploading a se
 2. Click "Generate new token"
 3. Set a token name and expiration
 4. Under "Repository access", select "All repositories" or choose specific repos
-5. Under "Repository permissions", enable the four required permissions listed above
+5. Under "Repository permissions", enable the required permissions listed above (Administration, Secrets, Variables, Environments, plus Code scanning alerts / Dependabot alerts / Secret scanning alerts if you use the security config sections)
 6. Under "Account permissions", enable GPG keys (Read and write)
-7. Click "Generate token" and copy it
+7. Under "Organization permissions", enable Members (Read) if you use `delegated_bypass_reviewers` with team slugs on org-owned repos
+8. Click "Generate token" and copy it
 
 ## Adding the Token
 

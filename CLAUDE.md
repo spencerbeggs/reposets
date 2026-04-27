@@ -51,7 +51,7 @@ at `package/` (workspace name: `reposets`).
 ```text
 package/                   # reposets CLI package
 package/src/cli/           # CLI entrypoint and commands
-package/src/services/      # Effect services (6 services, 20 GitHubClient methods)
+package/src/services/      # Effect services (6 services, 30 GitHubClient methods)
 package/src/schemas/       # Effect Schema definitions (config, credentials, environment, ruleset) + JSON schema generation
 package/src/lib/           # Utilities (XDG paths, config resolution, crypto)
 package/__test__/          # Tests mirroring src/ structure
@@ -117,13 +117,23 @@ Six services compose the sync pipeline:
 - `CredentialResolver` — Resolves named values from credential profile
   `[resolve]` sections (value, file, and op sub-groups)
 - `OnePasswordClient` — Wraps `@1password/sdk` for 1Password secret references
-- `GitHubClient` — Octokit wrapper (20 methods, including `getOwnerType`);
-  handles settings (REST + GraphQL mutation), secrets by scope
+- `GitHubClient` — Octokit wrapper (30 methods, including `getOwnerType`);
+  handles settings (REST + GraphQL mutation, with `security_and_analysis`
+  folded in via `transformSecurityAndAnalysis`), secrets by scope
   (actions/dependabot/codespaces/environments), variables by scope
-  (actions/environments), rulesets, and deployment environments
-- `SyncEngine` — Orchestrates the full sync lifecycle: environments synced
-  before secrets/variables so scoped resources can attach; per-group cleanup
-  using three-way `CleanupScope` union
+  (actions/environments), rulesets, deployment environments, repository
+  security toggles (vulnerability_alerts, automated_security_fixes,
+  private_vulnerability_reporting), CodeQL default setup, and team-slug
+  resolution (cached per `org:slug`)
+- `SyncEngine` — Orchestrates the full sync lifecycle. Order: settings
+  (with merged `security_and_analysis` and resolved reviewer IDs) →
+  security features (diff and apply vulnerability_alerts/
+  automated_security_fixes/private_vulnerability_reporting via dedicated
+  PUT/DELETE endpoints) → code scanning (filter configured CodeQL
+  languages by `listRepoLanguages` and PATCH default-setup) →
+  environments → secrets → variables → rulesets → cleanup. Per-group
+  cleanup uses the three-way `CleanupScope` union (security and
+  code_scanning have no cleanup — omitted = leave alone)
 - `SyncLogger` — Tiered output (silent/info/verbose/debug) with dry-run
   awareness; all sync output flows through this service
 

@@ -3,7 +3,7 @@ import { isAbsolute, resolve } from "node:path";
 import { Context, Effect, Layer } from "effect";
 import { ResolveError, SyncError } from "../errors.js";
 import type { CleanupScope, SecretGroup } from "../schemas/common.js";
-import type { Config } from "../schemas/config.js";
+import type { CodeScanningGroup, Config, SecurityAndAnalysis, SecurityGroup } from "../schemas/config.js";
 import type { Credentials } from "../schemas/credentials.js";
 import type { Ruleset, RulesetPayload } from "../schemas/ruleset.js";
 import { buildRulesetPayload } from "../schemas/ruleset.js";
@@ -11,6 +11,33 @@ import { CredentialResolver } from "./CredentialResolver.js";
 import type { OwnerType, SecretScope } from "./GitHubClient.js";
 import { GitHubClient, ORG_ONLY_SETTINGS } from "./GitHubClient.js";
 import { SyncLogger } from "./SyncLogger.js";
+
+/** Fields that GitHub only accepts on org-owned repositories. */
+const ORG_ONLY_SAA_FIELDS = new Set([
+	"secret_scanning_delegated_alert_dismissal",
+	"secret_scanning_delegated_bypass",
+	"delegated_bypass_reviewers",
+]);
+
+/**
+ * Map GitHub repo language names (as returned by listLanguages) to the
+ * code scanning default-setup language enum. Unmapped languages are dropped
+ * from the detected set (callers warn about configured languages that don't
+ * appear in the mapped detected set).
+ */
+const REPO_LANG_TO_CODEQL: Record<string, string> = {
+	JavaScript: "javascript-typescript",
+	TypeScript: "javascript-typescript",
+	C: "c-cpp",
+	"C++": "c-cpp",
+	"C#": "csharp",
+	Go: "go",
+	Java: "java-kotlin",
+	Kotlin: "java-kotlin",
+	Python: "python",
+	Ruby: "ruby",
+	Swift: "swift",
+};
 
 interface SyncOptions {
 	readonly dryRun: boolean;
@@ -109,6 +136,46 @@ function groupEntryNames(group: SecretGroup): string[] {
 	if ("value" in group) return Object.keys(group.value);
 	if ("resolved" in group) return Object.keys(group.resolved);
 	return [];
+}
+
+/** Last-write-wins merge of security_and_analysis blocks across setting groups. */
+function mergeSecurityAndAnalysis(
+	blocks: ReadonlyArray<SecurityAndAnalysis | undefined>,
+): SecurityAndAnalysis | undefined {
+	const merged: Record<string, unknown> = {};
+	let hasAny = false;
+	for (const block of blocks) {
+		if (!block) continue;
+		hasAny = true;
+		for (const [key, value] of Object.entries(block)) {
+			if (value !== undefined) merged[key] = value;
+		}
+	}
+	return hasAny ? (merged as SecurityAndAnalysis) : undefined;
+}
+
+/** Last-write-wins merge of SecurityGroup toggles across referenced groups. */
+function mergeSecurityGroups(groups: ReadonlyArray<SecurityGroup | undefined>): SecurityGroup {
+	const merged: Record<string, boolean> = {};
+	for (const group of groups) {
+		if (!group) continue;
+		for (const [key, value] of Object.entries(group)) {
+			if (typeof value === "boolean") merged[key] = value;
+		}
+	}
+	return merged as SecurityGroup;
+}
+
+/** Last-write-wins merge of CodeScanningGroup configs across referenced groups. */
+function mergeCodeScanningGroups(groups: ReadonlyArray<CodeScanningGroup | undefined>): CodeScanningGroup {
+	const merged: Record<string, unknown> = {};
+	for (const group of groups) {
+		if (!group) continue;
+		for (const [key, value] of Object.entries(group)) {
+			if (value !== undefined) merged[key] = value;
+		}
+	}
+	return merged as CodeScanningGroup;
 }
 
 export const SyncEngineLive = Layer.effect(
@@ -281,9 +348,15 @@ export const SyncEngineLive = Layer.effect(
 						const settingGroupRefs = group.settings ?? [];
 						const mergedSettings: Record<string, unknown> = {};
 						const skippedSettings: string[] = [];
+						const saaBlocks: Array<SecurityAndAnalysis | undefined> = [];
 						for (const ref of settingGroupRefs) {
 							const settingGroup = config.settings[ref];
-							if (settingGroup) Object.assign(mergedSettings, settingGroup);
+							if (settingGroup) {
+								// Pull the security_and_analysis block aside; merge separately
+								const { security_and_analysis, ...rest } = settingGroup;
+								Object.assign(mergedSettings, rest);
+								saaBlocks.push(security_and_analysis);
+							}
 						}
 						// Strip org-only settings for personal accounts
 						if (ownerType === "User") {
@@ -294,6 +367,85 @@ export const SyncEngineLive = Layer.effect(
 								}
 							}
 						}
+
+						// Merge security_and_analysis, drop org-only fields on personal repos,
+						// resolve team slugs to numeric reviewer IDs, and inject the resolved
+						// block back into mergedSettings.
+						const mergedSAA = mergeSecurityAndAnalysis(saaBlocks);
+						const skippedSAA: string[] = [];
+						if (mergedSAA) {
+							const saaOut: Record<string, unknown> = { ...mergedSAA };
+							if (ownerType === "User") {
+								for (const key of ORG_ONLY_SAA_FIELDS) {
+									if (key in saaOut) {
+										delete saaOut[key];
+										skippedSAA.push(key);
+									}
+								}
+							} else {
+								// Resolve team slugs to numeric reviewer IDs for org-owned repos.
+								const reviewers = saaOut.delegated_bypass_reviewers;
+								if (Array.isArray(reviewers)) {
+									const resolved: Array<Record<string, unknown>> = [];
+									for (const reviewer of reviewers as ReadonlyArray<Record<string, unknown>>) {
+										if (typeof reviewer.team === "string") {
+											const teamId = yield* github.resolveTeamId(owner, reviewer.team).pipe(
+												Effect.catchTag("GitHubApiError", (err) =>
+													Effect.gen(function* () {
+														yield* logger.syncError(`resolve team '${reviewer.team}'`, err.message);
+														return undefined;
+													}),
+												),
+											);
+											if (teamId !== undefined) {
+												const entry: Record<string, unknown> = {
+													reviewer_id: teamId,
+													reviewer_type: "TEAM",
+												};
+												if (reviewer.mode !== undefined) entry.mode = reviewer.mode;
+												resolved.push(entry);
+											}
+										} else if (typeof reviewer.role === "string") {
+											const roleId = yield* github.resolveRoleId(owner, reviewer.role).pipe(
+												Effect.catchTag("GitHubApiError", (err) =>
+													Effect.gen(function* () {
+														yield* logger.syncError(`resolve role '${reviewer.role}'`, err.message);
+														return undefined;
+													}),
+												),
+											);
+											if (roleId !== undefined) {
+												const entry: Record<string, unknown> = {
+													reviewer_id: roleId,
+													reviewer_type: "ROLE",
+												};
+												if (reviewer.mode !== undefined) entry.mode = reviewer.mode;
+												resolved.push(entry);
+											}
+										}
+									}
+									saaOut.delegated_bypass_reviewers = resolved;
+								}
+							}
+							if (Object.keys(saaOut).length > 0) {
+								mergedSettings.security_and_analysis = saaOut;
+							}
+						}
+
+						// Merge security and code_scanning groups (group-scoped)
+						const securityGroupRefs = group.security ?? [];
+						const mergedSecurity = mergeSecurityGroups(securityGroupRefs.map((ref) => config.security[ref]));
+						const codeScanningRefs = group.code_scanning ?? [];
+						const mergedCodeScanning = mergeCodeScanningGroups(
+							codeScanningRefs.map((ref) => config.code_scanning[ref]),
+						);
+						const hasSecurity = Object.keys(mergedSecurity).length > 0;
+						// SecurityGroupSchema rejects this contradiction in a single group, but
+						// last-write-wins merging across multiple referenced groups can recreate
+						// it. Detect and skip the sync rather than letting GitHub return 422.
+						const securityContradiction =
+							mergedSecurity.automated_security_fixes === true && mergedSecurity.vulnerability_alerts === false;
+						const hasCodeScanning = Object.keys(mergedCodeScanning).length > 0;
 						const hasSecrets = secretScopes.some((s) => (resolvedSecrets.get(s)?.size ?? 0) > 0);
 						const hasVariables = resolvedVariables.size > 0;
 						const hasRulesets = rulesetMap.size > 0;
@@ -323,6 +475,8 @@ export const SyncEngineLive = Layer.effect(
 								!hasEnvironments &&
 								!hasEnvSecrets &&
 								!hasEnvVariables &&
+								!hasSecurity &&
+								!hasCodeScanning &&
 								!hasCleanup
 							) {
 								yield* logger.repoSkip(owner, repoName, "no changes configured");
@@ -343,6 +497,137 @@ export const SyncEngineLive = Layer.effect(
 								// Warn about skipped org-only settings
 								for (const key of skippedSettings) {
 									yield* logger.syncOperation("skip", "setting", key, "(org-only, owner is a personal account)");
+								}
+								for (const key of skippedSAA) {
+									yield* logger.syncOperation(
+										"skip",
+										"security_and_analysis",
+										key,
+										"(org-only, owner is a personal account)",
+									);
+								}
+
+								// Sync security features (vulnerability_alerts, automated_security_fixes,
+								// private_vulnerability_reporting). Diff against current state and only
+								// apply when the configured value differs.
+								if (hasSecurity && securityContradiction) {
+									yield* logger.syncError(
+										"security merge",
+										"automated_security_fixes = true requires vulnerability_alerts to be enabled (or omitted); skipping security sync",
+									);
+								} else if (hasSecurity) {
+									if (mergedSecurity.vulnerability_alerts !== undefined) {
+										const desired = mergedSecurity.vulnerability_alerts;
+										const current = yield* github.getVulnerabilityAlerts(owner, repoName).pipe(
+											Effect.catchTag("GitHubApiError", (err) =>
+												Effect.gen(function* () {
+													yield* logger.syncError("get vulnerability_alerts", err.message);
+													return desired;
+												}),
+											),
+										);
+										if (current !== desired) {
+											yield* logger.syncOperation("sync", "vulnerability_alerts", desired ? "enable" : "disable");
+											yield* github
+												.setVulnerabilityAlerts(owner, repoName, desired)
+												.pipe(
+													Effect.catchTag("GitHubApiError", (err) =>
+														logger.syncError("vulnerability_alerts", err.message),
+													),
+												);
+										}
+									}
+									if (mergedSecurity.automated_security_fixes !== undefined) {
+										const desired = mergedSecurity.automated_security_fixes;
+										const current = yield* github.getAutomatedSecurityFixes(owner, repoName).pipe(
+											Effect.catchTag("GitHubApiError", (err) =>
+												Effect.gen(function* () {
+													yield* logger.syncError("get automated_security_fixes", err.message);
+													return desired;
+												}),
+											),
+										);
+										if (current !== desired) {
+											yield* logger.syncOperation("sync", "automated_security_fixes", desired ? "enable" : "disable");
+											yield* github
+												.setAutomatedSecurityFixes(owner, repoName, desired)
+												.pipe(
+													Effect.catchTag("GitHubApiError", (err) =>
+														logger.syncError("automated_security_fixes", err.message),
+													),
+												);
+										}
+									}
+									if (mergedSecurity.private_vulnerability_reporting !== undefined) {
+										const desired = mergedSecurity.private_vulnerability_reporting;
+										const current = yield* github.getPrivateVulnerabilityReporting(owner, repoName).pipe(
+											Effect.catchTag("GitHubApiError", (err) =>
+												Effect.gen(function* () {
+													yield* logger.syncError("get private_vulnerability_reporting", err.message);
+													return desired;
+												}),
+											),
+										);
+										if (current !== desired) {
+											yield* logger.syncOperation(
+												"sync",
+												"private_vulnerability_reporting",
+												desired ? "enable" : "disable",
+											);
+											yield* github
+												.setPrivateVulnerabilityReporting(owner, repoName, desired)
+												.pipe(
+													Effect.catchTag("GitHubApiError", (err) =>
+														logger.syncError("private_vulnerability_reporting", err.message),
+													),
+												);
+										}
+									}
+								}
+
+								// Sync code scanning default setup. Filter configured languages by
+								// what GitHub detects in the repo; warn (don't fail) for missing.
+								if (hasCodeScanning) {
+									let desiredConfig: CodeScanningGroup = mergedCodeScanning;
+									if (mergedCodeScanning.languages !== undefined) {
+										const detected = yield* github.listRepoLanguages(owner, repoName).pipe(
+											Effect.catchTag("GitHubApiError", (err) =>
+												Effect.gen(function* () {
+													yield* logger.syncError("list repo languages", err.message);
+													return [] as ReadonlyArray<string>;
+												}),
+											),
+										);
+										const detectedCodeQL = new Set<string>();
+										for (const lang of detected) {
+											const mapped = REPO_LANG_TO_CODEQL[lang];
+											if (mapped) detectedCodeQL.add(mapped);
+										}
+										const filtered: Array<(typeof mergedCodeScanning.languages)[number]> = [];
+										for (const lang of mergedCodeScanning.languages) {
+											// `actions` analyses workflow YAML rather than a repo language;
+											// listLanguages never reports it, so always pass it through.
+											if (lang === "actions" || detectedCodeQL.has(lang)) {
+												filtered.push(lang);
+											} else {
+												yield* logger.syncOperation(
+													"skip",
+													"code_scanning language",
+													lang,
+													"(not detected in repository)",
+												);
+											}
+										}
+										desiredConfig = { ...mergedCodeScanning, languages: filtered };
+									}
+									yield* logger.syncOperation("sync", "code_scanning", desiredConfig.state ?? "default-setup");
+									yield* github
+										.updateCodeScanningDefaultSetup(owner, repoName, desiredConfig)
+										.pipe(
+											Effect.catchTag("GitHubApiError", (err) =>
+												logger.syncError("code_scanning default setup", err.message),
+											),
+										);
 								}
 
 								// Sync environments (before secrets/variables)
@@ -428,6 +713,13 @@ export const SyncEngineLive = Layer.effect(
 							}
 
 							// Info-tier summaries
+							if (hasSecurity) {
+								const securityCount = Object.values(mergedSecurity).filter((v) => v !== undefined).length;
+								yield* logger.syncSummary("security feature", securityCount, "");
+							}
+							if (hasCodeScanning) {
+								yield* logger.syncSummary("code scanning", 1, mergedCodeScanning.state ?? "applied");
+							}
 							if (hasEnvironments) {
 								yield* logger.syncSummary("environment", envRefs.length, "");
 							}

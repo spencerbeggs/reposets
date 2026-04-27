@@ -116,6 +116,21 @@ export const GroupSchema = Schema.Struct({
 			examples: [["workflow", "release"]],
 		}),
 	),
+	security: Schema.optional(
+		Schema.Array(Schema.String).annotations({
+			title: "Security groups",
+			description:
+				"Names of security groups (vulnerability alerts, automated security fixes, private vulnerability reporting) to apply to these repos",
+			examples: [["oss-defaults"]],
+		}),
+	),
+	code_scanning: Schema.optional(
+		Schema.Array(Schema.String).annotations({
+			title: "Code scanning groups",
+			description: "Names of code_scanning groups (CodeQL default setup) to apply to these repos",
+			examples: [["oss-defaults"]],
+		}),
+	),
 	cleanup: Schema.optional(CleanupSchema),
 }).annotations({
 	identifier: "Group",
@@ -155,6 +170,121 @@ const MergeCommitMessageSchema = Schema.Literal("PR_BODY", "PR_TITLE", "BLANK").
 	description:
 		"Default message body for merge commits: PR_BODY uses the pull request body, PR_TITLE uses the PR title, BLANK leaves it empty",
 });
+
+const SecurityAndAnalysisStatusSchema = Schema.Literal("enabled", "disabled").annotations({
+	identifier: "SecurityAndAnalysisStatus",
+	title: "Security feature status",
+	description: 'Whether the security feature is "enabled" or "disabled"',
+});
+
+const DelegatedBypassReviewerModeSchema = Schema.Literal("ALWAYS", "EXEMPT").annotations({
+	identifier: "DelegatedBypassReviewerMode",
+	title: "Delegated bypass reviewer mode",
+	description: "ALWAYS: reviewer is always required to approve bypass; EXEMPT: reviewer can bypass without review",
+});
+
+const DelegatedBypassReviewerSchema = Schema.Union(
+	Schema.Struct({
+		team: Schema.String.annotations({
+			title: "Team slug",
+			description: 'GitHub team slug (e.g., "security-team"); resolved to numeric reviewer_id at sync time',
+			examples: ["security-team"],
+		}),
+		mode: Schema.optional(DelegatedBypassReviewerModeSchema),
+	}),
+	Schema.Struct({
+		role: Schema.String.annotations({
+			title: "Organization role name",
+			description:
+				'Organization role name as defined in `GET /orgs/{org}/organization-roles` (e.g., "all_repo_admin", "security_manager"). Resolved to the numeric role ID at sync time.',
+			examples: ["all_repo_admin", "all_repo_maintain", "security_manager"],
+		}),
+		mode: Schema.optional(DelegatedBypassReviewerModeSchema),
+	}),
+).annotations({
+	identifier: "DelegatedBypassReviewer",
+	title: "Delegated bypass reviewer",
+	description:
+		"A reviewer who can approve secret-scanning push-protection bypass requests. Must specify exactly one of team or role.",
+});
+
+const SecurityAndAnalysisSchema = Schema.Struct({
+	advanced_security: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "GitHub Advanced Security",
+			description:
+				"(GHAS-licensed) Master toggle for GitHub Advanced Security features. Free on public repos; requires a GHAS license on private repos.",
+		}),
+	),
+	code_security: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "GitHub Code Security",
+			description: "(GHAS-licensed) Toggle GitHub Code Security functionality.",
+		}),
+	),
+	secret_scanning: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "Secret scanning",
+			description: "Detect exposed credentials and sensitive data committed to the repository.",
+		}),
+	),
+	secret_scanning_push_protection: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "Secret scanning push protection",
+			description: "Block git pushes that contain detected secrets.",
+		}),
+	),
+	secret_scanning_ai_detection: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "Secret scanning AI detection",
+			description: "(GHAS-licensed) AI-powered detection of generic secrets beyond standard provider patterns.",
+		}),
+	),
+	secret_scanning_non_provider_patterns: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "Secret scanning non-provider patterns",
+			description: "(GHAS-licensed) Detect custom secret patterns beyond the standard provider list.",
+		}),
+	),
+	secret_scanning_delegated_alert_dismissal: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "Delegated alert dismissal",
+			description: "(org-only) Allow delegated dismissal of secret scanning alerts.",
+		}),
+	),
+	secret_scanning_delegated_bypass: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "Delegated push protection bypass",
+			description: "(org-only) Allow delegated approval of secret scanning push protection bypass requests.",
+		}),
+	),
+	delegated_bypass_reviewers: Schema.optional(
+		Schema.Array(DelegatedBypassReviewerSchema).annotations({
+			title: "Delegated bypass reviewers",
+			description:
+				"(org-only) Reviewers authorized to approve push protection bypass requests. Each entry must specify a team slug or role name.",
+		}),
+	),
+	dependabot_security_updates: Schema.optional(
+		SecurityAndAnalysisStatusSchema.annotations({
+			title: "Dependabot security updates",
+			description: "Automatically open pull requests to patch known dependency vulnerabilities.",
+		}),
+	),
+}).annotations({
+	identifier: "SecurityAndAnalysis",
+	title: "Security and analysis",
+	description:
+		"GitHub repository security_and_analysis fields applied via the same PATCH /repos call as other settings. (GHAS-licensed) fields require a GHAS license on private repos; (org-only) fields are silently skipped on personal repos.",
+	jsonSchema: {
+		...tombi({ tableKeysOrder: "schema" }),
+		...taplo({
+			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md" },
+		}),
+	},
+});
+
+export type SecurityAndAnalysis = typeof SecurityAndAnalysisSchema.Type;
 
 const SettingsGroupSchema = Schema.Struct(
 	{
@@ -252,6 +382,7 @@ const SettingsGroupSchema = Schema.Struct(
 				description: "Require contributors to sign off on web-based commits",
 			}),
 		),
+		security_and_analysis: Schema.optional(SecurityAndAnalysisSchema),
 	},
 	{ key: Schema.String, value: Jsonifiable },
 ).annotations({
@@ -266,6 +397,133 @@ const SettingsGroupSchema = Schema.Struct(
 		}),
 	},
 });
+
+export const SecurityGroupSchema = Schema.Struct({
+	vulnerability_alerts: Schema.optional(
+		Schema.Boolean.annotations({
+			title: "Vulnerability alerts",
+			description: "Enable Dependabot vulnerability alerts (PUT/DELETE /repos/{o}/{r}/vulnerability-alerts).",
+		}),
+	),
+	automated_security_fixes: Schema.optional(
+		Schema.Boolean.annotations({
+			title: "Automated security fixes",
+			description:
+				"Enable Dependabot security pull requests (PUT/DELETE /repos/{o}/{r}/automated-security-fixes). Requires vulnerability_alerts to also be enabled.",
+		}),
+	),
+	private_vulnerability_reporting: Schema.optional(
+		Schema.Boolean.annotations({
+			title: "Private vulnerability reporting",
+			description:
+				"Enable the private vulnerability reporting inbox (PUT/DELETE /repos/{o}/{r}/private-vulnerability-reporting).",
+		}),
+	),
+})
+	.pipe(
+		Schema.filter((group) => !(group.automated_security_fixes === true && group.vulnerability_alerts === false), {
+			identifier: "SecurityGroup",
+			message: () =>
+				"automated_security_fixes = true requires vulnerability_alerts to be enabled (or omitted to leave the existing setting in place)",
+		}),
+	)
+	.annotations({
+		identifier: "SecurityGroup",
+		title: "Security group",
+		description:
+			"Toggles for repository-level security features that have dedicated PUT/DELETE endpoints (vulnerability alerts, automated security fixes, private vulnerability reporting). Omitted keys are left untouched.",
+		jsonSchema: {
+			...tombi({ tableKeysOrder: "schema" }),
+			...taplo({
+				links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md" },
+			}),
+		},
+	});
+
+export type SecurityGroup = typeof SecurityGroupSchema.Type;
+
+export const CodeScanningLanguageSchema = Schema.Literal(
+	"actions",
+	"c-cpp",
+	"csharp",
+	"go",
+	"java-kotlin",
+	"javascript-typescript",
+	"python",
+	"ruby",
+	"swift",
+).annotations({
+	identifier: "CodeScanningLanguage",
+	title: "CodeQL default-setup language",
+	description:
+		"Languages supported by GitHub code scanning default setup. Note: this is narrower than the CodeQL analyzer (Rust is supported by CodeQL but not by default setup).",
+});
+
+const CodeScanningStateSchema = Schema.Literal("configured", "not-configured").annotations({
+	identifier: "CodeScanningState",
+	title: "Default setup state",
+	description: '"configured" enables CodeQL default setup; "not-configured" disables it.',
+});
+
+const CodeScanningQuerySuiteSchema = Schema.Literal("default", "extended").annotations({
+	identifier: "CodeScanningQuerySuite",
+	title: "Query suite",
+	description: '"default" runs the standard query set; "extended" includes additional security queries.',
+});
+
+const CodeScanningThreatModelSchema = Schema.Literal("remote", "remote_and_local").annotations({
+	identifier: "CodeScanningThreatModel",
+	title: "Threat model",
+	description:
+		'"remote" analyzes network sources only; "remote_and_local" also includes filesystem and environment access.',
+});
+
+const CodeScanningRunnerTypeSchema = Schema.Literal("standard", "labeled").annotations({
+	identifier: "CodeScanningRunnerType",
+	title: "Runner type",
+	description: '"standard" uses GitHub-hosted runners; "labeled" uses runners matching runner_label.',
+});
+
+export const CodeScanningGroupSchema = Schema.Struct({
+	state: Schema.optional(CodeScanningStateSchema),
+	languages: Schema.optional(
+		Schema.Array(CodeScanningLanguageSchema).annotations({
+			title: "Languages",
+			description:
+				"CodeQL languages to analyze. Languages not detected in the repository are skipped with a warning at sync time.",
+			examples: [["javascript-typescript", "python"]],
+		}),
+	),
+	query_suite: Schema.optional(CodeScanningQuerySuiteSchema),
+	threat_model: Schema.optional(CodeScanningThreatModelSchema),
+	runner_type: Schema.optional(CodeScanningRunnerTypeSchema),
+	runner_label: Schema.optional(
+		Schema.String.annotations({
+			title: "Runner label",
+			description: 'Self-hosted runner label. Required when runner_type = "labeled".',
+		}),
+	),
+})
+	.pipe(
+		Schema.filter((group) => group.runner_type !== "labeled" || group.runner_label !== undefined, {
+			identifier: "CodeScanningGroup",
+			message: () => 'runner_label is required when runner_type = "labeled"',
+		}),
+	)
+	.annotations({
+		identifier: "CodeScanningGroup",
+		title: "Code scanning group",
+		description:
+			"CodeQL default setup configuration applied via PATCH /repos/{o}/{r}/code-scanning/default-setup. The endpoint returns 202 Accepted and configures asynchronously; reposets sends the request and does not poll for completion.",
+		jsonSchema: {
+			...tombi({ tableKeysOrder: "schema" }),
+			...taplo({
+				links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/configuration.md" },
+			}),
+		},
+	});
+
+export type CodeScanningGroup = typeof CodeScanningGroupSchema.Type;
 
 export const LogLevelSchema = Schema.Literal("silent", "info", "verbose", "debug").annotations({
 	identifier: "LogLevel",
@@ -334,20 +592,43 @@ export const ConfigSchema = Schema.Struct({
 		}),
 		{ default: () => ({}) },
 	),
+	security: Schema.optionalWith(
+		Schema.Record({
+			key: Schema.String,
+			value: SecurityGroupSchema,
+		}).annotations({
+			title: "Security groups",
+			description:
+				"Named security groups for vulnerability alerts, automated security fixes, and private vulnerability reporting",
+			jsonSchema: tombi({ additionalKeyLabel: "security_group" }),
+		}),
+		{ default: () => ({}) },
+	),
+	code_scanning: Schema.optionalWith(
+		Schema.Record({
+			key: Schema.String,
+			value: CodeScanningGroupSchema,
+		}).annotations({
+			title: "Code scanning groups",
+			description: "Named code scanning groups for CodeQL default setup configuration",
+			jsonSchema: tombi({ additionalKeyLabel: "code_scanning_group" }),
+		}),
+		{ default: () => ({}) },
+	),
 	groups: Schema.Record({
 		key: Schema.String,
 		value: GroupSchema,
 	}).annotations({
 		title: "Groups",
 		description:
-			"Named groups of repositories with their settings, secrets, variables, rulesets, and environment assignments",
+			"Named groups of repositories with their settings, secrets, variables, rulesets, environments, security, and code scanning assignments",
 		jsonSchema: tombi({ additionalKeyLabel: "group_name" }),
 	}),
 }).annotations({
 	identifier: "Config",
 	title: "reposets Configuration",
 	description:
-		"Configuration for syncing GitHub repository settings, secrets, variables, rulesets, and deployment environments",
+		"Configuration for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, advanced security toggles, and CodeQL default setup",
 	jsonSchema: {
 		...tombi({ tableKeysOrder: "schema" }),
 		...taplo({
