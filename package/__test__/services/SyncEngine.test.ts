@@ -915,6 +915,80 @@ describe("SyncEngine", () => {
 			expect(config0.languages).not.toContain("python");
 		});
 
+		it("always passes 'actions' language through regardless of detected repo languages", async () => {
+			const recorded: Array<{ method: string; args: Record<string, unknown> }> = [];
+			const githubLayer = Layer.succeed(GitHubClient, {
+				getOwnerType: () => Effect.succeed("User" as const),
+				syncSecret: () => Effect.void,
+				syncVariable: () => Effect.void,
+				syncSettings: () => Effect.void,
+				syncRuleset: () => Effect.void,
+				listSecrets: () => Effect.succeed([]),
+				listVariables: () => Effect.succeed([]),
+				listRulesets: () => Effect.succeed([]),
+				deleteSecret: () => Effect.void,
+				deleteVariable: () => Effect.void,
+				deleteRuleset: () => Effect.void,
+				syncEnvironment: () => Effect.void,
+				syncEnvironmentSecret: () => Effect.void,
+				syncEnvironmentVariable: () => Effect.void,
+				listEnvironments: () => Effect.succeed([]),
+				listEnvironmentSecrets: () => Effect.succeed([]),
+				listEnvironmentVariables: () => Effect.succeed([]),
+				deleteEnvironment: () => Effect.void,
+				deleteEnvironmentSecret: () => Effect.void,
+				deleteEnvironmentVariable: () => Effect.void,
+				getVulnerabilityAlerts: () => Effect.succeed(false),
+				setVulnerabilityAlerts: () => Effect.void,
+				getAutomatedSecurityFixes: () => Effect.succeed(false),
+				setAutomatedSecurityFixes: () => Effect.void,
+				getPrivateVulnerabilityReporting: () => Effect.succeed(false),
+				setPrivateVulnerabilityReporting: () => Effect.void,
+				getCodeScanningDefaultSetup: () => Effect.succeed({}),
+				updateCodeScanningDefaultSetup: (owner, repo, config) => {
+					recorded.push({ method: "updateCodeScanningDefaultSetup", args: { owner, repo, config } });
+					return Effect.void;
+				},
+				// listLanguages does not report "Actions" — actions must pass through anyway
+				listRepoLanguages: () => Effect.succeed([]),
+				resolveTeamId: () => Effect.succeed(0),
+			});
+
+			const opStubs = OnePasswordClientTest({});
+			const credResolverLayer = Layer.provide(CredentialResolverLive, opStubs);
+			const loggerLayer = SyncLoggerLive({ dryRun: false, logLevel: "silent" });
+			const testLayer = Layer.provideMerge(
+				SyncEngineLive,
+				Layer.merge(Layer.merge(githubLayer, credResolverLayer), loggerLayer),
+			);
+
+			const config = makeTestConfig({
+				code_scanning: {
+					oss: {
+						state: "configured",
+						languages: ["actions", "python"],
+					},
+				},
+				groups: { mygroup: { repos: ["repo-one"], code_scanning: ["oss"] } },
+			});
+			const creds = makeTestCredentials();
+
+			await Effect.runPromise(
+				Effect.gen(function* () {
+					const engine = yield* SyncEngine;
+					return yield* engine.syncAll(config, creds, {
+						dryRun: false,
+						noCleanup: true,
+						configDir: process.cwd(),
+					});
+				}).pipe(Effect.provide(testLayer)),
+			);
+
+			const config0 = recorded[0]?.args.config as { languages: string[] };
+			expect(config0.languages).toContain("actions");
+			expect(config0.languages).not.toContain("python");
+		});
+
 		it("strips org-only security_and_analysis fields on personal accounts", async () => {
 			const { testLayer, recorder } = buildTestLayer();
 			const config = makeTestConfig({

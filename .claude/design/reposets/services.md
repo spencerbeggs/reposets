@@ -156,7 +156,7 @@ return booleans normalized from the underlying API responses.
 - `updateCodeScanningDefaultSetup(owner, repo, config): void` -
   `PATCH /repos/{o}/{r}/code-scanning/default-setup`. The endpoint
   responds `202 Accepted` and applies asynchronously; the SyncEngine
-  fires-and-forgets by default and polls in verbose mode
+  sends the request without polling for completion
 
 ### Helper Methods
 

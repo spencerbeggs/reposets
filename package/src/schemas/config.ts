@@ -498,7 +498,7 @@ export const CodeScanningGroupSchema = Schema.Struct({
 	identifier: "CodeScanningGroup",
 	title: "Code scanning group",
 	description:
-		"CodeQL default setup configuration applied via PATCH /repos/{o}/{r}/code-scanning/default-setup. The endpoint returns 202; reposets fires-and-forgets by default and polls in verbose mode.",
+		"CodeQL default setup configuration applied via PATCH /repos/{o}/{r}/code-scanning/default-setup. The endpoint returns 202 Accepted and configures asynchronously; reposets sends the request and does not poll for completion.",
 	jsonSchema: {
 		...tombi({ tableKeysOrder: "schema" }),
 		...taplo({

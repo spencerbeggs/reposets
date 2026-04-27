@@ -94,7 +94,7 @@ Layers are composed at two levels:
     filter configured CodeQL languages by what `listRepoLanguages` detects
     (mapped through `REPO_LANG_TO_CODEQL`); warn (don't fail) on
     non-detected entries; PATCH the default-setup endpoint (`202 Accepted`,
-    fire-and-forget by default; verbose mode polls until applied)
+    sent without polling for completion)
 12. Environments synced before secrets/variables (environments must exist
     before scoped resources can be attached)
 13. GitHubClient applies remaining changes per repo: environments, secrets
@@ -125,7 +125,7 @@ All errors are `Data.TaggedError` subclasses:
 Each service has Live and Test layer implementations:
 
 - `GitHubClientTest()` - records API calls, returns empty lists (covers
-  all 28 service methods including environment, security feature, code
+  all 30 service methods including environment, security feature, code
   scanning, and team-resolver operations)
 - `OnePasswordClientTest(stubs)` - returns deterministic values
 - `makeConfigFilesLive` - used directly in tests (builds xdg-effect

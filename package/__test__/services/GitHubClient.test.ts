@@ -307,6 +307,17 @@ describe("GitHubClient", () => {
 		it("ignores invalid status values", () => {
 			expect(transformSecurityAndAnalysis({ secret_scanning: "on" })).toBeUndefined();
 		});
+
+		it("treats empty delegated_bypass_reviewers array as no-op (not as a clear-all)", () => {
+			expect(
+				transformSecurityAndAnalysis({
+					secret_scanning_delegated_bypass: "enabled",
+					delegated_bypass_reviewers: [],
+				}),
+			).toEqual({
+				secret_scanning_delegated_bypass: { status: "enabled" },
+			});
+		});
 	});
 
 	describe("Test implementation - security methods", () => {

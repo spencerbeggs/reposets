@@ -129,7 +129,7 @@ Reference security groups from a repo group via the `security` array (see [Group
 
 ## Code Scanning Groups
 
-`[code_scanning.<name>]` tables configure CodeQL default setup. The settings are applied via `PATCH /repos/{owner}/{repo}/code-scanning/default-setup`. The endpoint returns `202 Accepted` and is fire-and-forget by default; in `--log-level verbose` mode reposets polls until the configuration is applied.
+`[code_scanning.<name>]` tables configure CodeQL default setup. The settings are applied via `PATCH /repos/{owner}/{repo}/code-scanning/default-setup`. The endpoint returns `202 Accepted` and configures asynchronously; reposets sends the request and does not poll for completion.
 
 | Field | Type | Description |
 | :---- | :--- | :---------- |

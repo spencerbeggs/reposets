@@ -1382,7 +1382,7 @@
 				}
 			},
 			"additionalProperties": false,
-			"description": "CodeQL default setup configuration applied via PATCH /repos/{o}/{r}/code-scanning/default-setup. The endpoint returns 202; reposets fires-and-forgets by default and polls in verbose mode.",
+			"description": "CodeQL default setup configuration applied via PATCH /repos/{o}/{r}/code-scanning/default-setup. The endpoint returns 202 Accepted and configures asynchronously; reposets sends the request and does not poll for completion.",
 			"title": "Code scanning group",
 			"x-tombi-table-keys-order": "schema",
 			"x-taplo": {

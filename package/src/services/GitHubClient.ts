@@ -218,7 +218,9 @@ export function transformSecurityAndAnalysis(value: unknown): Record<string, unk
 		if (raw === undefined) continue;
 		if (SAA_STATUS_FIELDS.has(key) && (raw === "enabled" || raw === "disabled")) {
 			out[key] = { status: raw };
-		} else if (key === "delegated_bypass_reviewers" && Array.isArray(raw)) {
+		} else if (key === "delegated_bypass_reviewers" && Array.isArray(raw) && raw.length > 0) {
+			// Empty arrays are treated as "no change" — sending { reviewers: [] }
+			// would be rejected by GitHub when delegated bypass is enabled.
 			out.secret_scanning_delegated_bypass_options = { reviewers: raw };
 		}
 	}

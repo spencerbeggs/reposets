@@ -585,6 +585,8 @@ export const SyncEngineLive = Layer.effect(
 										}
 										const filtered: Array<(typeof mergedCodeScanning.languages)[number]> = [];
 										for (const lang of mergedCodeScanning.languages) {
+											// `actions` analyses workflow YAML rather than a repo language;
+											// listLanguages never reports it, so always pass it through.
 											if (lang === "actions" || detectedCodeQL.has(lang)) {
 												filtered.push(lang);
 											} else {

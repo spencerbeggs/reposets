@@ -237,17 +237,6 @@ describe("VariableScopesSchema", () => {
 });
 
 describe("SecurityAndAnalysis (nested in SettingsGroupSchema)", () => {
-	const decodeSettings = Schema.decodeUnknownSync(
-		Schema.Struct({}).pipe(
-			Schema.extend(
-				Schema.Struct({
-					security_and_analysis: Schema.Any,
-				}),
-			),
-		),
-	);
-	void decodeSettings;
-
 	it("accepts security_and_analysis nested in a settings group", () => {
 		const result = decodeConfig({
 			settings: {
