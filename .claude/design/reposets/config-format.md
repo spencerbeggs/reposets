@@ -277,11 +277,15 @@ rest of the settings block (see `transformSecurityAndAnalysis()` in
 - `dependabot_security_updates`
 
 Plus an optional `delegated_bypass_reviewers` array (org-only). Each
-entry is a discriminated union: exactly one of `team` (slug) or `role`
-(role name), with an optional `mode = "ALWAYS" | "EXEMPT"`. Team slugs
-are resolved to numeric `reviewer_id`s via `GitHubClient.resolveTeamId()`
-at sync time; role entries are passed through with `reviewer_type =
-"ROLE"`.
+entry is a discriminated union: exactly one of `team` (a GitHub team
+slug) or `role` (an organization role name from
+`GET /orgs/{org}/organization-roles` such as `all_repo_admin` or a
+custom role like `security_manager`), with an optional
+`mode = "ALWAYS" | "EXEMPT"`. Both forms are resolved to numeric
+`reviewer_id`s at sync time -- team slugs via
+`GitHubClient.resolveTeamId()` and role names via
+`GitHubClient.resolveRoleId()`. Role IDs are per-org even for predefined
+roles, so the resolver must consult the live API per (org, role) pair.
 
 ```toml
 [settings.oss-defaults.security_and_analysis]

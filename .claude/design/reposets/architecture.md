@@ -125,7 +125,7 @@ All errors are `Data.TaggedError` subclasses:
 Each service has Live and Test layer implementations:
 
 - `GitHubClientTest()` - records API calls, returns empty lists (covers
-  all 29 service methods including environment, security feature, code
+  all 30 service methods including environment, security feature, code
   scanning, and team-resolver operations)
 - `OnePasswordClientTest(stubs)` - returns deterministic values
 - `makeConfigFilesLive` - used directly in tests (builds xdg-effect

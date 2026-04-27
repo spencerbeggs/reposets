@@ -360,6 +360,7 @@ describe("SyncEngine", () => {
 			updateCodeScanningDefaultSetup: () => Effect.void,
 			listRepoLanguages: () => Effect.succeed([]),
 			resolveTeamId: () => Effect.succeed(0),
+			resolveRoleId: () => Effect.succeed(0),
 		});
 
 		const opStubs = OnePasswordClientTest({});
@@ -446,6 +447,7 @@ describe("SyncEngine", () => {
 			updateCodeScanningDefaultSetup: () => Effect.void,
 			listRepoLanguages: () => Effect.succeed([]),
 			resolveTeamId: () => Effect.succeed(0),
+			resolveRoleId: () => Effect.succeed(0),
 		});
 
 		const opStubs = OnePasswordClientTest({});
@@ -527,6 +529,7 @@ describe("SyncEngine", () => {
 			updateCodeScanningDefaultSetup: () => Effect.void,
 			listRepoLanguages: () => Effect.succeed([]),
 			resolveTeamId: () => Effect.succeed(0),
+			resolveRoleId: () => Effect.succeed(0),
 		});
 
 		const opStubs = OnePasswordClientTest({});
@@ -646,6 +649,7 @@ describe("SyncEngine", () => {
 			updateCodeScanningDefaultSetup: () => Effect.void,
 			listRepoLanguages: () => Effect.succeed([]),
 			resolveTeamId: () => Effect.succeed(0),
+			resolveRoleId: () => Effect.succeed(0),
 		});
 
 		const opStubs = OnePasswordClientTest({});
@@ -901,6 +905,7 @@ describe("SyncEngine", () => {
 				},
 				listRepoLanguages: () => Effect.succeed(["TypeScript", "JavaScript"]),
 				resolveTeamId: () => Effect.succeed(0),
+				resolveRoleId: () => Effect.succeed(0),
 			});
 
 			const opStubs = OnePasswordClientTest({});
@@ -975,6 +980,7 @@ describe("SyncEngine", () => {
 				// listLanguages does not report "Actions" — actions must pass through anyway
 				listRepoLanguages: () => Effect.succeed([]),
 				resolveTeamId: () => Effect.succeed(0),
+				resolveRoleId: () => Effect.succeed(0),
 			});
 
 			const opStubs = OnePasswordClientTest({});
@@ -1090,6 +1096,10 @@ describe("SyncEngine", () => {
 					recorded.push({ method: "resolveTeamId", args: { org, slug } });
 					return Effect.succeed(slug === "security-team" ? 12345 : 0);
 				},
+				resolveRoleId: (org, name) => {
+					recorded.push({ method: "resolveRoleId", args: { org, name } });
+					return Effect.succeed(name === "all_repo_admin" ? 8136 : 0);
+				},
 			});
 
 			const opStubs = OnePasswordClientTest({});
@@ -1106,7 +1116,7 @@ describe("SyncEngine", () => {
 					oss: {
 						security_and_analysis: {
 							secret_scanning_delegated_bypass: "enabled",
-							delegated_bypass_reviewers: [{ team: "security-team", mode: "ALWAYS" }, { role: "admin" }],
+							delegated_bypass_reviewers: [{ team: "security-team", mode: "ALWAYS" }, { role: "all_repo_admin" }],
 						},
 					},
 				},
@@ -1126,6 +1136,7 @@ describe("SyncEngine", () => {
 			);
 
 			expect(recorded.some((r) => r.method === "resolveTeamId" && r.args.slug === "security-team")).toBe(true);
+			expect(recorded.some((r) => r.method === "resolveRoleId" && r.args.name === "all_repo_admin")).toBe(true);
 			const settingsCall = recorded.find((r) => r.method === "syncSettings");
 			expect(settingsCall).toBeDefined();
 			const settings = settingsCall?.args.settings as {
@@ -1134,7 +1145,7 @@ describe("SyncEngine", () => {
 			const reviewers = settings.security_and_analysis?.delegated_bypass_reviewers;
 			expect(reviewers).toHaveLength(2);
 			expect(reviewers?.[0]).toMatchObject({ reviewer_id: 12345, reviewer_type: "TEAM", mode: "ALWAYS" });
-			expect(reviewers?.[1]).toMatchObject({ reviewer_id: "admin", reviewer_type: "ROLE" });
+			expect(reviewers?.[1]).toMatchObject({ reviewer_id: 8136, reviewer_type: "ROLE" });
 		});
 	});
 });

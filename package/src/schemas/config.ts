@@ -194,9 +194,10 @@ const DelegatedBypassReviewerSchema = Schema.Union(
 	}),
 	Schema.Struct({
 		role: Schema.String.annotations({
-			title: "Repository role",
-			description: 'Repository role name (e.g., "admin", "maintain")',
-			examples: ["admin", "maintain"],
+			title: "Organization role name",
+			description:
+				'Organization role name as defined in `GET /orgs/{org}/organization-roles` (e.g., "all_repo_admin", "security_manager"). Resolved to the numeric role ID at sync time.',
+			examples: ["all_repo_admin", "all_repo_maintain", "security_manager"],
 		}),
 		mode: Schema.optional(DelegatedBypassReviewerModeSchema),
 	}),

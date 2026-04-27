@@ -165,6 +165,8 @@ export interface GitHubClientService {
 	readonly listRepoLanguages: (owner: string, repo: string) => Effect.Effect<ReadonlyArray<string>, GitHubApiError>;
 
 	readonly resolveTeamId: (org: string, slug: string) => Effect.Effect<number, GitHubApiError>;
+
+	readonly resolveRoleId: (org: string, name: string) => Effect.Effect<number, GitHubApiError>;
 }
 
 export class GitHubClient extends Context.Tag("GitHubClient")<GitHubClient, GitHubClientService>() {}
@@ -244,6 +246,7 @@ export function GitHubClientLive(token: string): Layer.Layer<GitHubClient> {
 
 			const ownerTypeCache = new Map<string, OwnerType>();
 			const teamIdCache = new Map<string, number>();
+			const roleIdCache = new Map<string, number>();
 
 			return {
 				getOwnerType(owner) {
@@ -733,6 +736,27 @@ export function GitHubClientLive(token: string): Layer.Layer<GitHubClient> {
 						catch: wrapError,
 					});
 				},
+
+				resolveRoleId(org, name) {
+					return Effect.tryPromise({
+						try: async () => {
+							const cacheKey = `${org}:${name}`;
+							const cached = roleIdCache.get(cacheKey);
+							if (cached !== undefined) return cached;
+							const { data } = await octokit.request("GET /orgs/{org}/organization-roles", { org });
+							const roles = (data as { roles?: ReadonlyArray<{ id: number; name: string }> }).roles ?? [];
+							const role = roles.find((r) => r.name === name);
+							if (!role) {
+								throw new Error(
+									`organization role '${name}' not found in '${org}' (available: ${roles.map((r) => r.name).join(", ") || "none"})`,
+								);
+							}
+							roleIdCache.set(cacheKey, role.id);
+							return role.id;
+						},
+						catch: wrapError,
+					});
+				},
 			};
 		})(),
 	);
@@ -879,6 +903,11 @@ export function GitHubClientTest(): { layer: Layer.Layer<GitHubClient>; calls: (
 
 		resolveTeamId(org, slug) {
 			recorded.push({ method: "resolveTeamId", args: { org, slug } });
+			return Effect.succeed(0);
+		},
+
+		resolveRoleId(org, name) {
+			recorded.push({ method: "resolveRoleId", args: { org, name } });
 			return Effect.succeed(0);
 		},
 	});

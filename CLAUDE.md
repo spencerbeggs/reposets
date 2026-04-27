@@ -51,7 +51,7 @@ at `package/` (workspace name: `reposets`).
 ```text
 package/                   # reposets CLI package
 package/src/cli/           # CLI entrypoint and commands
-package/src/services/      # Effect services (6 services, 29 GitHubClient methods)
+package/src/services/      # Effect services (6 services, 30 GitHubClient methods)
 package/src/schemas/       # Effect Schema definitions (config, credentials, environment, ruleset) + JSON schema generation
 package/src/lib/           # Utilities (XDG paths, config resolution, crypto)
 package/__test__/          # Tests mirroring src/ structure

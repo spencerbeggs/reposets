@@ -88,7 +88,7 @@ for test capture. Test layer uses `logLevel: "silent"` to suppress output.
 
 ## GitHubClient
 
-Wraps Octokit with typed methods for all GitHub API operations. 29 methods
+Wraps Octokit with typed methods for all GitHub API operations. 30 methods
 organized into five domains: repo-level resources, environments,
 environment-scoped resources, repository security features, and CodeQL
 default setup.
@@ -165,6 +165,16 @@ return booleans normalized from the underlying API responses.
   `org:slug` for the lifetime of the GitHubClient instance. Used to map
   `delegated_bypass_reviewers[].team` slugs to API-shaped
   `{ reviewer_id, reviewer_type: "TEAM" }` entries during settings sync
+- `resolveRoleId(org, name): number` - looks up
+  `GET /orgs/{org}/organization-roles`, scans the returned roles for a
+  match on the `name` field, and caches the numeric role id keyed by
+  `org:name`. Used to map `delegated_bypass_reviewers[].role` names to
+  API-shaped `{ reviewer_id, reviewer_type: "ROLE" }` entries. Role IDs
+  are per-org even for predefined roles, so the resolution must happen
+  against the live API for every (org, role) pair the first time they
+  appear; failures (unknown role name) are surfaced as `GitHubApiError`
+  and trigger the standard catch-and-warn path so the rest of the sync
+  proceeds
 
 ### `transformSecurityAndAnalysis` helper
 
@@ -215,7 +225,7 @@ appropriate Octokit API namespace. The `SecretScope` type is
 Live: `GitHubClientLive(token)` creates an Octokit instance per token; the
 `teamIdCache` (Map<string, number> keyed by `org:slug`) is per-instance.
 Test: `GitHubClientTest()` returns `{ layer, calls() }` recorder covering
-all 29 methods.
+all 30 methods.
 
 ## SyncEngine
 
@@ -250,8 +260,11 @@ Flow per group:
     `secret_scanning_delegated_bypass`, `delegated_bypass_reviewers`) on
     personal accounts; on org accounts, resolve each
     `delegated_bypass_reviewers[].team` slug to a numeric `reviewer_id`
-    via `GitHubClient.resolveTeamId()` and rewrite `{ role: ... }` entries
-    to `{ reviewer_id: <role-string>, reviewer_type: "ROLE" }`. Inject the
+    via `GitHubClient.resolveTeamId()` and each `delegated_bypass_reviewers[].role`
+    name to a numeric role id via `GitHubClient.resolveRoleId()`. Both
+    resolvers cache results per `org:slug` and `org:name` for the
+    lifetime of the GitHubClient instance. Resolved entries are rewritten
+    to `{ reviewer_id, reviewer_type: "TEAM" | "ROLE" }`. Inject the
     resolved block back into `mergedSettings` under
     `security_and_analysis` so it rides along with the existing
     `syncSettings` PATCH (where `transformSecurityAndAnalysis()` reshapes

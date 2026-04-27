@@ -94,7 +94,7 @@ dependabot_security_updates = "enabled"
 
 #### Delegated bypass reviewers
 
-`delegated_bypass_reviewers` is an array of objects, each specifying exactly one of `team` (a GitHub team slug) or `role` (a repository role name like `"admin"` or `"maintain"`), plus an optional `mode` (`"ALWAYS"` or `"EXEMPT"`):
+`delegated_bypass_reviewers` is an array of objects, each specifying exactly one of `team` (a GitHub team slug) or `role` (an organization role name from `GET /orgs/{org}/organization-roles`, e.g. `"all_repo_admin"`, `"all_repo_maintain"`, or a custom role like `"security_manager"`), plus an optional `mode` (`"ALWAYS"` or `"EXEMPT"`):
 
 ```toml
 [[settings.oss-defaults.security_and_analysis.delegated_bypass_reviewers]]
@@ -102,11 +102,11 @@ team = "security-team"
 mode = "ALWAYS"
 
 [[settings.oss-defaults.security_and_analysis.delegated_bypass_reviewers]]
-role = "admin"
+role = "all_repo_admin"
 mode = "EXEMPT"
 ```
 
-Team slugs are resolved to numeric reviewer IDs at sync time using the GitHub API (cached per `org:slug`). Resolving teams requires the `Organization > Members (Read)` token permission.
+Both team slugs and role names are resolved to numeric reviewer IDs at sync time using the GitHub API and cached per `org:slug` and `org:name`. The exact role names available to your org are visible at `GET /orgs/{org}/organization-roles`; they include the predefined `all_repo_*` family (`all_repo_admin`, `all_repo_maintain`, `all_repo_write`, `all_repo_triage`, `all_repo_read`) plus any custom organization roles defined for the org. Note that role IDs are per-org even for predefined roles, so a config that works against one org cannot reuse hard-coded numeric IDs against another. Resolving teams and roles requires the `Organization > Members (Read)` token permission.
 
 ## Security Groups
 

@@ -406,12 +406,22 @@ export const SyncEngineLive = Layer.effect(
 												resolved.push(entry);
 											}
 										} else if (typeof reviewer.role === "string") {
-											const entry: Record<string, unknown> = {
-												reviewer_id: reviewer.role,
-												reviewer_type: "ROLE",
-											};
-											if (reviewer.mode !== undefined) entry.mode = reviewer.mode;
-											resolved.push(entry);
+											const roleId = yield* github.resolveRoleId(owner, reviewer.role).pipe(
+												Effect.catchTag("GitHubApiError", (err) =>
+													Effect.gen(function* () {
+														yield* logger.syncError(`resolve role '${reviewer.role}'`, err.message);
+														return undefined;
+													}),
+												),
+											);
+											if (roleId !== undefined) {
+												const entry: Record<string, unknown> = {
+													reviewer_id: roleId,
+													reviewer_type: "ROLE",
+												};
+												if (reviewer.mode !== undefined) entry.mode = reviewer.mode;
+												resolved.push(entry);
+											}
 										}
 									}
 									saaOut.delegated_bypass_reviewers = resolved;

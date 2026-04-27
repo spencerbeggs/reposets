@@ -431,5 +431,21 @@ describe("GitHubClient", () => {
 				args: { org: "my-org", slug: "security-team" },
 			});
 		});
+
+		it("records resolveRoleId calls and returns 0", async () => {
+			const recorder = GitHubClientTest();
+
+			const program = Effect.gen(function* () {
+				const client = yield* GitHubClient;
+				return yield* client.resolveRoleId("my-org", "all_repo_admin");
+			}).pipe(Effect.provide(recorder.layer));
+
+			const result = await Effect.runPromise(program);
+			expect(result).toBe(0);
+			expect(recorder.calls()).toContainEqual({
+				method: "resolveRoleId",
+				args: { org: "my-org", name: "all_repo_admin" },
+			});
+		});
 	});
 });

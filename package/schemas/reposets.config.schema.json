@@ -325,9 +325,9 @@
 					"properties": {
 						"role": {
 							"type": "string",
-							"description": "Repository role name (e.g., \"admin\", \"maintain\")",
-							"title": "Repository role",
-							"examples": ["admin", "maintain"]
+							"description": "Organization role name as defined in `GET /orgs/{org}/organization-roles` (e.g., \"all_repo_admin\", \"security_manager\"). Resolved to the numeric role ID at sync time.",
+							"title": "Organization role name",
+							"examples": ["all_repo_admin", "all_repo_maintain", "security_manager"]
 						},
 						"mode": {
 							"$ref": "#/$defs/DelegatedBypassReviewerMode"
