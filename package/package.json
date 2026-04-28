@@ -55,16 +55,15 @@
 		"@effect/platform-node": "catalog:silk",
 		"@octokit/rest": "^22.0.1",
 		"blakejs": "^1.2.1",
-		"effect": "^3.21.1",
-		"smol-toml": ">=1.6.1",
+		"effect": "catalog:silk",
+		"smol-toml": "^1.6.1",
 		"tweetnacl": "^1.0.3",
 		"xdg-effect": "^1.0.0"
 	},
 	"devDependencies": {
-		"@savvy-web/rslib-builder": "^0.20.2",
+		"@savvy-web/rslib-builder": "^0.20.3",
 		"@types/node": "catalog:silk",
 		"@typescript/native-preview": "catalog:silk",
-		"ajv": "^8.20.0",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:silk"
 	},
