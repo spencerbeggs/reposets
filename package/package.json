@@ -58,7 +58,7 @@
 		"effect": "catalog:silk",
 		"smol-toml": "^1.6.1",
 		"tweetnacl": "^1.0.3",
-		"xdg-effect": "^1.0.0"
+		"xdg-effect": "^1.0.1"
 	},
 	"devDependencies": {
 		"@savvy-web/rslib-builder": "^0.20.3",
