@@ -61,7 +61,7 @@
 		"xdg-effect": "^1.0.1"
 	},
 	"devDependencies": {
-		"@savvy-web/rslib-builder": "^0.20.8",
+		"@savvy-web/rslib-builder": "^0.20.10",
 		"@types/node": "catalog:silk",
 		"@typescript/native-preview": "catalog:silk",
 		"tsx": "catalog:silk",
