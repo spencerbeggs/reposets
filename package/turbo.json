@@ -14,7 +14,7 @@
 				"!.turbo/**"
 			],
 			"outputLogs": "errors-only",
-			"outputs": ["dist/dev/**", ".rslib/declarations/dev/**"]
+			"outputs": ["dist/dev/**"]
 		},
 		"build:prod": {
 			"cache": true,
@@ -28,7 +28,7 @@
 				"!dist/**",
 				"!.turbo/**"
 			],
-			"outputs": ["dist/npm/**", "dist/github/**", ".rslib/declarations/npm/**", ".rslib/declarations/github/**"]
+			"outputs": ["dist/npm/**", "dist/github/**"]
 		},
 		"generate:json-schema": {
 			"cache": true,
