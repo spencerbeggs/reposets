@@ -41,10 +41,11 @@
 		"reposets": "./src/cli/index.ts"
 	},
 	"scripts": {
-		"build:dev": "rslib build --config-loader native --env-mode dev",
-		"build:prod": "rslib build --config-loader native --env-mode npm",
+		"build:dev": "node savvy.build.ts --target dev",
+		"build:meta": "node savvy.build.ts --target meta",
+		"build:prod": "node savvy.build.ts --target prod",
 		"generate:json-schema": "tsx lib/scripts/generate-json-schema.ts",
-		"prepare": "turbo run build:dev",
+		"prepare": "node savvy.build.ts --target dev",
 		"types:check": "tsgo --noEmit"
 	},
 	"dependencies": {
@@ -60,34 +61,22 @@
 		"xdg-effect": "^1.0.1"
 	},
 	"devDependencies": {
-		"@savvy-web/rslib-builder": "^0.21.3",
+		"@savvy-web/bundler": "^0.4.0",
 		"@types/node": "catalog:silk",
 		"@typescript/native-preview": "catalog:silk",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:silk"
 	},
 	"engines": {
-		"node": ">=20.0.0"
+		"node": ">=24.11.0"
 	},
 	"publishConfig": {
 		"access": "public",
 		"directory": "dist/npm",
 		"linkDirectory": true,
-		"targets": [
-			{
-				"protocol": "npm",
-				"registry": "https://npm.pkg.github.com/",
-				"directory": "dist/github",
-				"access": "public",
-				"provenance": true
-			},
-			{
-				"protocol": "npm",
-				"registry": "https://registry.npmjs.org/",
-				"directory": "dist/npm",
-				"access": "public",
-				"provenance": true
-			}
-		]
+		"targets": {
+			"npm": true,
+			"github": "@spencerbeggs/reposets"
+		}
 	}
 }

@@ -2,57 +2,15 @@
 	"extends": ["//"],
 	"tasks": {
 		"build:dev": {
-			"cache": true,
-			"dependsOn": ["types:check", "generate:json-schema"],
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"!**/*.test.ts",
-				"!**/*.spec.ts",
-				"!**/*.md",
-				"!.rslib/**",
-				"!dist/**",
-				"!.turbo/**"
-			],
-			"outputLogs": "errors-only",
-			"outputs": ["dist/dev/**"]
+			"dependsOn": ["$TURBO_EXTENDS$", "generate:json-schema"]
 		},
 		"build:prod": {
-			"cache": true,
-			"dependsOn": ["types:check", "generate:json-schema"],
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"!**/*.test.ts",
-				"!**/*.spec.ts",
-				"!**/*.md",
-				"!.rslib/**",
-				"!dist/**",
-				"!.turbo/**"
-			],
-			"outputs": ["dist/npm/**", "dist/github/**"]
+			"dependsOn": ["$TURBO_EXTENDS$", "generate:json-schema"]
 		},
 		"generate:json-schema": {
 			"cache": true,
-			"dependsOn": ["types:check"],
 			"inputs": ["src/schemas/**", "lib/scripts/generate-json-schema.ts"],
 			"outputs": ["schemas/**"]
-		},
-		"types:check": {
-			"cache": true,
-			"dependsOn": [],
-			"inputs": [
-				"$TURBO_DEFAULT$",
-				"!**/*.md",
-				"!.changeset/**",
-				"!.claude/**",
-				"!.github/**",
-				"!.husky/**",
-				"!.vscode/**",
-				"!.rslib/**",
-				"!dist/**",
-				"!.turbo/**"
-			],
-			"outputLogs": "errors-only",
-			"outputs": ["dist/.tsbuildinfo.lib"]
 		}
 	}
 }
