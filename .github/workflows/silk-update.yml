@@ -64,7 +64,5 @@ jobs:
             tweetnacl
             xdg-effect
           run: |
-            pnpm savvy-commit init
-            pnpm savvy-lint init
-            pnpm savvy-changesets init
+            pnpm savvy init
             pnpm lint:fix 2>/dev/null || true
