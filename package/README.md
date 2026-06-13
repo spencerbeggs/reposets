@@ -1,8 +1,9 @@
 # reposets
 
-[![npm version](https://img.shields.io/npm/v/reposets)](https://www.npmjs.com/package/reposets)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![TypeScript](https://img.shields.io/badge/TypeScript-6.0-blue.svg)](https://www.typescriptlang.org/)
+[![npm](https://img.shields.io/npm/v/reposets?label=npm&color=cb3837)](https://www.npmjs.com/package/reposets)
+[![License: MIT](https://img.shields.io/badge/License-MIT-4caf50.svg)](https://opensource.org/licenses/MIT)
+[![Node.js %3E%3D24.11.0](https://img.shields.io/badge/Node.js-%3E%3D24.11.0-5fa04e.svg)](https://nodejs.org/)
+[![TypeScript 6.0](https://img.shields.io/badge/TypeScript-6.0-3178c6.svg)](https://www.typescriptlang.org/)
 
 Declarative GitHub repository management. Define your repo settings, secrets, variables, rulesets, deployment environments, advanced security toggles, and CodeQL default setup in a TOML config file, then apply them across all your repositories with a single command.
 
@@ -22,26 +23,26 @@ Managing repository settings by hand doesn't scale. When you have dozens of repo
 - **Cleanup policies** — Automatically remove undeclared resources per scope with optional preserve lists, so your repos converge to the declared state.
 - **Dry-run and validation** — Preview changes before applying, validate config locally without touching the GitHub API, and catch typos with built-in diagnostics.
 
-## Installation
+## Install
 
-```sh
+```bash
 npm install -g reposets
 ```
 
 Alternative (no install):
 
-```sh
+```bash
 npx reposets <command>
 ```
 
-Requires Node.js >= 20.
+Requires the Node.js version shown in the badge above.
 
-## Quick Start
+## Quick start
 
 1. Run `reposets init` to scaffold config files.
 2. Add a credential profile:
 
-   ```sh
+   ```bash
    reposets credentials create --profile personal --github-token ghp_...
    ```
 
@@ -61,19 +62,19 @@ Requires Node.js >= 20.
 
 4. Validate your config:
 
-   ```sh
+   ```bash
    reposets validate
    ```
 
 5. Preview changes without applying them:
 
-   ```sh
+   ```bash
    reposets sync --dry-run
    ```
 
 6. Apply the config:
 
-   ```sh
+   ```bash
    reposets sync
    ```
 
@@ -105,7 +106,7 @@ Config lookup order (first match wins):
 
 See the [docs/](https://github.com/spencerbeggs/reposets/tree/main/docs) folder for full reference on configuration, credentials, secrets, rulesets, environments, cleanup, and token setup.
 
-## Token Permissions
+## Token permissions
 
 reposets requires a fine-grained personal access token with:
 
@@ -137,4 +138,4 @@ Full reference guides are available in the [`docs/`](https://github.com/spencerb
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](LICENSE)

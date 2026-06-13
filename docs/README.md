@@ -6,17 +6,17 @@ Rather than clicking through repository settings one by one, reposets lets you m
 
 ## Prerequisites
 
-- Node.js >= 20
+- Node.js (version declared in the package `engines` field)
 
-## Installation
+## Install
 
-```sh
+```bash
 npm install -g reposets
 # or run without installing:
 npx reposets <command>
 ```
 
-## Getting Started
+## Getting started
 
 1. Install reposets (see above)
 2. Create a GitHub fine-grained personal access token with the [required permissions](token-permissions.md)

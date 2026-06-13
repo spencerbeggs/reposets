@@ -2,7 +2,7 @@
 
 ## Prerequisites
 
-- Node.js >= 20
+- Node.js (version declared in the `engines` field of `package/package.json`)
 - pnpm (version managed via `packageManager` field — use corepack or install directly)
 
 ## Setup
