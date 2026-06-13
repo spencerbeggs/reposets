@@ -9,10 +9,12 @@ code in this repository.
   `@./.claude/design/reposets/architecture.md`
 - Effect services API:
   `@./.claude/design/reposets/services.md`
-- Configuration format and schemas:
+- Configuration file format:
   `@./.claude/design/reposets/config-format.md`
 - CLI commands and options:
   `@./.claude/design/reposets/cli.md`
+- JSON schema generation (build-time):
+  `@./.claude/design/reposets/json-schema.md`
 
 Load the relevant design doc when working on that subsystem. Do NOT load
 all of them at once.

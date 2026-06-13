@@ -40,6 +40,7 @@ pkgs/generators/test.ts
 test.ts
 .claude/settings.local.json
 .claude/plans/
+.claude/cache/
 **/coverage-debug
 .claude/plugins-debug.log
 .playwright-mcp

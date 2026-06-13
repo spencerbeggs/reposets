@@ -1,0 +1,35 @@
+{
+	"version": 1,
+	"refs": [
+		{
+			"source": "CLAUDE.md",
+			"target": ".claude/design/reposets/architecture.md",
+			"hash": "2ef59bdbe4aac0707213a2103d42162a89c4e4ecb3b08abc6a848b09ec11e519",
+			"recordedAt": "2026-06-12"
+		},
+		{
+			"source": "CLAUDE.md",
+			"target": ".claude/design/reposets/cli.md",
+			"hash": "56d34befb358f2a8d81cc08c12b8884ee2c8ff30de9218feef709a3a6564be63",
+			"recordedAt": "2026-06-12"
+		},
+		{
+			"source": "CLAUDE.md",
+			"target": ".claude/design/reposets/config-format.md",
+			"hash": "c3e64e7f59166e4639bcc271a7c9b07cbeab73b5155a7c2baa1362761656182d",
+			"recordedAt": "2026-06-12"
+		},
+		{
+			"source": "CLAUDE.md",
+			"target": ".claude/design/reposets/json-schema.md",
+			"hash": "07f0b1e9acb49604c39ac6eea387227aa51f1cd9ab8879082b7ea7017c11fb78",
+			"recordedAt": "2026-06-12"
+		},
+		{
+			"source": "CLAUDE.md",
+			"target": ".claude/design/reposets/services.md",
+			"hash": "14bfcbcffee08e0936414314fda6bbb0200e756dd35773c294dcad91a688640c",
+			"recordedAt": "2026-06-12"
+		}
+	]
+}

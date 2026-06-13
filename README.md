@@ -22,26 +22,26 @@ Managing repository settings by hand doesn't scale. When you have dozens of repo
 - **Cleanup policies** — Automatically remove undeclared resources per scope with optional preserve lists, so your repos converge to the declared state.
 - **Dry-run and validation** — Preview changes before applying, validate config locally without touching the GitHub API, and catch typos with built-in diagnostics.
 
-## Installation
+## Install
 
-```sh
+```bash
 npm install -g reposets
 ```
 
 Alternative (no install):
 
-```sh
+```bash
 npx reposets <command>
 ```
 
-Requires Node.js >= 20.
+Requires the Node.js version declared in [`package/package.json`](package/package.json).
 
-## Quick Start
+## Quick start
 
 1. Run `reposets init` to scaffold config files.
 2. Add a credential profile:
 
-   ```sh
+   ```bash
    reposets credentials create --profile personal --github-token ghp_...
    ```
 
@@ -61,19 +61,19 @@ Requires Node.js >= 20.
 
 4. Validate your config:
 
-   ```sh
+   ```bash
    reposets validate
    ```
 
 5. Preview changes without applying them:
 
-   ```sh
+   ```bash
    reposets sync --dry-run
    ```
 
 6. Apply the config:
 
-   ```sh
+   ```bash
    reposets sync
    ```
 
@@ -104,7 +104,7 @@ Full reference guides are in the [docs/](docs/) folder:
 - [Cleanup](docs/cleanup.md) - automatic cleanup of undeclared resources
 - [Token Permissions](docs/token-permissions.md) - GitHub PAT setup guide
 
-## Project Structure
+## Project structure
 
 ```text
 package/               # reposets CLI package (published to npm + GitHub Packages)
@@ -118,9 +118,9 @@ lib/configs/           # Shared dev config (commitlint, lint-staged, markdownlin
 
 ## Development
 
-Prerequisites: Node.js >= 20, pnpm.
+Prerequisites: Node.js (version in [`package/package.json`](package/package.json)) and pnpm.
 
-```sh
+```bash
 pnpm install           # Install dependencies
 pnpm run build         # Build all packages
 pnpm run test          # Run tests
@@ -135,4 +135,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## License
 
-[MIT](./LICENSE)
+[MIT](LICENSE)

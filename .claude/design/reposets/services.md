@@ -1,348 +1,70 @@
 ---
 module: reposets
 title: Effect Services
+category: architecture
 status: current
-completeness: 95
-last-synced: 2026-04-27
+completeness: 90
+created: 2026-04-21
+updated: 2026-06-12
+last-synced: 2026-06-12
+related:
+  - architecture.md
+  - config-format.md
+  - json-schema.md
+dependencies: []
 ---
+
+## Overview
+
+Six Effect services compose the sync pipeline. Each lives in its own file under `package/src/services/` and ships a Live and a Test layer. This doc records what each service is responsible for, the boundaries between them and the non-obvious decisions — interface shapes and method signatures are authoritative in the source files, not here.
 
 ## ConfigFiles
 
-Declarative config file loading via xdg-effect `ConfigFile.Tag` services.
-Replaces the former `ConfigLoader` service.
+Declarative config loading via xdg-effect `ConfigFile.Tag`. See `package/src/services/ConfigFiles.ts`.
 
-- `ReposetsConfigFile` (`ConfigFile.Tag<Config>`) - config file service
-  with `discover` (find and parse), `load`, `loadOrDefault`, `save`,
-  `update` methods; schema validation via `ConfigSchema`; cross-reference
-  validation via `validateConfigRefs` callback
-- `ReposetsCredentialsFile` (`ConfigFile.Tag<Credentials>`) - credentials
-  file service with same methods; schema validation via
-  `CredentialsSchema`; default XDG save path
-- `makeConfigFilesLive(configFlag: Option<string>)` - factory that builds
-  resolver chains based on the `--config` flag:
-  - `Some(file)` -> prepends `ExplicitPath(flag)`
-  - `Some(directory)` -> prepends `StaticDir({ dir, filename })`
-  - Always appends `UpwardWalk` + `XdgConfigResolver` as fallbacks
-- `ConfigFilesLive` - convenience alias for `makeConfigFilesLive(Option.none())`
-- `validateConfigRefs(config)` - validates all internal cross-references
-  (settings, secrets, variables, rulesets, environments) and collects
-  errors into a single `ConfigError`
+- `ReposetsConfigFile` and `ReposetsCredentialsFile` are `ConfigFile.Tag` services (`discover`, `load`, `loadOrDefault`, `save`, `update`), validated against `ConfigSchema` / `CredentialsSchema`.
+- `makeConfigFilesLive(configFlag)` builds the resolver chain from the `--config` flag: a file flag prepends `ExplicitPath`, a directory flag prepends `StaticDir`, and `UpwardWalk` + `XdgConfigResolver` are always appended as fallbacks. `ConfigFilesLive` is the no-flag alias.
+- `validateConfigRefs(config)` is registered as the config validator; it collects every cross-reference error (settings, secrets, variables, rulesets, environments, security, code_scanning) into a single `ConfigError`.
 
-Implementation: `XdgConfigLive.multi()` with `TomlCodec` and
-`FirstMatch` strategy. Each command provides its own layer via
-`makeConfigFilesLive(config)`. No direct I/O in the service definition.
+The service definition does no direct I/O — it composes xdg-effect's `XdgConfigLive.multi()` with a TOML codec and first-match strategy.
 
 ## OnePasswordClient
 
-Wraps `@1password/sdk` for resolving `op://` secret references.
-
-- `resolve(reference, serviceAccountToken)` - resolve a 1Password reference
-
-Live: dynamically imports `@1password/sdk`, creates client per call.
-Test: `OnePasswordClientTest(stubs)` returns values from a stub map.
+Wraps `@1password/sdk` to resolve `op://` references. The Live layer dynamically imports the SDK and creates a client per call; the Test layer returns values from a stub map. See `package/src/services/OnePasswordClient.ts`.
 
 ## CredentialResolver
 
-Resolves all named labels from a credential profile's `[resolve]` section
-into a flat `Map<string, string>`.
-
-- `resolveAll(profile, basePath)` - resolve all labels from the profile
-
-Depends on `OnePasswordClient` for `op` sources. Built with `Layer.effect`.
-
-Resolution by sub-group:
-
-- `resolve.value` - strings as-is, objects JSON-stringified
-- `resolve.file` - `readFileSync` relative to basePath, trimmed
-- `resolve.op` - delegate to OnePasswordClient (requires op_service_account_token)
-
-All three sub-groups contribute to one flat namespace. Duplicate labels
-across sub-groups are a validation error.
+Resolves every label in a profile's `[resolve]` section into one flat `Map<string, string>`. The three sub-groups — `value` (inline, objects JSON-stringified), `file` (read relative to the config dir, trimmed) and `op` (delegated to `OnePasswordClient`) — share a single namespace, so duplicate labels across sub-groups are a validation error. Depends on `OnePasswordClient`. See `package/src/services/CredentialResolver.ts`.
 
 ## SyncLogger
 
-Tiered output service for the sync pipeline. All sync output flows through
-this service rather than direct console calls. CLI commands use
-`Effect.log`/`Effect.logError` with a custom `CliLogger` (defined in
-the entrypoint) that routes to stdout/stderr.
+Tiered output for the sync pipeline; all sync output flows through it rather than direct console calls. CLI commands use `Effect.log`/`Effect.logError` routed by `CliLogger` instead. See `package/src/services/SyncLogger.ts`.
 
-Methods: `groupStart`, `repoStart`, `repoSkip`, `syncSummary`,
-`settingsApplied`, `cleanupSummary`, `syncOperation`, `syncError`, `finish`
-
-The `syncSummary` resource parameter accepts `"secret" | "variable" |
-"ruleset" | "environment"` to cover environment sync output.
-
-Visibility tiers:
-
-- `silent` - no output
-- `info` - group/repo headers, summary counts, cleanup summaries with names
-- `verbose` - per-operation lines (sync/apply/delete per resource)
-- `debug` - per-operation lines with source info appended
-
-Dry-run: verbs prefixed with "would" (e.g., "would sync" instead of "synced").
-Errors accumulated via `Ref` and reported in `finish()` as an end-of-run
-summary.
-
-Live: `SyncLoggerLive({ dryRun, logLevel, output? })` - `output` Ref is
-for test capture. Test layer uses `logLevel: "silent"` to suppress output.
+Visibility tiers: `silent` (nothing), `info` (group/repo headers, summary and cleanup counts with names), `verbose` (per-operation lines), `debug` (per-operation lines with source info). Dry-run prefixes verbs with "would". Errors accumulate in a `Ref` and are reported in `finish()` as an end-of-run summary. `SyncLoggerLive` accepts an optional `output` Ref for test capture.
 
 ## GitHubClient
 
-Wraps Octokit with typed methods for all GitHub API operations. 30 methods
-organized into five domains: repo-level resources, environments,
-environment-scoped resources, repository security features, and CodeQL
-default setup.
+Octokit wrapper exposing typed methods across five domains: repo-level resources, environments, environment-scoped resources, repository security features and CodeQL default setup. See the service interface and `GitHubClientTest()` recorder in `package/src/services/GitHubClient.ts`. The decisions worth knowing:
 
-### Repo-Level Methods
+- `getOwnerType(owner)` drives org-only field stripping upstream in the SyncEngine.
+- `syncSettings` sends standard fields via REST `repos.update`; `has_sponsorships` and `has_pull_requests` route through a GraphQL `updateRepository` mutation (mapped by the `GRAPHQL_SETTINGS` constant), which resolves the repo `node_id` via `octokit.repos.get()` first. The method strips merge-commit/squash formatting fields when the matching strategy is disabled.
+- The `security_and_analysis` block is folded into the same settings PATCH. `transformSecurityAndAnalysis(value)` (exported for unit testing) wraps each status field as `{ status: "..." }`, rewrites `delegated_bypass_reviewers` under `secret_scanning_delegated_bypass_options.reviewers`, and returns `undefined` when empty so callers omit the field. The status-field set is `SAA_STATUS_FIELDS` in the same file.
+- Repository security features (`vulnerability_alerts`, `automated_security_fixes`, `private_vulnerability_reporting`) each have a `getXxx` probe returning a normalized boolean and a `setXxx` toggle hitting dedicated PUT/DELETE endpoints. The SyncEngine uses the probe to diff before toggling.
+- `updateCodeScanningDefaultSetup` PATCHes the default-setup endpoint, which responds `202 Accepted` and applies asynchronously; the engine fires the request without polling.
+- `listRepoLanguages` returns the language-name keys from `octokit.repos.listLanguages`, used to filter configured CodeQL languages against what GitHub detects.
+- `resolveTeamId(org, slug)` and `resolveRoleId(org, name)` map `delegated_bypass_reviewers` entries to numeric `{ reviewer_id, reviewer_type }`. Both cache per `org:slug` / `org:name` for the GitHubClient instance lifetime. Role IDs are per-org even for predefined roles, so resolution must hit the live API the first time each (org, role) pair appears; an unknown role surfaces as `GitHubApiError` and follows the catch-and-warn path.
 
-- `getOwnerType(owner)` - determine if owner is a User or Organization
-- `syncSecret(owner, repo, name, value, scope)` - encrypt and upsert
-  (actions/dependabot/codespaces)
-- `syncVariable(owner, repo, name, value)` - create or update
-- `syncSettings(owner, repo, settings)` - REST `repos.update` for standard
-  fields; GraphQL `updateRepository` mutation for `has_sponsorships` and
-  `has_pull_requests` (mapped via `GRAPHQL_SETTINGS` constant). The
-  `security_and_analysis` field is folded into the REST PATCH body by the
-  SyncEngine via `transformSecurityAndAnalysis()` (status fields wrapped
-  as `{ status: "enabled" | "disabled" }`; `delegated_bypass_reviewers`
-  rewritten under `secret_scanning_delegated_bypass_options.reviewers`)
-- `syncRuleset(owner, repo, name, payload)` - create or update by name;
-  accepts `Ruleset` schema type directly
-- `listSecrets/listVariables/listRulesets` - query existing resources
-- `deleteSecret/deleteVariable/deleteRuleset` - cleanup operations
-
-### Environment Methods
-
-- `syncEnvironment(owner, repo, name, config)` - create or update a
-  deployment environment (wait_timer, reviewers, deployment_branches)
-- `syncEnvironmentSecret(owner, repo, envName, name, value)` - encrypt
-  and upsert an environment-scoped secret
-- `syncEnvironmentVariable(owner, repo, envName, name, value)` - create
-  or update an environment-scoped variable
-- `listEnvironments` - list all deployment environments for a repo
-- `listEnvironmentSecrets/listEnvironmentVariables` - query environment
-  resources
-- `deleteEnvironment/deleteEnvironmentSecret/deleteEnvironmentVariable` -
-  cleanup operations
-
-### Repository Security Methods
-
-State-probe + toggle pairs for each of the three dedicated PUT/DELETE
-endpoints. Probes are used by the SyncEngine's security-features stage to
-diff current vs. desired state and only call PUT/DELETE on change. All
-return booleans normalized from the underlying API responses.
-
-- `getVulnerabilityAlerts(owner, repo): boolean` -
-  `GET /repos/{o}/{r}/vulnerability-alerts` (404 -> `false`,
-  204 -> `true`)
-- `setVulnerabilityAlerts(owner, repo, enabled): void` -
-  `PUT` (enabled) / `DELETE` (disabled) on the same path
-- `getAutomatedSecurityFixes(owner, repo): boolean` -
-  `GET /repos/{o}/{r}/automated-security-fixes`; reads `data.enabled`
-- `setAutomatedSecurityFixes(owner, repo, enabled): void` -
-  `PUT`/`DELETE /repos/{o}/{r}/automated-security-fixes`
-- `getPrivateVulnerabilityReporting(owner, repo): boolean` -
-  `GET /repos/{o}/{r}/private-vulnerability-reporting`; reads
-  `data.enabled`
-- `setPrivateVulnerabilityReporting(owner, repo, enabled): void` -
-  `PUT`/`DELETE /repos/{o}/{r}/private-vulnerability-reporting`
-
-### Code Scanning Methods
-
-- `updateCodeScanningDefaultSetup(owner, repo, config): void` -
-  `PATCH /repos/{o}/{r}/code-scanning/default-setup`. The endpoint
-  responds `202 Accepted` and applies asynchronously; the SyncEngine
-  sends the request without polling for completion
-
-### Helper Methods
-
-- `listRepoLanguages(owner, repo): string[]` - thin wrapper around
-  `octokit.repos.listLanguages` returning the language-name keys; used to
-  filter configured CodeQL languages against what GitHub detects in the
-  repo
-- `resolveTeamId(org, slug): number` - looks up
-  `GET /orgs/{org}/teams/{slug}` and caches the numeric team id keyed by
-  `org:slug` for the lifetime of the GitHubClient instance. Used to map
-  `delegated_bypass_reviewers[].team` slugs to API-shaped
-  `{ reviewer_id, reviewer_type: "TEAM" }` entries during settings sync
-- `resolveRoleId(org, name): number` - looks up
-  `GET /orgs/{org}/organization-roles`, scans the returned roles for a
-  match on the `name` field, and caches the numeric role id keyed by
-  `org:name`. Used to map `delegated_bypass_reviewers[].role` names to
-  API-shaped `{ reviewer_id, reviewer_type: "ROLE" }` entries. Role IDs
-  are per-org even for predefined roles, so the resolution must happen
-  against the live API for every (org, role) pair the first time they
-  appear; failures (unknown role name) are surfaced as `GitHubApiError`
-  and trigger the standard catch-and-warn path so the rest of the sync
-  proceeds
-
-### `transformSecurityAndAnalysis` helper
-
-Exported alongside the service interface for direct unit testing.
-`transformSecurityAndAnalysis(value)` translates the user-facing
-`security_and_analysis` config block into the shape the GitHub REST API
-expects on `PATCH /repos/{o}/{r}`:
-
-- Each known status field (members of the `SAA_STATUS_FIELDS` set:
-  `advanced_security`, `code_security`, `secret_scanning`,
-  `secret_scanning_push_protection`,
-  `secret_scanning_ai_detection`,
-  `secret_scanning_non_provider_patterns`,
-  `secret_scanning_delegated_alert_dismissal`,
-  `secret_scanning_delegated_bypass`,
-  `dependabot_security_updates`) wraps its `"enabled" | "disabled"`
-  value as `{ status: "..." }`
-- `delegated_bypass_reviewers` is rewritten under
-  `secret_scanning_delegated_bypass_options.reviewers` (entries are
-  expected to already carry numeric `reviewer_id` and `reviewer_type`;
-  team-slug resolution happens in the SyncEngine before calling the
-  transform)
-- Returns `undefined` when the result is empty so callers can omit the
-  field cleanly from the PATCH body
-
-### GraphQL Settings
-
-The `GRAPHQL_SETTINGS` constant maps config keys to GraphQL mutation
-fields. Settings matching these keys are routed through a
-`updateRepository` GraphQL mutation instead of the REST API:
-
-- `has_sponsorships` -> `hasSponsorshipsEnabled`
-- `has_pull_requests` -> `hasPullRequestsEnabled`
-
-The mutation resolves the repository `node_id` via `octokit.repos.get()`
-before executing.
-
-### Settings Sanitization
-
-The `syncSettings` method strips merge commit config when the strategy is
-disabled: if `allow_merge_commit` is false, `merge_commit_title` and
-`merge_commit_message` are removed from the payload (same for squash).
-
-Secret scopes: `actions`, `dependabot`, `codespaces` - each routes to the
-appropriate Octokit API namespace. The `SecretScope` type is
-`"actions" | "dependabot" | "codespaces"`.
-
-Live: `GitHubClientLive(token)` creates an Octokit instance per token; the
-`teamIdCache` (Map<string, number> keyed by `org:slug`) is per-instance.
-Test: `GitHubClientTest()` returns `{ layer, calls() }` recorder covering
-all 30 methods.
+`GitHubClientLive(token)` creates one Octokit instance per token; the team/role caches are per instance.
 
 ## SyncEngine
 
-Orchestrates the full sync workflow. Depends on `GitHubClient`,
-`CredentialResolver`, and `SyncLogger`.
+Orchestrates the full workflow; depends on `GitHubClient`, `CredentialResolver` and `SyncLogger`. Entry point `syncAll(config, credentials, options)` with options `dryRun`, `noCleanup`, `groupFilter`, `repoFilter` and `configDir`. The stage order is described in `architecture.md`; the per-stage detail lives in `package/src/services/SyncEngine.ts`. The decisions worth recording:
 
-- `syncAll(config, credentials, options)` - main entry point
+- Settings from referenced groups merge, and each group's `security_and_analysis` block merges separately via `mergeSecurityAndAnalysis()` (last-write-wins). On personal accounts `ORG_ONLY_SAA_FIELDS` are stripped; on org accounts `delegated_bypass_reviewers` team slugs and role names resolve to numeric reviewer IDs before the merged block is reinjected for the PATCH.
+- `mergeSecurityGroups()` and `mergeCodeScanningGroups()` merge `[security.*]` and `[code_scanning.*]` references last-write-wins, leaving undefined keys as "leave alone". After the security merge the engine detects the `automated_security_fixes = true` with `vulnerability_alerts = false` contradiction that a single group's schema rejects but merging can recreate; if found it logs an error and skips the security stage for those repos rather than letting GitHub return 422.
+- Rulesets are collected from config, normalized via `normalizeRuleset()` and have `{ resolved }` references substituted from the credential map (coerced to integers where needed).
+- Cleanup is computed per group (no global merge, defaults to all-off) and runs last, respecting the three-way `CleanupScope` preserve lists. Ruleset cleanup skips org-level rulesets whose `source_type !== "Repository"`.
 
-Flow per group:
+### Language mapping
 
-1. Resolve owner (group override or config default)
-2. Resolve credential profile (explicit or implicit single profile)
-3. Resolve all credential labels via `CredentialResolver.resolveAll()`
-   into a flat `Map<string, string>`
-4. Detect ownership type via `GitHubClient.getOwnerType()` (defaults to
-   `"User"` on API failure); used to strip org-only fields
-5. Resolve secret groups by scope: `actions`, `dependabot`, `codespaces`
-   each get their own resolved map
-6. Resolve variable groups from `variables.actions` references
-7. Collect rulesets from config; normalize shorthands via
-   `normalizeRuleset()`; substitute `{ resolved }` references with values
-   from the credential map, coercing to integers where needed
-8. Resolve environment references from `group.environments` array
-9. Resolve environment-scoped secrets from `group.secrets.environments`
-   mapping (env name -> secret group refs)
-10. Resolve environment-scoped variables from `group.variables.environments`
-    mapping (env name -> variable group refs)
-11. Merge settings from referenced setting groups; pull each group's
-    `security_and_analysis` block aside and merge those separately via
-    `mergeSecurityAndAnalysis()` (last-write-wins). Strip `ORG_ONLY_SAA_FIELDS`
-    (`secret_scanning_delegated_alert_dismissal`,
-    `secret_scanning_delegated_bypass`, `delegated_bypass_reviewers`) on
-    personal accounts; on org accounts, resolve each
-    `delegated_bypass_reviewers[].team` slug to a numeric `reviewer_id`
-    via `GitHubClient.resolveTeamId()` and each `delegated_bypass_reviewers[].role`
-    name to a numeric role id via `GitHubClient.resolveRoleId()`. Both
-    resolvers cache results per `org:slug` and `org:name` for the
-    lifetime of the GitHubClient instance. Resolved entries are rewritten
-    to `{ reviewer_id, reviewer_type: "TEAM" | "ROLE" }`. Inject the
-    resolved block back into `mergedSettings` under
-    `security_and_analysis` so it rides along with the existing
-    `syncSettings` PATCH (where `transformSecurityAndAnalysis()` reshapes
-    it for the API)
-12. Merge `[security.*]` groups via `mergeSecurityGroups()` and
-    `[code_scanning.*]` groups via `mergeCodeScanningGroups()` -
-    last-write-wins across all references; missing keys remain undefined
-    so they're "leave alone" at sync time. After merging, detect the
-    cross-field contradiction (`automated_security_fixes = true` paired
-    with `vulnerability_alerts = false`) that `SecurityGroupSchema`
-    rejects in a single group but that merging can recreate; if found,
-    the security stage logs an error and is skipped for the affected
-    repos rather than letting GitHub return 422
-13. Compute per-group cleanup config (no global merge; defaults to all-off)
-14. For each repo (skipping mutations in dry-run):
-    - Sync settings (merged settings + folded `security_and_analysis`)
-    - Security features stage (inline): for each of `vulnerability_alerts`,
-      `automated_security_fixes`, `private_vulnerability_reporting`, probe
-      current state via the corresponding `getXxx` method and call PUT or
-      DELETE only when the desired value differs
-    - Code scanning stage (inline): filter merged
-      `code_scanning.languages[]` against languages detected by
-      `listRepoLanguages` (mapped through the `REPO_LANG_TO_CODEQL`
-      table; `actions` always passes through), then call
-      `updateCodeScanningDefaultSetup`. Languages not detected emit a
-      `skip` log line at info/verbose levels rather than failing
-    - Sync environments (must exist before scoped resources)
-    - Sync secrets by scope (actions/dependabot/codespaces)
-    - Sync environment secrets per environment
-    - Sync variables (actions scope)
-    - Sync environment variables per environment
-    - Sync rulesets (fully resolved/normalized `Ruleset` objects)
-15. Cleanup phase per scope: delete undeclared resources respecting
-    preserve lists from the three-way `CleanupScope` union
-    - Actions/dependabot/codespaces secrets
-    - Environment secrets (per environment)
-    - Actions variables
-    - Environment variables (per environment)
-    - Rulesets (skips org-level with `source_type !== "Repository"`)
-    - Environments
-
-Options: `dryRun`, `noCleanup`, `groupFilter`, `repoFilter`, `configDir`
-
-### Merge Helpers
-
-Three internal helpers implement last-write-wins merging across reference
-lists in declaration order:
-
-- `mergeSecurityAndAnalysis(blocks)` - merges
-  `SecurityAndAnalysis | undefined` blocks pulled from each referenced
-  setting group; returns `undefined` when no block contributed any keys
-  so the entire `security_and_analysis` field can be omitted from the
-  PATCH
-- `mergeSecurityGroups(groups)` - merges `SecurityGroup` toggles from
-  `[security.*]` references; only keeps boolean values, so partial
-  configurations cleanly carry through
-- `mergeCodeScanningGroups(groups)` - merges `CodeScanningGroup` configs
-  from `[code_scanning.*]` references; preserves any defined keys
-  (state/languages/query_suite/etc.) and lets undefined keys fall through
-  as "leave alone"
-
-### Language Mapping
-
-`REPO_LANG_TO_CODEQL` (defined at the top of `SyncEngine.ts`) maps repo
-language names (as returned by `octokit.repos.listLanguages`) onto the
-default-setup language enum:
-
-- `JavaScript`, `TypeScript` -> `javascript-typescript`
-- `C`, `C++` -> `c-cpp`
-- `C#` -> `csharp`
-- `Go` -> `go`
-- `Java`, `Kotlin` -> `java-kotlin`
-- `Python` -> `python`
-- `Ruby` -> `ruby`
-- `Swift` -> `swift`
-
-Languages outside the map are dropped from the detected set; the
-code scanning stage uses this set to decide whether a configured
-CodeQL language should be passed through or skipped with a warning. The
-`actions` pseudo-language always passes through unchanged because it
-isn't a repo language at all.
+`REPO_LANG_TO_CODEQL` (top of `SyncEngine.ts`) maps repo language names from `octokit.repos.listLanguages` onto the CodeQL default-setup enum. Languages outside the map are dropped from the detected set; the code-scanning stage uses that set to decide whether a configured CodeQL language passes through or is skipped with a warning. The `actions` pseudo-language always passes through because it is not a repo language. See `config-format.md` for the default-setup enum.

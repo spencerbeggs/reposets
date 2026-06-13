@@ -1,137 +1,68 @@
 ---
 module: reposets
 title: Architecture
+category: architecture
 status: current
-completeness: 95
-last-synced: 2026-04-27
+completeness: 90
+created: 2026-04-21
+updated: 2026-06-12
+last-synced: 2026-06-12
+related:
+  - services.md
+  - cli.md
+  - config-format.md
+  - json-schema.md
+dependencies: []
 ---
 
 ## Overview
 
-reposets is an Effect-based CLI for syncing GitHub repository settings,
-secrets, variables, rulesets, deployment environments, repository security
-features, and CodeQL default setup across personal and organization repos.
-Config files serve as distributable templates; environment-specific values
-are resolved from credential profiles at runtime.
+reposets is an Effect-based CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos. Config files are distributable templates; environment-specific values resolve from credential profiles at runtime. This doc owns the topology: which services exist, how layers compose and the order the sync pipeline runs in. Service interfaces live in `services.md`, the CLI surface in `cli.md` and the TOML schema in `config-format.md`.
 
-## Service Graph
+## Service graph
 
 ```text
-CLI Commands (--log-level flag, CliLogger)
+CLI commands (--log-level flag, CliLogger)
   |
   v
 ConfigFile services (xdg-effect ConfigFile.Tag)
-  |--- ReposetsConfigFile (schema + validate callback)
+  |--- ReposetsConfigFile (schema + validateConfigRefs callback)
   |--- ReposetsCredentialsFile (schema + XDG default path)
-  |--- makeConfigFilesLive(configFlag) factory
-  |      |--- ExplicitPath / StaticDir (--config flag)
-  |      |--- UpwardWalk (directory walk)
-  |      |--- XdgConfigResolver (XDG fallback)
+  |--- makeConfigFilesLive(configFlag) factory -> resolver chain
   |
   v
 SyncEngine (orchestration)
-  |--- CredentialResolver (resolve credential profile labels)
-  |      |--- OnePasswordClient (@1password/sdk)
-  |
-  |--- GitHubClient (Octokit wrapper + GraphQL mutations)
-  |      |--- crypto (NaCl sealed box encryption)
-  |
-  |--- SyncLogger (structured output by log level)
+  |--- CredentialResolver --- OnePasswordClient (@1password/sdk)
+  |--- GitHubClient (Octokit + GraphQL) --- crypto (NaCl sealed box)
+  |--- SyncLogger (tiered output)
 ```
 
-## Layer Composition
+## Layer composition
 
-Layers are composed at two levels:
+Layers compose at three levels:
 
-- **Root entrypoint** (`index.ts`): provides `NodeContext.layer` and
-  `CliLogger` (custom logger routing `Effect.log` to stdout and
-  `Effect.logError` to stderr)
-- **Per-command**: each command calls `makeConfigFilesLive(config)` to
-  provide `ReposetsConfigFile` and `ReposetsCredentialsFile` layers,
-  using the `--config` flag option to configure resolver chains
-- **Per-sync invocation**: `GitHubClientLive(token)` +
-  `OnePasswordClientLive` + `CredentialResolverLive` +
-  `SyncLoggerLive({ dryRun, logLevel })` + `SyncEngineLive` composed
-  in the sync command handler
+- Root entrypoint (`package/src/cli/index.ts`) provides `NodeContext.layer` and `CliLogger`, a custom logger that routes `Effect.log` to stdout and `Effect.logError` to stderr.
+- Per command: each command calls `makeConfigFilesLive(config)` to provide the `ReposetsConfigFile` and `ReposetsCredentialsFile` layers, using the `--config` flag to seed the resolver chain.
+- Per sync invocation: the sync handler composes `GitHubClientLive(token)`, `OnePasswordClientLive`, `CredentialResolverLive`, `SyncLoggerLive({ dryRun, logLevel })` and `SyncEngineLive`.
 
-## Data Flow
+The key constraint: layers are provided at the entrypoint and per-command handlers, never inside service implementations.
 
-1. CLI parses args via @effect/cli (global `--log-level` flag)
-2. Config path resolved via declarative resolver chain:
-   `ExplicitPath`/`StaticDir` (--config flag) > `UpwardWalk` (directory
-   walk) > `XdgConfigResolver` (XDG fallback)
-3. TOML files read from disk, parsed by smol-toml, validated by Effect
-   Schema; config cross-references validated by `validateConfigRefs`
-   callback
-4. SyncEngine iterates groups (`config.groups`), resolving credential
-   profiles per group
-5. CredentialResolver resolves all labels from the active profile's
-   `[resolve]` section (op/file/value sub-groups) into a `Map<string, string>`
-6. Secret and variable groups resolved by kind: `file` (read files),
-   `value` (use inline strings/objects), `resolved` (look up from
-   credential map)
-7. Rulesets collected from config as typed objects; shorthand fields
-   (`targets`, `pull_requests`, `status_checks`, boolean flags) normalized
-   via `normalizeRuleset()` into API-compatible format; `{ resolved }`
-   references substituted from the credential map with type coercion
-8. Owner type detected once per group via `GitHubClient.getOwnerType()`;
-   used downstream to strip org-only fields (e.g., `allow_forking` from
-   settings, and `secret_scanning_delegated_*` /
-   `delegated_bypass_reviewers` from `security_and_analysis`) on personal
-   accounts
-9. Settings stage: merged settings (REST `repos.update`) plus a folded
-   `security_and_analysis` block (transformed via
-   `transformSecurityAndAnalysis()`) plus GraphQL mutation for
-   `has_sponsorships` / `has_pull_requests`. Org-owned repos resolve
-   `delegated_bypass_reviewers` team slugs to numeric `reviewer_id`s via
-   `GitHubClient.resolveTeamId()` (cached per `org:slug`) before the PATCH
-10. Security features stage (between settings and secrets, implemented
-    inline in `SyncEngine.syncAll`): for each of `vulnerability_alerts`,
-    `automated_security_fixes`, and `private_vulnerability_reporting`,
-    probe current state via the corresponding `getXxx` method, compare to
-    the merged desired value, and PUT/DELETE only on diff
-11. Code scanning stage (after the security features stage, also inline):
-    filter configured CodeQL languages by what `listRepoLanguages` detects
-    (mapped through `REPO_LANG_TO_CODEQL`); warn (don't fail) on
-    non-detected entries; PATCH the default-setup endpoint (`202 Accepted`,
-    sent without polling for completion)
-12. Environments synced before secrets/variables (environments must exist
-    before scoped resources can be attached)
-13. GitHubClient applies remaining changes per repo: environments, secrets
-    by scope (actions/dependabot/codespaces/environments), variables by
-    scope (actions/environments), rulesets
-14. Cleanup phase deletes undeclared resources per scope, respecting
-    preserve lists and per-group cleanup configuration. (Security feature
-    toggles and code scanning default setup follow "leave alone if
-    omitted" semantics and have no `cleanup` scope of their own.)
-15. SyncLogger emits tiered output throughout (info summaries, verbose
-    per-operation, debug with source details)
+## Data flow
 
-## Error Model
+The sync pipeline is a delegation chain, not a flat function. The boundaries that matter:
 
-All errors are `Data.TaggedError` subclasses:
+1. The CLI resolves a config path through the declarative resolver chain (`--config` flag > upward walk > XDG fallback; see `config-format.md`), reads and parses the TOML, validates it against Effect Schema and runs the `validateConfigRefs` cross-reference check.
+2. `SyncEngine.syncAll` iterates config groups. Per group it resolves the owner, the credential profile and all credential labels (into a flat `Map<string, string>`), then detects the owner type once via `GitHubClient.getOwnerType()` to strip org-only fields on personal accounts.
+3. Per repo, the engine applies stages in a fixed order: settings (with folded `security_and_analysis` and resolved reviewer IDs) -> security features (diff-and-toggle) -> code scanning default setup -> environments -> secrets -> variables -> rulesets -> cleanup.
 
-- `ConfigError` - TOML parse or schema validation failure
-- `CredentialsError` - missing credentials file or profile
-- `ResolveError` - file not found, OP resolution failed, missing
-  credential label
-- `GitHubApiError` - API call failure (includes HTTP status); caught
-  per-operation so sync continues past individual failures
-- `SyncError` - orchestration-level failure
-- `OnePasswordError` - 1Password SDK failure
+Two ordering constraints are load-bearing and not obvious from the code: environments must sync before any environment-scoped secrets or variables, and cleanup runs last so freshly synced resources are never deleted. The security-features and code-scanning stages are implemented inline in `SyncEngine.syncAll` rather than as separate methods. See `services.md` for the per-stage detail and `package/src/services/SyncEngine.ts` for the full flow.
 
-## Testing Strategy
+Security feature toggles and code scanning default setup follow "leave alone if omitted" semantics — they have no `cleanup` scope of their own.
 
-Each service has Live and Test layer implementations:
+## Error model
 
-- `GitHubClientTest()` - records API calls, returns empty lists (covers
-  all 30 service methods including environment, security feature, code
-  scanning, and team-resolver operations)
-- `OnePasswordClientTest(stubs)` - returns deterministic values
-- `makeConfigFilesLive` - used directly in tests (builds xdg-effect
-  resolver chains for config + credentials)
-- `CredentialResolverLive` - tested with real filesystem + mock OP client
-- `SyncLoggerLive` - tested with Ref-based output capture
+All errors are `Data.TaggedError` subclasses; see the union in `package/src/errors.ts`. The load-bearing decision: `GitHubApiError` is caught per operation so a single failed API call does not abort the rest of the sync.
 
-230 tests (unit + integration) cover schemas, services, CLI commands,
-and utilities.
+## Rationale
+
+Config-as-template plus runtime credential resolution lets the same `reposets.config.toml` be committed and shared while secrets stay out of version control in `reposets.credentials.toml`. Modeling the pipeline as Effect programs gives uniform error handling and lets every service ship a Live and a Test layer, so the orchestration can be exercised without touching the GitHub API.
