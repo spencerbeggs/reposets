@@ -23,6 +23,7 @@
 		"ci:build": "CI=\"true\" turbo run build:dev build:prod --log-order=grouped --log-prefix=none --output-logs=full --no-color",
 		"ci:test": "CI=\"true\" vitest run --coverage",
 		"ci:version": "savvy changeset version && biome format --write .",
+		"cli": "tsx package/src/cli/index.ts",
 		"lint": "biome check --max-diagnostics=none",
 		"lint:fix": "biome check --write --max-diagnostics=none",
 		"lint:fix:unsafe": "biome check --write --unsafe --max-diagnostics=none",
