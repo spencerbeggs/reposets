@@ -37,8 +37,8 @@
 		"types:check": "tsgo --noEmit"
 	},
 	"devDependencies": {
-		"@savvy-web/silk": "^1.1.2",
-		"@savvy-web/vitest": "^1.4.0",
+		"@savvy-web/silk": "^1.2.0",
+		"@savvy-web/vitest": "^1.5.1",
 		"reposets": "workspace:*",
 		"tsx": "catalog:silk"
 	},
