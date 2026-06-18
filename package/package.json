@@ -58,10 +58,10 @@
 		"effect": "catalog:silk",
 		"smol-toml": ">=1.6.1",
 		"tweetnacl": "^1.0.3",
-		"xdg-effect": "^1.0.1"
+		"xdg-effect": "^1.0.3"
 	},
 	"devDependencies": {
-		"@savvy-web/bundler": "^0.6.0",
+		"@savvy-web/bundler": "^0.6.1",
 		"@types/node": "catalog:silk",
 		"@typescript/native-preview": "catalog:silk",
 		"tsx": "catalog:silk",
