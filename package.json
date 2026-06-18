@@ -36,16 +36,19 @@
 		"types:check": "tsgo --noEmit"
 	},
 	"devDependencies": {
-		"@savvy-web/silk": "^0.5.0",
+		"@savvy-web/silk": "^1.1.2",
 		"@savvy-web/vitest": "^1.4.0",
 		"reposets": "workspace:*",
 		"tsx": "catalog:silk"
 	},
-	"packageManager": "pnpm@11.5.1+sha512.93f7b57422ea7068257235b4c16eb60762eb68e1dc23723199cc739043ea9be2c4143274a399d8c6defa2b1176226d9ca1c4b63482d6200c1a8fbaa78c1",
+	"packageManager": "pnpm@11.8.0+sha512.c1f5e7c4cb241c8f174b743851d82f42b802324afc8b0f116b96adb15aa06664948dde36960a3ba1079ba5b4b29dd0140135b94b5b5f5263592249d68e555f26",
+	"engines": {
+		"node": ">=24.11.0"
+	},
 	"devEngines": {
 		"packageManager": {
 			"name": "pnpm",
-			"version": "11.5.1+sha512.93f7b57422ea7068257235b4c16eb60762eb68e1dc23723199cc739043ea9be2c4143274a399d8c6defa2b1176226d9ca1c4b63482d6200c1a8fbaa78c1",
+			"version": "11.8.0+sha512.c1f5e7c4cb241c8f174b743851d82f42b802324afc8b0f116b96adb15aa06664948dde36960a3ba1079ba5b4b29dd0140135b94b5b5f5263592249d68e555f26",
 			"onFail": "ignore"
 		},
 		"runtime": [

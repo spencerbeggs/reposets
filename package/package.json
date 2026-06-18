@@ -61,7 +61,7 @@
 		"xdg-effect": "^1.0.1"
 	},
 	"devDependencies": {
-		"@savvy-web/bundler": "^0.4.1",
+		"@savvy-web/bundler": "^0.6.0",
 		"@types/node": "catalog:silk",
 		"@typescript/native-preview": "catalog:silk",
 		"tsx": "catalog:silk",
