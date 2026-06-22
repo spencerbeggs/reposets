@@ -55,12 +55,12 @@
 		"@octokit/rest": "^22.0.1",
 		"blakejs": "^1.2.1",
 		"effect": "catalog:silk",
-		"smol-toml": ">=1.6.1",
+		"smol-toml": ">=1.7.0",
 		"tweetnacl": "^1.0.3",
 		"xdg-effect": "^1.0.3"
 	},
 	"devDependencies": {
-		"@savvy-web/bundler": "^0.6.1",
+		"@savvy-web/bundler": "^0.8.0",
 		"@types/node": "catalog:silk",
 		"@typescript/native-preview": "catalog:silk",
 		"tsx": "catalog:silk",
