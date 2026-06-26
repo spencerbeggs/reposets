@@ -13,7 +13,7 @@
 	"enabledPlugins": {
 		"silk@savvy-web-systems": true,
 		"design-docs@spencerbeggs": true,
-		"vitest@savvy-web-systems": true
+		"vitest-agent@spencerbeggs": true
 	},
 	"plansDirectory": ".claude/plans"
 }
