@@ -57,6 +57,7 @@ jobs:
             @savvy-web/pnpm-plugin-silk
           dependencies: |
             @savvy-web/*
+            @vitest-agent/*
             @1password/sdk
             @octokit/rest
             blakejs
