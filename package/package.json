@@ -45,7 +45,7 @@
 		"build:prod": "node savvy.build.ts --target prod",
 		"generate:json-schema": "tsx lib/scripts/generate-json-schema.ts",
 		"prepare": "node savvy.build.ts --target dev",
-		"types:check": "tsgo --noEmit"
+		"types:check": "tsc --noEmit"
 	},
 	"dependencies": {
 		"@1password/sdk": "^0.4.0",
@@ -62,7 +62,6 @@
 	"devDependencies": {
 		"@savvy-web/bundler": "^1.1.11",
 		"@types/node": "catalog:silk",
-		"@typescript/native-preview": "catalog:silk",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:silk"
 	},

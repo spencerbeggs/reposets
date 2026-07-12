@@ -64,7 +64,7 @@ lib/configs/               # Shared config files (commitlint, lint-staged, markd
 
 `package/` uses Rslib (via `@savvy-web/rslib-builder`) with three Turbo tasks:
 
-- `types:check` - `tsgo --noEmit`
+- `types:check` - `tsc`
 - `generate:json-schema` - runs before builds; outputs to `package/schemas/`
 - `build:dev` - depends on `types:check` + `generate:json-schema`; outputs to `dist/dev/`
 - `build:prod` - depends on `types:check` + `generate:json-schema`; outputs to `dist/npm/` and `dist/github/`
