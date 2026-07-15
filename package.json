@@ -36,8 +36,8 @@
 		"types:check": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@savvy-web/silk": "^2.4.2",
-		"@vitest-agent/plugin": "^1.1.8",
+		"@savvy-web/silk": "^2.4.4",
+		"@vitest-agent/plugin": "^1.1.9",
 		"reposets": "workspace:*",
 		"tsx": "catalog:silk"
 	},
