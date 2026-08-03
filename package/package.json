@@ -48,19 +48,19 @@
 		"types:check": "tsc --noEmit"
 	},
 	"dependencies": {
-		"@1password/sdk": "^0.4.0",
+		"@1password/sdk": "^0.4.1",
 		"@effect/cli": "catalog:silk",
 		"@effect/platform": "catalog:silk",
 		"@effect/platform-node": "catalog:silk",
 		"@octokit/rest": "^22.0.1",
 		"blakejs": "^1.2.1",
 		"effect": "catalog:silk",
-		"smol-toml": ">=1.7.0",
+		"smol-toml": ">=1.7.1",
 		"tweetnacl": "^1.0.3",
 		"xdg-effect": "^1.0.3"
 	},
 	"devDependencies": {
-		"@savvy-web/bundler": "^2.0.3",
+		"@savvy-web/bundler": "^2.1.0",
 		"@types/node": "catalog:silk",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:silk"
