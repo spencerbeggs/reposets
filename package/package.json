@@ -57,7 +57,7 @@
 		"effect": "catalog:silk",
 		"smol-toml": ">=1.7.0",
 		"tweetnacl": "^1.0.3",
-		"xdg-effect": "^1.0.3"
+		"xdg-effect": "^2.1.1"
 	},
 	"devDependencies": {
 		"@savvy-web/bundler": "^2.0.3",
