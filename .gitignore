@@ -51,5 +51,13 @@ docs/superpowers
 
 # Local configuration and credentials files (keep them out of version control)
 reposets.config.toml
+reposets.config.toml.*
 reposets.credentials.toml
+reposets.credentials.toml.*
 tombi.toml
+
+# v3 source kept on disk as a migration reference (recoverable from git history at 63ea0f1)
+.v3-reference/
+
+# dogfood mailbox (local collaboration state)
+.claude/dogfood/

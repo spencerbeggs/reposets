@@ -1,218 +1,183 @@
-import { existsSync, statSync } from "node:fs";
-import { Effect, Option } from "effect";
-import {
-	AppDirsConfig,
-	ConfigError,
-	ConfigFile,
-	ExplicitPath,
-	FirstMatch,
-	StaticDir,
-	TomlCodec,
-	UpwardWalk,
-	XdgConfigLive,
-	XdgConfigResolver,
-	XdgSavePath,
-} from "xdg-effect";
+import { AppConfig } from "@effected/app";
+import { ConfigFile, ConfigResolver, TomlCodec } from "@effected/config-file";
+import type { AppDirs, Xdg } from "@effected/xdg";
+import type { Path } from "effect";
+import { Data, Effect, FileSystem, Layer } from "effect";
 import type { Config } from "../schemas/config.js";
 import { ConfigSchema } from "../schemas/config.js";
 import type { Credentials } from "../schemas/credentials.js";
 import { CredentialsSchema } from "../schemas/credentials.js";
 
+/**
+ * The config file's fixed name, in every tier of the resolver chain.
+ *
+ * @public
+ */
 export const CONFIG_FILENAME = "reposets.config.toml";
+
+/**
+ * The credentials file's fixed name.
+ *
+ * @public
+ */
 export const CREDENTIALS_FILENAME = "reposets.credentials.toml";
 
-export const ReposetsConfigFile = ConfigFile.Tag<Config>("reposets/Config");
-
-export const ReposetsCredentialsFile = ConfigFile.Tag<Credentials>("reposets/Credentials");
+/**
+ * Service identity for the parsed `reposets.config.toml`.
+ *
+ * @public
+ */
+export class ReposetsConfigFile extends ConfigFile.Service<ReposetsConfigFile, Config>()("reposets/Config") {}
 
 /**
- * Validates all internal cross-references in a parsed config. Checks that
- * every group's settings, secrets, variables, rulesets, and environments
- * references point to defined top-level sections, and that environment-scoped
- * secret/variable groups reference defined environments. Collects ALL errors
- * into a single ConfigError.
+ * Service identity for the parsed `reposets.credentials.toml`.
+ *
+ * @public
  */
-export function validateConfigRefs(config: Config): Effect.Effect<Config, ConfigError> {
-	const errors: Array<string> = [];
+export class ReposetsCredentialsFile extends ConfigFile.Service<ReposetsCredentialsFile, Credentials>()(
+	"reposets/Credentials",
+) {}
 
-	const definedSettings = new Set(Object.keys(config.settings));
-	const definedSecrets = new Set(Object.keys(config.secrets));
-	const definedVariables = new Set(Object.keys(config.variables));
-	const definedRulesets = new Set(Object.keys(config.rulesets));
-	const definedEnvironments = new Set(Object.keys(config.environments));
-	const definedSecurity = new Set(Object.keys(config.security));
-	const definedCodeScanning = new Set(Object.keys(config.code_scanning));
+/**
+ * Reject keys the schema does not know about.
+ *
+ * @remarks
+ * v4 carries `onExcessProperty` on `ParseOptions` — per decode call, not on the
+ * schema — and `@effected/config-file` threads it through from `0.4.0`.
+ *
+ * Without it a config loader silently discards part of the user's file: a typo'd
+ * section name does nothing and reports nothing, and a field removed in a
+ * breaking schema change is ignored rather than rejected. Both matter here.
+ * `op_service_account_token` was removed for a security reason — it stored the
+ * credential that unlocks every other credential — and a migrating user who
+ * keeps it must be told, not quietly ignored while believing a dead token is
+ * live.
+ *
+ * This does **not** break the documented `[settings.*]` pass-through. Those keys
+ * are covered by a `StructWithRest` rest schema, so they are not excess;
+ * verified here and pinned by a test upstream.
+ *
+ * **Applied to credentials only, for now.** The config file keeps lenient
+ * decoding because `doctor` diagnoses unknown keys with nearest-match
+ * suggestions — strictly better output than a decode failure — and it locates
+ * the file through `discover`, which decodes. Making the load strict means
+ * `discover` fails and `doctor` reports "no config found" for a file that is
+ * present and one character wrong, losing the diagnosis exactly when it is
+ * wanted. Turning it on for config needs `doctor` to locate the file without
+ * decoding first.
+ */
+const STRICT_KEYS = {
+	onExcessProperty: "error",
+	// `errors: "all"` collects every rejection instead of stopping at the first.
+	// Without it a config with three typos reports one, the user fixes it, and
+	// the next run reports the next — three round trips to learn what one run
+	// already knew. The cost is bounded: the extra work happens only on a config
+	// that is already failing.
+	errors: "all",
+} as const;
 
-	for (const [groupName, group] of Object.entries(config.groups)) {
-		// Check settings references
-		if (group.settings) {
-			for (const ref of group.settings) {
-				if (!definedSettings.has(ref)) {
-					errors.push(`group '${groupName}': unknown settings group '${ref}'`);
-				}
-			}
-		}
+/**
+ * The credentials file, resolved by upward walk then XDG.
+ *
+ * @remarks
+ * **No `--config` tier.** That flag names the *config* file; pointing it at a
+ * directory would be ambiguous here and pointing it at a file would be wrong.
+ * A credentials file is found next to the project or in the XDG config
+ * directory, and nowhere else.
+ *
+ * `AppConfig.layer` appends its own XDG tier after the resolvers given here, so
+ * the upward walk wins and the XDG fallback comes free.
+ *
+ * @public
+ */
+export const CredentialsFilesLive: Layer.Layer<
+	ReposetsCredentialsFile,
+	never,
+	FileSystem.FileSystem | Path.Path | AppDirs | Xdg
+> = AppConfig.layer(ReposetsCredentialsFile, {
+	filename: CREDENTIALS_FILENAME,
+	schema: CredentialsSchema,
+	codec: TomlCodec,
+	resolvers: [ConfigResolver.upwardWalk({ filename: CREDENTIALS_FILENAME })],
+	parseOptions: STRICT_KEYS,
+});
 
-		// Check rulesets references
-		if (group.rulesets) {
-			for (const ref of group.rulesets) {
-				if (!definedRulesets.has(ref)) {
-					errors.push(`group '${groupName}': unknown ruleset '${ref}'`);
-				}
-			}
-		}
-
-		// Check environments references
-		if (group.environments) {
-			for (const ref of group.environments) {
-				if (!definedEnvironments.has(ref)) {
-					errors.push(`group '${groupName}': unknown environment '${ref}'`);
-				}
-			}
-		}
-
-		// Check security references
-		if (group.security) {
-			for (const ref of group.security) {
-				if (!definedSecurity.has(ref)) {
-					errors.push(`group '${groupName}': unknown security group '${ref}'`);
-				}
-			}
-		}
-
-		// Check code_scanning references
-		if (group.code_scanning) {
-			for (const ref of group.code_scanning) {
-				if (!definedCodeScanning.has(ref)) {
-					errors.push(`group '${groupName}': unknown code_scanning group '${ref}'`);
-				}
-			}
-		}
-
-		// Check secrets references
-		if (group.secrets) {
-			if (group.secrets.actions) {
-				for (const ref of group.secrets.actions) {
-					if (!definedSecrets.has(ref)) {
-						errors.push(`group '${groupName}': unknown secrets group '${ref}'`);
-					}
-				}
-			}
-			if (group.secrets.dependabot) {
-				for (const ref of group.secrets.dependabot) {
-					if (!definedSecrets.has(ref)) {
-						errors.push(`group '${groupName}': unknown secrets group '${ref}'`);
-					}
-				}
-			}
-			if (group.secrets.codespaces) {
-				for (const ref of group.secrets.codespaces) {
-					if (!definedSecrets.has(ref)) {
-						errors.push(`group '${groupName}': unknown secrets group '${ref}'`);
-					}
-				}
-			}
-			if (group.secrets.environments) {
-				for (const [envName, secretGroups] of Object.entries(group.secrets.environments)) {
-					if (!definedEnvironments.has(envName)) {
-						errors.push(`group '${groupName}': unknown environment '${envName}' in secrets.environments`);
-					}
-					for (const ref of secretGroups) {
-						if (!definedSecrets.has(ref)) {
-							errors.push(`group '${groupName}': in secrets.environments.'${envName}': unknown secrets group '${ref}'`);
-						}
-					}
-				}
-			}
-		}
-
-		// Check variables references
-		if (group.variables) {
-			if (group.variables.actions) {
-				for (const ref of group.variables.actions) {
-					if (!definedVariables.has(ref)) {
-						errors.push(`group '${groupName}': unknown variables group '${ref}'`);
-					}
-				}
-			}
-			if (group.variables.environments) {
-				for (const [envName, varGroups] of Object.entries(group.variables.environments)) {
-					if (!definedEnvironments.has(envName)) {
-						errors.push(`group '${groupName}': unknown environment '${envName}' in variables.environments`);
-					}
-					for (const ref of varGroups) {
-						if (!definedVariables.has(ref)) {
-							errors.push(
-								`group '${groupName}': in variables.environments.'${envName}': unknown variables group '${ref}'`,
-							);
-						}
-					}
-				}
-			}
-		}
+/**
+ * Raised when `--config` names a path that does not exist.
+ *
+ * @remarks
+ * Config discovery is best-effort by contract — every `ConfigResolver` has
+ * `never` in its error channel — so a resolver that finds nothing falls through
+ * to the next tier. That is right for a probe and wrong for an explicit request:
+ * `--config /nope.toml` would otherwise load the XDG config instead. The
+ * distinction is enforced here rather than pushed into the resolver contract.
+ *
+ * @public
+ */
+export class ConfigFlagNotFound extends Data.TaggedError("ConfigFlagNotFound")<{
+	readonly path: string;
+}> {
+	/**
+	 * @remarks
+	 * Without this, the class renders as a bare `ConfigFlagNotFound:` and the
+	 * `path` never reaches the log line. The kit does the same on its own errors.
+	 */
+	override get message(): string {
+		return `--config path does not exist: ${this.path}`;
 	}
-
-	if (errors.length > 0) {
-		return Effect.fail(
-			new ConfigError({
-				operation: "validate",
-				reason: errors.join("\n"),
-			}),
-		);
-	}
-
-	return Effect.succeed(config);
 }
 
 /**
- * Creates a live Layer providing both config and credentials file services.
- * When configFlag is Some and points to a directory, prepends StaticDir resolver.
- * When configFlag is Some and points to a file, prepends ExplicitPath resolver.
- * Always includes UpwardWalk + XdgConfigResolver as fallback resolvers.
- * Passes validateConfigRefs as the validate callback on the config spec.
+ * Builds the resolver tiers that must win over `AppConfig`'s own XDG chain.
+ *
+ * @remarks
+ * `AppConfig.layer` prepends these, in order, ahead of `XdgConfig.resolver` and
+ * the native-directory probe, so only the higher-priority tiers appear here.
  */
-export function makeConfigFilesLive(configFlag: Option.Option<string>) {
-	const configResolvers = [];
-
-	if (Option.isSome(configFlag)) {
-		const flag = configFlag.value;
-		if (existsSync(flag) && statSync(flag).isDirectory()) {
-			configResolvers.push(StaticDir({ dir: flag, filename: CONFIG_FILENAME }));
-		} else {
-			configResolvers.push(ExplicitPath(flag));
+const resolversFor = (
+	configFlag: string | undefined,
+): Effect.Effect<
+	ReadonlyArray<ConfigResolver<FileSystem.FileSystem | Path.Path>>,
+	ConfigFlagNotFound,
+	FileSystem.FileSystem
+> =>
+	Effect.gen(function* () {
+		if (configFlag === undefined) {
+			return [ConfigResolver.upwardWalk({ filename: CONFIG_FILENAME })];
 		}
-	}
 
-	configResolvers.push(UpwardWalk({ filename: CONFIG_FILENAME }), XdgConfigResolver({ filename: CONFIG_FILENAME }));
+		const fs = yield* FileSystem.FileSystem;
+		const info = yield* fs.stat(configFlag).pipe(Effect.option);
 
-	return XdgConfigLive.multi({
-		app: new AppDirsConfig({ namespace: "reposets" }),
-		configs: [
-			{
-				tag: ReposetsConfigFile,
+		if (info._tag === "None") {
+			return yield* new ConfigFlagNotFound({ path: configFlag });
+		}
+
+		return info.value.type === "Directory"
+			? [ConfigResolver.staticDir({ dir: configFlag, filename: CONFIG_FILENAME })]
+			: [ConfigResolver.explicitPath(configFlag)];
+	});
+
+/**
+ * Builds the config-file layer for one invocation's `--config` flag.
+ *
+ * @remarks
+ * Mints a fresh layer per call, so bind the result once per run rather than
+ * inlining it at two provide sites.
+ *
+ * @public
+ */
+export const makeConfigFilesLive = (
+	configFlag: string | undefined,
+): Layer.Layer<ReposetsConfigFile, ConfigFlagNotFound, FileSystem.FileSystem | Path.Path | AppDirs | Xdg> =>
+	Layer.unwrap(
+		Effect.map(resolversFor(configFlag), (resolvers) =>
+			AppConfig.layer(ReposetsConfigFile, {
+				filename: CONFIG_FILENAME,
 				schema: ConfigSchema,
 				codec: TomlCodec,
-				strategy: FirstMatch,
-				resolvers: configResolvers,
-				validate: validateConfigRefs,
-			},
-			{
-				tag: ReposetsCredentialsFile,
-				schema: CredentialsSchema,
-				codec: TomlCodec,
-				strategy: FirstMatch,
-				resolvers: [
-					UpwardWalk({ filename: CREDENTIALS_FILENAME }),
-					XdgConfigResolver({ filename: CREDENTIALS_FILENAME }),
-				],
-				defaultPath: XdgSavePath(CREDENTIALS_FILENAME),
-			},
-		],
-	});
-}
-
-/**
- * Default ConfigFiles layer with no --config flag override.
- * Used by CLI entrypoint when no flag is provided.
- */
-export const ConfigFilesLive = makeConfigFilesLive(Option.none());
+				resolvers,
+				parseOptions: STRICT_KEYS,
+			}),
+		),
+	);

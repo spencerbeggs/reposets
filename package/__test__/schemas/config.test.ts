@@ -20,13 +20,20 @@ const decodeCodeScanningLanguage = Schema.decodeUnknownSync(CodeScanningLanguage
 
 describe("GroupSchema", () => {
 	it("accepts minimal group", () => {
-		const result = decodeGroup({ repos: ["repo-one"] });
+		const result = decodeGroup({ repos: ["repo-one"], credentials: "default" });
 		expect(result.repos).toEqual(["repo-one"]);
+	});
+
+	it("rejects a group with no credentials", () => {
+		// Required deliberately, even with one profile configured. Optional would
+		// have to mean "the only profile", which stops being well defined the day
+		// a second is added — so adding an unrelated profile would change which
+		// account an existing group writes to, with nothing in the group changed.
+		expect(() => decodeGroup({ repos: ["repo-one"] })).toThrow();
 	});
 
 	it("accepts full group", () => {
 		const result = decodeGroup({
-			owner: "savvy-web",
 			repos: ["repo-one", "repo-two"],
 			credentials: "work",
 			settings: ["oss-defaults"],
@@ -35,7 +42,7 @@ describe("GroupSchema", () => {
 			rulesets: ["workflow"],
 			cleanup: { rulesets: false },
 		});
-		expect(result.owner).toBe("savvy-web");
+		expect(result.credentials).toBe("work");
 	});
 
 	it("rejects group without repos", () => {
@@ -45,6 +52,7 @@ describe("GroupSchema", () => {
 	it("accepts group-level cleanup with new three-way union structure", () => {
 		const result = decodeGroup({
 			repos: ["repo-one"],
+			credentials: "default",
 			cleanup: {
 				secrets: { actions: true, dependabot: false },
 				variables: { actions: { preserve: ["KEEP_ME"] } },
@@ -60,6 +68,7 @@ describe("GroupSchema", () => {
 	it("accepts environments array in group", () => {
 		const result = decodeGroup({
 			repos: ["repo-one"],
+			credentials: "default",
 			environments: ["staging", "production"],
 		});
 		expect(result.environments).toEqual(["staging", "production"]);
@@ -69,7 +78,7 @@ describe("GroupSchema", () => {
 describe("ConfigSchema", () => {
 	it("accepts minimal config", () => {
 		const result = decodeConfig({
-			groups: { mygroup: { repos: ["repo-one"] } },
+			groups: { mygroup: { repos: ["repo-one"], credentials: "default" } },
 		});
 		expect(result.groups.mygroup.repos).toEqual(["repo-one"]);
 	});
@@ -77,7 +86,7 @@ describe("ConfigSchema", () => {
 	it("accepts secrets with file kind", () => {
 		const result = decodeConfig({
 			secrets: { certs: { file: { APP_KEY: "./private/key" } } },
-			groups: { g: { repos: ["r"] } },
+			groups: { g: { repos: ["r"], credentials: "default" } },
 		});
 		expect("file" in result.secrets.certs).toBe(true);
 	});
@@ -85,7 +94,7 @@ describe("ConfigSchema", () => {
 	it("accepts secrets with value kind", () => {
 		const result = decodeConfig({
 			secrets: { static: { value: { API_URL: "https://api.example.com" } } },
-			groups: { g: { repos: ["r"] } },
+			groups: { g: { repos: ["r"], credentials: "default" } },
 		});
 		expect("value" in result.secrets.static).toBe(true);
 	});
@@ -93,7 +102,7 @@ describe("ConfigSchema", () => {
 	it("accepts secrets with resolved kind", () => {
 		const result = decodeConfig({
 			secrets: { creds: { resolved: { APP_ID: "SILK_APP_ID" } } },
-			groups: { g: { repos: ["r"] } },
+			groups: { g: { repos: ["r"], credentials: "default" } },
 		});
 		expect("resolved" in result.secrets.creds).toBe(true);
 	});
@@ -101,14 +110,13 @@ describe("ConfigSchema", () => {
 	it("accepts variables with value kind", () => {
 		const result = decodeConfig({
 			variables: { turbo: { value: { DO_NOT_TRACK: "1" } } },
-			groups: { g: { repos: ["r"] } },
+			groups: { g: { repos: ["r"], credentials: "default" } },
 		});
 		expect("value" in result.variables.turbo).toBe(true);
 	});
 
 	it("accepts full config with new schema", () => {
 		const result = decodeConfig({
-			owner: "spencerbeggs",
 			settings: { defaults: { has_wiki: false } },
 			secrets: {
 				"app-creds": { resolved: { APP_ID: "SILK_APP_ID" } },
@@ -124,47 +132,25 @@ describe("ConfigSchema", () => {
 			groups: {
 				silk: {
 					repos: ["repo-one"],
+					credentials: "default",
 					secrets: { actions: ["app-creds", "certs"] },
 					variables: { actions: ["turbo", "bot"] },
 					rulesets: ["workflow"],
 				},
 			},
 		});
-		expect(result.owner).toBe("spencerbeggs");
+		expect(Object.keys(result.groups)).toEqual(["silk"]);
+		expect(result.groups.silk?.credentials).toBe("default");
 	});
 
 	it("applies defaults for optional sections", () => {
 		const result = decodeConfig({
-			groups: { mygroup: { repos: ["repo-one"] } },
+			groups: { mygroup: { repos: ["repo-one"], credentials: "default" } },
 		});
 		expect(result.settings).toEqual({});
 		expect(result.secrets).toEqual({});
 		expect(result.variables).toEqual({});
 		expect(result.rulesets).toEqual({});
-	});
-
-	it("parses log_level field with valid values", () => {
-		const result = decodeConfig({
-			groups: { g: { repos: ["r"] } },
-			log_level: "verbose",
-		});
-		expect(result.log_level).toBe("verbose");
-	});
-
-	it("defaults log_level to info when omitted", () => {
-		const result = decodeConfig({
-			groups: { g: { repos: ["r"] } },
-		});
-		expect(result.log_level).toBe("info");
-	});
-
-	it("rejects invalid log_level values", () => {
-		expect(() =>
-			decodeConfig({
-				groups: { g: { repos: ["r"] } },
-				log_level: "banana",
-			}),
-		).toThrow();
 	});
 
 	it("accepts top-level environments", () => {
@@ -173,7 +159,7 @@ describe("ConfigSchema", () => {
 				staging: { wait_timer: 5, prevent_self_review: true },
 				production: { wait_timer: 30, deployment_branches: "protected" },
 			},
-			groups: { g: { repos: ["r"] } },
+			groups: { g: { repos: ["r"], credentials: "default" } },
 		});
 		expect(result.environments).toHaveProperty("staging");
 		expect(result.environments?.staging?.wait_timer).toBe(5);
@@ -182,14 +168,22 @@ describe("ConfigSchema", () => {
 
 	it("applies empty object default for environments when omitted", () => {
 		const result = decodeConfig({
-			groups: { mygroup: { repos: ["repo-one"] } },
+			groups: { mygroup: { repos: ["repo-one"], credentials: "default" } },
 		});
 		expect(result.environments).toEqual({});
 	});
 
+	it("has no log_level field", () => {
+		// Retired with the verbosity tiers: the only tier boundary that mattered
+		// suppressed the per-resource lines that are a sync's whole content, and
+		// `silent` suppressed errors. Output is now one level, plus --debug.
+		const result = decodeConfig({ groups: { g: { repos: ["r"], credentials: "default" } } });
+		expect("log_level" in result).toBe(false);
+	});
+
 	it("does NOT have a global cleanup field", () => {
 		const result = decodeConfig({
-			groups: { g: { repos: ["r"] } },
+			groups: { g: { repos: ["r"], credentials: "default" } },
 		});
 		expect("cleanup" in result).toBe(false);
 	});
@@ -248,7 +242,7 @@ describe("SecurityAndAnalysis (nested in SettingsGroupSchema)", () => {
 					},
 				},
 			},
-			groups: { g: { repos: ["r"] } },
+			groups: { g: { repos: ["r"], credentials: "default" } },
 		});
 		const saa = result.settings.oss?.security_and_analysis;
 		expect(saa?.secret_scanning).toBe("enabled");
@@ -260,7 +254,7 @@ describe("SecurityAndAnalysis (nested in SettingsGroupSchema)", () => {
 		expect(() =>
 			decodeConfig({
 				settings: { oss: { security_and_analysis: { secret_scanning: "on" } } },
-				groups: { g: { repos: ["r"] } },
+				groups: { g: { repos: ["r"], credentials: "default" } },
 			}),
 		).toThrow();
 	});
@@ -275,7 +269,7 @@ describe("SecurityAndAnalysis (nested in SettingsGroupSchema)", () => {
 					},
 				},
 			},
-			groups: { g: { repos: ["r"] } },
+			groups: { g: { repos: ["r"], credentials: "default" } },
 		});
 		const reviewers = result.settings.oss?.security_and_analysis?.delegated_bypass_reviewers;
 		expect(reviewers).toHaveLength(2);
@@ -293,7 +287,7 @@ describe("SecurityAndAnalysis (nested in SettingsGroupSchema)", () => {
 						},
 					},
 				},
-				groups: { g: { repos: ["r"] } },
+				groups: { g: { repos: ["r"], credentials: "default" } },
 			}),
 		).toThrow();
 	});
@@ -411,7 +405,7 @@ describe("ConfigSchema with security and code_scanning", () => {
 				oss: { state: "configured", languages: ["javascript-typescript"] },
 			},
 			groups: {
-				g: { repos: ["r"], security: ["oss"], code_scanning: ["oss"] },
+				g: { repos: ["r"], security: ["oss"], code_scanning: ["oss"], credentials: "default" },
 			},
 		});
 		expect(result.security?.oss?.vulnerability_alerts).toBe(true);
@@ -421,7 +415,7 @@ describe("ConfigSchema with security and code_scanning", () => {
 	});
 
 	it("applies empty defaults for security and code_scanning when omitted", () => {
-		const result = decodeConfig({ groups: { g: { repos: ["r"] } } });
+		const result = decodeConfig({ groups: { g: { repos: ["r"], credentials: "default" } } });
 		expect(result.security).toEqual({});
 		expect(result.code_scanning).toEqual({});
 	});
@@ -431,6 +425,7 @@ describe("GroupSchema with security/code_scanning refs", () => {
 	it("accepts security and code_scanning string arrays on a group", () => {
 		const result = decodeGroup({
 			repos: ["r"],
+			credentials: "default",
 			security: ["oss-defaults"],
 			code_scanning: ["oss-defaults"],
 		});

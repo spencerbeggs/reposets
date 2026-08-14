@@ -1,0 +1,29 @@
+{
+	"repos": {
+		"effect": {
+			"url": "https://github.com/Effect-TS/effect",
+			"ref": "effect@4.0.0-beta.107",
+			"purpose": "Effect v4 core pinned to the exact beta this repo runs (4.0.0-beta.107); the authority for v4 APIs including effect/unstable/cli, which replaces the dead @effect/cli line",
+			"sparse": [
+				"packages/effect/src",
+				"packages/vitest/src"
+			]
+		},
+		"effected": {
+			"url": "https://github.com/spencerbeggs/effected",
+			"ref": "main",
+			"purpose": "The @effected kit source — authority for the packages reposets adopts in the v4 migration (app, config-file, toml, xdg, github, schemastore) plus their transitive deps. Pinned to main pending exact installed versions; re-pin once the migration fixes them.",
+			"sparse": [
+				"packages/app",
+				"packages/store",
+				"packages/config-file",
+				"packages/toml",
+				"packages/xdg",
+				"packages/github",
+				"packages/schemastore",
+				"packages/walker",
+				"packages/glob"
+			]
+		}
+	}
+}

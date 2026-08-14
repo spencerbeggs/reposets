@@ -49,18 +49,19 @@
 	},
 	"dependencies": {
 		"@1password/sdk": "^0.4.0",
-		"@effect/cli": "catalog:silk",
-		"@effect/platform": "catalog:silk",
-		"@effect/platform-node": "catalog:silk",
-		"@octokit/rest": "^22.0.1",
+		"@effect/platform-node": "catalog:effect",
+		"@effected/app": "^0.10.0",
+		"@effected/config-file": "^0.4.0",
+		"@effected/github": "^0.4.0",
+		"@effected/store": "^0.3.0",
+		"@effected/toml": "^0.4.0",
+		"@effected/xdg": "^0.2.1",
 		"blakejs": "^1.2.1",
-		"effect": "catalog:silk",
-		"smol-toml": ">=1.7.0",
-		"tweetnacl": "^1.0.3",
-		"xdg-effect": "^1.0.3"
+		"effect": "catalog:effect"
 	},
 	"devDependencies": {
-		"@savvy-web/bundler": "^2.0.3",
+		"@effected/schemastore": "^0.3.0",
+		"@savvy-web/bundler": "^2.1.9",
 		"@types/node": "catalog:silk",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:silk"
@@ -70,7 +71,7 @@
 	},
 	"publishConfig": {
 		"access": "public",
-		"directory": "dist/npm",
+		"directory": "dist/dev/pkg",
 		"linkDirectory": true,
 		"targets": {
 			"npm": true,

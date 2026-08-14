@@ -1,6 +1,0 @@
-# Valid TOML but missing required 'groups' field
-owner = "test-owner"
-log_level = "info"
-
-[settings.defaults]
-has_wiki = false
