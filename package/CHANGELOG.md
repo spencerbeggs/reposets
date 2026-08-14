@@ -1,5 +1,17 @@
 # reposets
 
+## 1.0.1
+
+### Dependencies
+
+* | Dependency     | Type       | Action  | From   | To     |                                                                          |
+  | -------------- | ---------- | ------- | ------ | ------ | ------------------------------------------------------------------------ |
+  | @1password/sdk | dependency | updated | ^0.4.0 | ^0.5.0 | [#65][#65] Thanks [@spencerbeggs](https://github.com/apps/spencerbeggs)! |
+
+### Patch Changes
+
+[#65]: https://github.com/spencerbeggs/reposets/pull/65
+
 ## 1.0.0
 
 ### Breaking Changes
