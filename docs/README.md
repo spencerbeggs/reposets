@@ -1,75 +1,107 @@
-# reposets Documentation
+# reposets documentation
 
-reposets is a CLI tool for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, advanced security toggles, and CodeQL default setup across your personal and organization repositories. Define your desired state once in a TOML config file and apply it everywhere with a single command.
+reposets is a CLI that syncs GitHub repository settings, secrets, variables, rulesets, deployment environments, security toggles and CodeQL default setup across your repositories. Declare the desired state once in a TOML file, then apply it everywhere with one command.
 
-Rather than clicking through repository settings one by one, reposets lets you manage repository configuration as code. Group repositories together, assign shared secrets and variables to those groups, and let reposets reconcile the live state on GitHub against your declared config on every run.
-
-## Prerequisites
-
-- Node.js (version declared in the package `engines` field)
+Rather than clicking through repository settings one by one, reposets reconciles the live state on GitHub against your declared config on every run, reports what changed outside the tool and converges the rest.
 
 ## Install
 
 ```bash
 npm install -g reposets
-# or run without installing:
+# or run it without installing
 npx reposets <command>
 ```
 
+Requires the Node.js version in the package's `engines` field.
+
 ## Getting started
 
-1. Install reposets (see above)
-2. Create a GitHub fine-grained personal access token with the [required permissions](token-permissions.md)
-3. Run `reposets init` to scaffold config files in your XDG config directory (or pass `--project` for the current directory)
-4. Create a credential profile: `reposets credentials create --profile personal --github-token ghp_your_token`
-5. Edit `reposets.config.toml` to define your repositories, settings, secrets, and variables (see [Configuration](configuration.md))
-6. Run `reposets validate` to check your config for errors
-7. Run `reposets sync --dry-run` to preview what changes would be applied
-8. Run `reposets sync` to apply the config to all repositories
+1. Create a fine-grained personal access token with the [required permissions](09-token-permissions.md).
+2. Scaffold the config files:
 
-## Minimal Working Example
+   ```bash
+   reposets init --project
+   # Created: ./reposets.config.toml
+   # Created: ./reposets.credentials.toml
+   # Created .gitignore with reposets.credentials.toml
+   ```
 
-Below is a minimal config and credentials pair you can copy-paste and adapt. This example syncs basic settings to a single repository.
+3. Add a credential profile. It stores a *reference* to your token, never the token:
+
+   ```bash
+   reposets credentials create --profile personal --username your-username --op "op://Private/github/token"
+   # Created profile 'personal' (username: your-username, github_token: op op://Private/github/token) in ./reposets.credentials.toml.
+   ```
+
+   Use `--env REPOSETS_GITHUB_TOKEN` instead of `--op` to read the token from the environment.
+
+4. Edit `reposets.config.toml` to declare your repositories and what should apply to them (see [Configuration](03-configuration.md)).
+5. Check it:
+
+   ```bash
+   reposets validate
+   # Valid: ./reposets.config.toml
+   #   groups: 1
+   ```
+
+6. Preview, then apply:
+
+   ```bash
+   reposets sync --dry-run
+   reposets sync
+   ```
+
+## Minimal working example
+
+A config and credentials pair you can copy and adapt. This syncs two settings to two repositories.
 
 `reposets.credentials.toml`:
 
 ```toml
 [profiles.personal]
-github_token = "github_pat_your_token_here"
+username = "your-github-username"
+github_token = { op = "op://Private/github/token" }
 ```
 
 `reposets.config.toml`:
 
 ```toml
-owner = "your-github-username"
-profile = "personal"
-
 [settings.defaults]
 has_wiki = false
 has_projects = false
 delete_branch_on_merge = true
 
 [groups.my-repos]
-repos = ["my-repo"]
-settings = "defaults"
+repos = ["repo-one", "repo-two"]
+credentials = "personal"
+settings = ["defaults"]
 ```
 
-Then run:
+Three things are load-bearing here. The owner lives on the profile as `username` or `org`, not in the config. Every group names a profile through `credentials`, even when there is only one. And `settings` is an array of group names, not a bare string.
 
-```sh
+Resolving `op://` references needs `OP_SERVICE_ACCOUNT_TOKEN` in your environment. Use an `{ env = "..." }` token reference instead if you do not use 1Password.
+
+Then:
+
+```bash
 reposets validate
 reposets sync --dry-run
 reposets sync
 ```
 
+## Upgrading from an earlier version
+
+Configs written before 1.0 will not load. [Migrating to 1.0](01-migrating-to-1.0.md) has before-and-after TOML for every change, and `reposets doctor` names each removed key it finds.
+
 ## Guides
 
-- [Commands Reference](commands.md) - all commands, flags, and usage examples
-- [Configuration](configuration.md) - config file format, path resolution, and settings reference
-- [Credentials](credentials.md) - credential profiles, resolve sections, and 1Password integration
-- [Secrets and Variables](secrets-and-variables.md) - resource groups, three kinds (file/value/resolved), and scoping
-- [Rulesets](rulesets.md) - branch and tag rulesets, shorthand fields, and rule types
-- [Environments](environments.md) - deployment environment definitions and configuration
-- [Advanced Security](configuration.md#security-and-analysis-nested-block) - secret scanning, push protection, vulnerability alerts, automated security fixes, private vulnerability reporting, and CodeQL default setup
-- [Cleanup](cleanup.md) - automatic cleanup of undeclared resources with preserve lists
-- [Token Permissions](token-permissions.md) - fine-grained PAT setup guide
+- [Migrating to 1.0](01-migrating-to-1.0.md) — what changed, with before-and-after TOML for each breaking change
+- [Commands](02-commands.md) — every command and flag, with output
+- [Configuration](03-configuration.md) — config file format, path resolution and the settings reference
+- [Credentials](04-credentials.md) — profiles, owners, token references and resolve sections
+- [Secrets and variables](05-secrets-and-variables.md) — the three group kinds and how scoping works
+- [Rulesets](06-rulesets.md) — branch and tag rulesets, every field and the shorthand forms
+- [Environments](07-environments.md) — deployment environments, reviewers and branch policies
+- [Advanced security](03-configuration.md#security-and-analysis-block) — secret scanning, vulnerability alerts, private reporting and CodeQL default setup
+- [Cleanup](08-cleanup.md) — removing resources the config no longer declares
+- [Token permissions](09-token-permissions.md) — which fine-grained token scopes are needed, and why

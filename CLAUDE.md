@@ -1,226 +1,161 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with
-code in this repository.
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-**For detailed design documentation:**
+## Design documentation
 
-- Architecture and data flow:
-  `@./.claude/design/reposets/architecture.md`
-- Effect services API:
-  `@./.claude/design/reposets/services.md`
-- Configuration file format:
-  `@./.claude/design/reposets/config-format.md`
-- CLI commands and options:
-  `@./.claude/design/reposets/cli.md`
-- JSON schema generation (build-time):
-  `@./.claude/design/reposets/json-schema.md`
+Load the relevant doc when working on that subsystem. Do NOT load all of them at once.
 
-Load the relevant design doc when working on that subsystem. Do NOT load
-all of them at once.
+- Architecture, layer composition, the phase pipeline, drift detection and local state → `@./.claude/design/reposets/architecture.md`
+- Each service's responsibility and the boundaries between them → `@./.claude/design/reposets/services.md`
+- TOML config and credentials format, and the 1.0 breaking changes → `@./.claude/design/reposets/config-format.md`
+- Command surface, flags and output decisions → `@./.claude/design/reposets/cli.md`
+- Build-time JSON schema generation → `@./.claude/design/reposets/json-schema.md`
+- Sandbox repositories and live testing → `@./.claude/design/reposets/sandbox.md`
+- What running the CLI against real repositories found, wave by wave → `@./.claude/design/reposets/cli-campaign-journal.md`
+- Where the current work stands and the traps that cost time → `@./.claude/design/reposets/session-handoff.md`
 
 ## Commands
 
 ```bash
-# Development
-pnpm run build             # Build all packages (types:check + generate:json-schema + dev + prod via Turbo)
-pnpm run build:dev         # Build development bundles only
-pnpm run build:prod        # Build production bundles only
-pnpm run typecheck         # Type-check all workspaces via Turbo
-
-# Run CLI locally
-pnpm sync                  # Alias: tsx package/src/cli/index.ts
-
-# Testing
-pnpm run test              # Run all tests (230 passing)
-pnpm run test:watch        # Run tests in watch mode
-pnpm run test:coverage     # Run tests with coverage report
-
-# Linting
-pnpm run lint              # Check for lint errors
-pnpm run lint:fix          # Auto-fix lint issues
-pnpm run lint:md           # Lint markdown files
-pnpm run lint:md:fix       # Auto-fix markdown issues
+pnpm run build         # turbo build:dev + build:prod (generate:json-schema runs first)
+pnpm run typecheck     # turbo types:check across workspaces
+pnpm run types:check   # tsc --noEmit at the repo root
+pnpm cli               # run the CLI from source: tsx package/src/cli/index.ts
+pnpm run test          # vitest run; coverage is always on
+pnpm run test:watch
+pnpm run test:coverage
+pnpm run lint          # biome check
+pnpm run lint:fix
+pnpm run lint:md
+pnpm run lint:md:fix
+pnpm --filter reposets generate:json-schema   # regenerate package/schemas/
 ```
 
-## Architecture
+`pnpm run test` rewrites `package/schemas/*.json`: `vitest.setup.ts` runs `turbo run build:dev` as a global setup and `build:dev` depends on `generate:json-schema`. It writes them unformatted, so `pnpm run lint` fails on formatting after a test run until `lint:fix` folds them back. Expect it — it is not a regression.
 
-### Monorepo Structure
+## Repository layout
 
-pnpm workspace monorepo using Turbo for orchestration. The CLI package lives
-at `package/` (workspace name: `reposets`).
+pnpm workspace monorepo orchestrated by Turbo. One package: `package/` (workspace name `reposets`).
 
 ```text
-package/                   # reposets CLI package
-package/src/cli/           # CLI entrypoint and commands
-package/src/services/      # Effect services (6 services, 30 GitHubClient methods)
-package/src/schemas/       # Effect Schema definitions (config, credentials, environment, ruleset) + JSON schema generation
-package/src/lib/           # Utilities (XDG paths, config resolution, crypto)
-package/__test__/          # Tests mirroring src/ structure
-lib/configs/               # Shared config files (commitlint, lint-staged, markdownlint)
+package/src/cli/          # entrypoint, the --config global flag, CliLogger
+package/src/cli/commands/ # one file per subcommand
+package/src/services/     # ConfigFiles, CredentialResolver, OnePasswordClient, SyncLogger
+package/src/store/        # AppliedState, SyncJournal, RepoCache, migrations (SQLite via @effected/app)
+package/src/sync/         # SyncEngine, the Phase contract, decide(); phases/ holds one module per phase
+package/src/schemas/      # Effect Schema: config, credentials, common, environment, ruleset, annotations
+package/src/lib/          # config-refs, org-only, credential-labels, fingerprint, schema-issues
+package/lib/scripts/      # generate-json-schema.ts
+package/__test__/         # tests mirroring src/
+lib/configs/              # commitlint, lint-staged, markdownlint
 ```
 
-### Package Build System
+There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github`. Read that package rather than looking for a wrapper here.
 
-`package/` uses Rslib (via `@savvy-web/rslib-builder`) with three Turbo tasks:
+## Build system
 
-- `types:check` - `tsc`
-- `generate:json-schema` - runs before builds; outputs to `package/schemas/`
-- `build:dev` - depends on `types:check` + `generate:json-schema`; outputs to `dist/dev/`
-- `build:prod` - depends on `types:check` + `generate:json-schema`; outputs to `dist/npm/` and `dist/github/`
+`package/` builds with `@savvy-web/bundler`, driven by `package/savvy.build.ts` (`node savvy.build.ts --target dev|prod`). Turbo tasks, with `package/turbo.json` extending the root:
 
-The `package/package.json` `private: true` is intentional — rslib-builder
-transforms it during build. Do not remove it or manually modify export paths.
+- `generate:json-schema` — `tsx lib/scripts/generate-json-schema.ts`; both build tasks depend on it
+- `build:dev` → `dist/dev/pkg/`
+- `build:prod` → `dist/prod/npm/pkg/` and `dist/prod/github/pkg/`
+- `types:check` → `tsc --noEmit`
 
-Publishing targets (dual registry):
+Dual registry, from `publishConfig.targets`: npm (`reposets`) and GitHub Packages (`@spencerbeggs/reposets`).
 
-- GitHub Packages (`@spencerbeggs/reposets`) → `dist/github/`
-- npm (`reposets`) → `dist/npm/`
+## TypeScript
 
-### TypeScript Configuration
+- TypeScript 7, the native compiler, invoked as `tsc`. No project references.
+- Root `tsconfig.json` extends `@savvy-web/silk/tsconfig/node/root.json`; `package/tsconfig.json` extends `@savvy-web/bundler/tsconfig/ecma.json`.
+- Target `es2025`, module and resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`.
+- The root `skipLibCheck: true` is a **temporary** workaround for a broken declaration in `effect@4.0.0-beta.107`. Remove it once a fixed beta ships.
 
-- Root `tsconfig.json` uses project references to `package/`
-- Typecheck uses `tsgo` (TypeScript native preview) instead of `tsc`
-- Target: ES2022/ES2023, Module: NodeNext/bundler resolution
-- Strict mode enabled
+## reposets CLI
 
-### reposets CLI (`package/`)
+CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos.
 
-CLI tool for syncing GitHub repository settings, secrets, variables,
-rulesets, and deployment environments across personal repos.
+- Built on **`effect/unstable/cli`, from core**. `@effect/cli` does not exist on the Effect v4 line — do not reach for it.
+- `package/src/cli/index.ts` bootstraps `App.layer` (`@effected/app`) and provides `ConfigLive`, `CredentialsFilesLive` and `SyncJournalLive` once at the root command.
+- All async work is modeled as Effect programs.
 
-- Built with `@effect/cli` (not Commander.js)
-- All async work is modeled as Effect programs
-- `package/src/cli/index.ts` - Root command and runtime bootstrap
-- `package/src/cli/commands/` - One file per subcommand
+### CLI commands
 
-#### CLI Commands
+Global flag: `--config` (a path to `reposets.config.toml`, or a directory containing it). Core contributes `--help`, `--version`, `--wizard` and `--log-level`.
 
-Global option: `--log-level silent|info|verbose|debug` (overrides
-`log_level` in config, defaults to `info`)
+`--log-level` is **core's own severity filter** (`all|trace|debug|…|none`) and it is the per-run silencer. There is no `log_level` config key and no verbosity tiers — 1.0 deleted both. Output is one level, plus `--debug` on `sync` and `drift` for two diagnostic suffixes.
 
-- `sync` - Apply config to all repos in a group (or all groups)
-- `list` - Show config summary (groups, repos, settings, credentials,
-  secrets, variables, rulesets)
-- `validate` - Validate `reposets.config.toml` against schema
-- `doctor` - Check environment: config file, credentials, token permissions
-- `init` - Scaffold `reposets.config.toml` in the current or XDG directory
-- `credentials create|list|delete` - Manage named credential profiles in
-  `reposets.credentials.toml`
+- `sync` — apply the config to every repo in a group, or all groups. `--dry-run`, `--no-cleanup`, `--fail-on-drift`, `--group`, `--repo`, `--debug`, and `--only`/`--skip` to select phases by name (`--only` wins over `--skip`)
+- `drift` — report resources changed outside reposets and change nothing; exits non-zero when drift is found. It is `sync --dry-run --no-cleanup --fail-on-drift` through the same handler, deliberately
+- `list`, `validate`, `doctor`
+- `history` [`--limit`, `--repo`], with `show --run <id-or-prefix>`, `prune --keep <n>` and `clear`. Both deletions leave applied state and the cache alone, so drift detection still works
+- `init [--project]` — scaffold both TOML files into the XDG config dir, or into cwd with `--project`
+- `nuke [--force]` — delete every reposets file on this machine. Nothing on GitHub is touched, and it refuses a non-interactive shell without `--force`
+- `credentials create|list|delete` — manage named profiles; `create` takes exactly one of `--username`/`--org` and one of `--op`/`--env`
 
-#### Effect Services
+`validate` and `doctor` run offline and check reference integrity (`danglingReferences`), organization-only constructs (`orgOnlyViolations`) and undeclared credential labels (`undefinedCredentialLabels`) — pure functions in `package/src/lib/`, called by the commands. They are **not** registered on the config spec's `validate` callback: v3's `validateConfigRefs` is gone, and the rebuild's loss of it made a misspelled section name sync nothing, report nothing and exit 0. `sync` runs `danglingReferences` before it writes.
 
-Six services compose the sync pipeline:
+`doctor` prints migration hints for the keys 1.0 removed (`owner`, `owner` inside a group, `log_level`) rather than reporting them as unknown keys.
 
-- `ConfigFiles` (`ReposetsConfigFile` + `ReposetsCredentialsFile`) —
-  Declarative config file loading via xdg-effect `ConfigFile.Tag`;
-  `makeConfigFilesLive(configFlag)` factory builds resolver chains per
-  command; `validateConfigRefs` callback validates cross-references
-- `CredentialResolver` — Resolves named values from credential profile
-  `[resolve]` sections (value, file, and op sub-groups)
-- `OnePasswordClient` — Wraps `@1password/sdk` for 1Password secret references
-- `GitHubClient` — Octokit wrapper (30 methods, including `getOwnerType`);
-  handles settings (REST + GraphQL mutation, with `security_and_analysis`
-  folded in via `transformSecurityAndAnalysis`), secrets by scope
-  (actions/dependabot/codespaces/environments), variables by scope
-  (actions/environments), rulesets, deployment environments, repository
-  security toggles (vulnerability_alerts, automated_security_fixes,
-  private_vulnerability_reporting), CodeQL default setup, and team-slug
-  resolution (cached per `org:slug`)
-- `SyncEngine` — Orchestrates the full sync lifecycle. Order: settings
-  (with merged `security_and_analysis` and resolved reviewer IDs) →
-  security features (diff and apply vulnerability_alerts/
-  automated_security_fixes/private_vulnerability_reporting via dedicated
-  PUT/DELETE endpoints) → code scanning (filter configured CodeQL
-  languages by `listRepoLanguages` and PATCH default-setup) →
-  environments → secrets → variables → rulesets → cleanup. Per-group
-  cleanup uses the three-way `CleanupScope` union (security and
-  code_scanning have no cleanup — omitted = leave alone)
-- `SyncLogger` — Tiered output (silent/info/verbose/debug) with dry-run
-  awareness; all sync output flows through this service
+### Services
 
-#### Configuration Files
+Four services live here: `ConfigFiles` (`ReposetsConfigFile` + `ReposetsCredentialsFile` over `@effected/config-file`, both decoding strictly), `CredentialResolver`, `OnePasswordClient` and `SyncLogger`. Three store services — `AppliedState`, `SyncJournal`, `RepoCache` — are wired by `App.layer`.
 
-Config lookup order (first match wins):
+`SyncEngine` walks a list of `Phase` values, which are **data** rather than a hardcoded sequence — that is what lets `--only`/`--skip` select a subset. `PHASE_NAMES` is the order and the array is the contract: settings → security → code-scanning → environments → secrets → variables → rulesets → cleanup. Environments must exist before environment-scoped secrets, and `cleanup` runs last because every other phase's writes define what "declared" means.
 
-1. `--config` flag (explicit path or directory)
-2. Walk up from `cwd` looking for `reposets.config.toml`
-3. XDG fallback: `~/.config/reposets/reposets.config.toml`
-   (respects `$XDG_CONFIG_HOME`)
+`sync` merges eight `@effected/github` services over `GitHubClient.layerFromToken({ token })`. A token is fixed at client construction, so `sync` partitions groups by credential profile and runs one engine per partition, while providing journal, logger, cache and resolver **once** around the whole loop.
 
-| File | Purpose |
-| :--- | :------ |
-| `reposets.config.toml` | Owner, `log_level`, typed `[settings.*]` groups (20+ known fields + pass-through; `has_sponsorships`/`has_pull_requests` via GraphQL), secret groups (file/value/resolved kinds), variable groups, `[rulesets.*]` (discriminated union by `type`: branch/tag, 22 rule types, shorthand fields normalized via `normalizeRuleset()`), `[environments.*]` deployment environment definitions, per-group `cleanup` config, and `[groups.*]` sections mapping repos to resources |
-| `reposets.credentials.toml` | Named credential profiles (`[profiles.<name>]`) with `github_token`, optional `op_service_account_token`, and optional `[resolve]` section (op/file/value sub-groups for named values) |
+### Configuration files
 
-Credentials are stored in the XDG config dir (`~/.config/reposets/`) by
-default. Keep `reposets.credentials.toml` out of version control.
+Lookup order, first match wins: `--config`, then an upward walk from cwd for `reposets.config.toml`, then `~/.config/reposets/` (respecting `$XDG_CONFIG_HOME`). `--config` **replaces** the walk rather than preceding it, and a `--config` path that does not exist fails instead of falling through.
 
-Key naming: config top-level uses `[groups.<name>]` (not `repos`) and
-`[environments.<name>]` for deployment environment definitions. Each group
-has a `repos` array (not `names`). Secrets are assigned via a `SecretScopes`
-struct: `actions`, `dependabot`, `codespaces` (arrays of group names), and
-`environments` (record mapping env names to group name arrays). Variables
-use a `VariableScopes` struct: `actions` and `environments`. Secret/variable
-groups themselves are discriminated unions of exactly one kind: `{ file }`,
-`{ value }`, or `{ resolved }`. Resolved entries map names to credential
-labels from the active profile's `[resolve]` section. Cleanup config is
-per-group (inside `[groups.<name>]`), not global; each scope uses a
-three-way `CleanupScope` union: `false` (disabled), `true` (delete all
-undeclared), or `{ preserve = [...] }`.
+| File | Contents |
+| :--- | :------- |
+| `reposets.config.toml` | `[settings.*]`, `[secrets.*]`, `[variables.*]`, `[rulesets.*]`, `[environments.*]`, `[security.*]`, `[code_scanning.*]` and `[groups.*]`. Every section defaults to `{}` |
+| `reposets.credentials.toml` | `[profiles.<name>]` with exactly one of `username`/`org`, a `github_token` **reference**, an optional `op_service_account`, and an optional `[resolve]` section |
 
-#### JSON Schema
+1.0 breaking changes, all load-bearing:
 
-Run `pnpm --filter reposets generate:json-schema` to regenerate
-`package/schemas/`. The generation pipeline uses `xdg-effect` v1.0.0's
-`JsonSchemaExporter` and `JsonSchemaValidator` services with `tombi()`
-and `taplo()` helpers for TOML language server annotations. Each schema
-includes a `$id` pointing to the raw GitHub hosting URL.
-`JsonSchemaValidator` validates in strict mode (Ajv strict + annotation
-placement checks) before writing. Script location:
-`package/lib/scripts/generate-json-schema.ts`.
+- **No `owner` in the config**, at top level or per group. The owner is a property of the credential profile, which declares exactly one of `username` or `org`. The declared type is what lets `validate` reject org-only constructs offline; `sync` still verifies it against GitHub before writing.
+- **`credentials` is required on every `[groups.*]`**, and it selects the profile's **token**, not only its `[resolve]` values.
+- **Tokens are never stored on disk.** `github_token` is `{ op = "op://..." }` or `{ env = "VAR" }`. `op_service_account` is an `{ env }` reference; the 1Password service-account token itself comes from `OP_SERVICE_ACCOUNT_TOKEN`.
+- **`log_level` and the four verbosity tiers are deleted.**
 
-#### Fine-Grained Token Permissions
+`[resolve]` has four sub-groups — `op`, `env`, `file` and `value` — contributing to one flat label namespace. Secret and variable groups are discriminated unions of exactly one kind: `{ file }`, `{ value }` or `{ resolved }`. Cleanup is per group, each scope a three-way `CleanupScope`: `false`, `true`, or `{ preserve = [...] }`; security and code scanning have no cleanup scope, so omitted means leave alone. Keep `reposets.credentials.toml` out of version control.
 
-The CLI requires a fine-grained personal access token with:
+### JSON schema
 
-- **Repository permissions > Administration** (Read and write) — settings sync
-- **Repository permissions > Secrets** (Read and write) — Actions secrets
-- **Repository permissions > Variables** (Read and write) — Actions variables
-- **Repository permissions > Environments** (Read and write) — environment sync
-- **Account permissions > GPG keys** (Read and write) — secrets encryption key
+`package/lib/scripts/generate-json-schema.ts` builds `package/schemas/` from `ConfigSchema` and `CredentialsSchema` using `@effected/schemastore`: `StoreDocument.fromSchema` → `SchemaValidator.validate` in strict mode → `SchemaFile.write`. The `tombi()` / `taplo()` / `docs()` annotation helpers are **local**, in `package/src/schemas/annotations.ts`, and their results spread at the top level of `.annotate({ ... })` — v4 has no `jsonSchema` annotation to nest them under.
+
+### Token permissions
+
+A fine-grained personal access token is required. `REQUIRED_PERMISSIONS` in `package/src/cli/commands/doctor.ts` is the authority and `doctor` prints it — read it there rather than duplicating the list. Two entries are counterintuitive and easy to "fix" wrongly: **Repository > Actions is Read**, because the code-scanning phase only counts workflow files, and there is **no account-level permission** — v3 listed `Account permissions > GPG keys` as the secrets-encryption scope, which was wrong. Secret public keys come from repository-scoped endpoints already covered by Secrets.
 
 ## Conventions
 
 ### Imports
 
-- Use `.js` extensions for relative imports (ESM requirement, enforced by Biome)
-- Use `node:` protocol for Node.js built-ins (`useNodejsImportProtocol`)
-- Use `import type` for type-only imports with separate type specifiers
+- `.js` extensions on relative imports (enforced by Biome's `useImportExtensions`)
+- `node:` protocol for Node built-ins (`useNodejsImportProtocol`)
+- `import type` for type-only imports
+- `blakejs` is **CommonJS**: default-import then destructure. `import { blake2bHex } from "blakejs"` builds cleanly and throws at runtime
 
-### Code Style (Biome)
+### Code style (Biome)
 
-- Tabs for indentation, 120 character line width
-- Import extensions enforced via `useImportExtensions`
-- No unused variables, no import cycles
-- Explicit return types required (`useExplicitType`)
+`biome.jsonc` extends `@savvy-web/silk/biome`. Tabs, 120-column lines, no unused variables, no import cycles. `useExplicitType` is **off** — explicit return types are a house convention here, not a lint error.
 
-### Effect Patterns
+### Effect patterns
 
-- Services use `Context.Tag` + `Layer.succeed` / `Layer.effect`
-- Config files use xdg-effect `ConfigFile.Tag` with declarative resolver
-  chains; each CLI command provides its own `makeConfigFilesLive(config)`
-  layer
-- CLI commands use `Effect.log`/`Effect.logError` (not `Console.log`/
-  `Console.error`); a custom `CliLogger` in the entrypoint routes output
-  to stdout/stderr
+- Services are `Context.Service` classes; layers via `Layer.effect` / `Layer.succeed`
 - Errors are tagged data classes extending `Data.TaggedError`
-- All I/O wrapped in `Effect.try` / `Effect.tryPromise`
-- Provide layers at the CLI entrypoint, not inside service implementations
+- CLI commands use `Effect.log`/`Effect.logError`, never `Console.log`; `CliLogger` routes Error and Fatal to stderr and reads `Console` off the fiber
+- All sync output flows through `SyncLogger` rather than direct console calls
+- Resolved credentials are `Redacted.Redacted<string>`; unwrap only where a value must physically leave the process
+- I/O wrapped in `Effect.try` / `Effect.tryPromise`
+- Provide layers at the entrypoint and in per-command handlers, never inside service implementations
 
 ### Commits
 
 - Conventional commit format required (commitlint)
-- Types: build, chore, ci, docs, feat, fix, perf, refactor, release, revert,
-  style, test
+- Types: build, chore, ci, docs, feat, fix, perf, refactor, release, revert, style, test
 - DCO signoff required: `Signed-off-by: Name <email>`

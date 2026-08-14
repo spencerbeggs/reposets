@@ -15,7 +15,7 @@
 		"reposets": {
 			"path": "package",
 			"designDocsPath": ".claude/design/reposets",
-			"categories": ["architecture", "other"],
+			"categories": ["architecture", "process", "testing", "other"],
 			"maintainer": "C. Spencer Beggs"
 		}
 	},

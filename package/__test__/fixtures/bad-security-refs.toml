@@ -1,3 +1,0 @@
-[groups.my-projects]
-repos = ["repo-one"]
-security = ["nonexistent-security"]

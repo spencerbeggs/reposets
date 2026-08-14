@@ -1,104 +1,182 @@
-import { Schema } from "effect";
+import { Effect, Schema } from "effect";
 import { describe, expect, it } from "vitest";
-import { CredentialProfileSchema, CredentialsSchema } from "../../src/schemas/credentials.js";
+import { CredentialsSchema } from "../../src/schemas/credentials.js";
 
-const decodeProfile = Schema.decodeUnknownSync(CredentialProfileSchema);
-const decodeCreds = Schema.decodeUnknownSync(CredentialsSchema);
+const decode = (input: unknown): unknown => Effect.runSync(Schema.decodeUnknownEffect(CredentialsSchema)(input));
 
-describe("CredentialProfileSchema", () => {
-	it("accepts profile with github token only", () => {
-		const result = decodeProfile({ github_token: "ghp_abc123" });
-		expect(result.github_token).toBe("ghp_abc123");
-		expect(result.op_service_account_token).toBeUndefined();
-	});
+/**
+ * Decode the way the loader does.
+ *
+ * @remarks
+ * `ConfigFiles` passes `onExcessProperty: "error"`, so the schema alone and the
+ * loading path answer differently for an unknown key. These assertions cover the
+ * path a user's file actually takes.
+ */
+const decodeStrict = (input: unknown): unknown =>
+	Effect.runSync(Schema.decodeUnknownEffect(CredentialsSchema)(input, { onExcessProperty: "error" }));
 
-	it("accepts profile with both tokens", () => {
-		const result = decodeProfile({
-			github_token: "ghp_abc123",
-			op_service_account_token: "ops_xyz789",
-		});
-		expect(result.github_token).toBe("ghp_abc123");
-		expect(result.op_service_account_token).toBe("ops_xyz789");
-	});
+const strictOk = (input: unknown): boolean => {
+	try {
+		decodeStrict(input);
+		return true;
+	} catch {
+		return false;
+	}
+};
 
-	it("rejects profile without github token", () => {
-		expect(() => decodeProfile({})).toThrow();
-	});
-
-	it("accepts profile with resolve.op section", () => {
-		const result = decodeProfile({
-			github_token: "ghp_abc",
-			resolve: {
-				op: { SILK_APP_ID: "op://vault/item/field" },
-			},
-		});
-		expect(result.resolve?.op?.SILK_APP_ID).toBe("op://vault/item/field");
-	});
-
-	it("accepts profile with resolve.file section", () => {
-		const result = decodeProfile({
-			github_token: "ghp_abc",
-			resolve: {
-				file: { NPM_TOKEN: "./private/npm-token" },
-			},
-		});
-		expect(result.resolve?.file?.NPM_TOKEN).toBe("./private/npm-token");
-	});
-
-	it("accepts profile with resolve.value section", () => {
-		const result = decodeProfile({
-			github_token: "ghp_abc",
-			resolve: {
-				value: {
-					BOT_NAME: "mybot[bot]",
-					REGISTRIES: { npm: "https://registry.npmjs.org" },
-				},
-			},
-		});
-		expect(result.resolve?.value?.BOT_NAME).toBe("mybot[bot]");
-	});
-
-	it("accepts profile with all three resolve sub-groups", () => {
-		const result = decodeProfile({
-			github_token: "ghp_abc",
-			op_service_account_token: "ops_xyz",
-			resolve: {
-				op: { APP_ID: "op://vault/app/id" },
-				file: { CERT: "./certs/cert.pem" },
-				value: { NAME: "static" },
-			},
-		});
-		expect(result.resolve?.op?.APP_ID).toBe("op://vault/app/id");
-		expect(result.resolve?.file?.CERT).toBe("./certs/cert.pem");
-		expect(result.resolve?.value?.NAME).toBe("static");
-	});
-
-	it("accepts profile without resolve section", () => {
-		const result = decodeProfile({ github_token: "ghp_abc" });
-		expect(result.resolve).toBeUndefined();
-	});
-});
+const decodeResult = (input: unknown): { ok: boolean } => {
+	try {
+		decode(input);
+		return { ok: true };
+	} catch {
+		return { ok: false };
+	}
+};
 
 describe("CredentialsSchema", () => {
-	it("accepts single profile", () => {
-		const result = decodeCreds({
-			profiles: { personal: { github_token: "ghp_abc" } },
-		});
-		expect(result.profiles.personal.github_token).toBe("ghp_abc");
+	it("defaults profiles to an empty record", () => {
+		expect(decode({})).toEqual({ profiles: {} });
 	});
 
-	it("accepts multiple profiles", () => {
-		const result = decodeCreds({
+	describe("a profile says who it acts as, and only one thing", () => {
+		const profile = (owner: Record<string, unknown>) => ({
+			profiles: { p: { ...owner, github_token: { env: "GH" } } },
+		});
+
+		it("accepts a username", () => {
+			expect(decodeResult(profile({ username: "spencerbeggs" })).ok).toBe(true);
+		});
+
+		it("accepts an org", () => {
+			expect(decodeResult(profile({ org: "savvy-web" })).ok).toBe(true);
+		});
+
+		it("rejects a profile declaring both", () => {
+			// The reason the branches forbid each other's key rather than simply
+			// omitting it. A plain union of two structs ACCEPTS this input and
+			// silently drops `org`, which would make the contradictory state
+			// representable and resolve it by branch order — verified against the
+			// installed beta before choosing this shape.
+			expect(decodeResult(profile({ username: "spencerbeggs", org: "savvy-web" })).ok).toBe(false);
+		});
+
+		it("rejects a profile declaring neither", () => {
+			// An owner is not optional: it is what decides whether an org-only
+			// setting is even valid, which is the check that no longer needs the
+			// network.
+			expect(decodeResult(profile({})).ok).toBe(false);
+		});
+	});
+
+	it("accepts an op reference for github_token", () => {
+		const parsed = decode({
 			profiles: {
-				personal: { github_token: "ghp_abc" },
-				work: { github_token: "ghp_def", op_service_account_token: "ops_ghi" },
+				sandbox: {
+					org: "reposets-sandbox",
+					github_token: { op: "op://Savvy CI/GitHub Apps/reposets-scratch/ORG_TOKEN" },
+				},
 			},
+		}) as { profiles: Record<string, { github_token: { op: string } }> };
+
+		expect(parsed.profiles.sandbox?.github_token).toEqual({
+			op: "op://Savvy CI/GitHub Apps/reposets-scratch/ORG_TOKEN",
 		});
-		expect(Object.keys(result.profiles)).toEqual(["personal", "work"]);
 	});
 
-	it("defaults to empty profiles", () => {
-		const result = decodeCreds({});
-		expect(result.profiles).toEqual({});
+	it("accepts an env reference for github_token", () => {
+		const parsed = decode({
+			profiles: { ci: { username: "tester", github_token: { env: "REPOSETS_GITHUB_TOKEN" } } },
+		}) as { profiles: Record<string, { github_token: { env: string } }> };
+
+		expect(parsed.profiles.ci?.github_token).toEqual({ env: "REPOSETS_GITHUB_TOKEN" });
+	});
+
+	// The point of the redesign: a bare string was the v3 form, and it is the one
+	// shape that puts a live token on disk. It must not decode.
+	it("rejects a bare string github_token", () => {
+		expect(
+			decodeResult({ profiles: { old: { username: "tester", github_token: "ghp_xxxxxxxxxxxxxxxxxxxx" } } }).ok,
+		).toBe(false);
+	});
+
+	it("rejects an inline value for github_token", () => {
+		expect(decodeResult({ profiles: { old: { username: "tester", github_token: { value: "ghp_xxxx" } } } }).ok).toBe(
+			false,
+		);
+	});
+
+	// op_service_account_token left the schema: it authenticates the SDK that
+	// resolves everything else, so keeping it here would store the credential
+	// that unlocks every other credential alongside them.
+	//
+	// The schema alone ignores it — v4 drops unknown keys by default — but the
+	// loader decodes with onExcessProperty "error", so a migrating user is told
+	// rather than left believing a dead token is live.
+	it("rejects a leftover op_service_account_token through the loader path", () => {
+		const stale = {
+			profiles: { old: { username: "tester", github_token: { env: "T" }, op_service_account_token: "ops_xxxx" } },
+		};
+
+		expect(strictOk(stale)).toBe(false);
+		// Schema-only decoding still drops it, which is why the loader must opt in.
+		expect(decode(stale)).toEqual({ profiles: { old: { username: "tester", github_token: { env: "T" } } } });
+	});
+
+	it("accepts a resolve section with op, env and file sub-groups", () => {
+		const parsed = decode({
+			profiles: {
+				sandbox: {
+					username: "tester",
+					github_token: { env: "T" },
+					resolve: {
+						op: { npm_token: "op://Vault/npm/token" },
+						env: { region: "AWS_REGION" },
+						file: { cert: "./certs/x.pem" },
+					},
+				},
+			},
+		}) as { profiles: Record<string, { resolve: { op: Record<string, string> } }> };
+
+		expect(parsed.profiles.sandbox?.resolve.op).toEqual({ npm_token: "op://Vault/npm/token" });
+	});
+
+	// resolve.value survives: the section holds named values generally, and its
+	// common use is non-secret structured data — an SBOM supplier block, a
+	// registry list. Removing it generalised the token rule to a section that is
+	// not only about tokens. What must never be inlined is a *credential*, and
+	// that is enforced on github_token, not here.
+	it("accepts an inline value sub-group in resolve", () => {
+		expect(
+			strictOk({
+				profiles: { p: { username: "tester", github_token: { env: "T" }, resolve: { value: { REGISTRIES: "a,b" } } } },
+			}),
+		).toBe(true);
+	});
+
+	it("accepts a structured object as an inline value", () => {
+		expect(
+			strictOk({
+				profiles: {
+					p: {
+						username: "tester",
+						github_token: { env: "T" },
+						resolve: { value: { SBOM: { supplier: { name: "acme", url: "https://acme.test" } } } },
+					},
+				},
+			}),
+		).toBe(true);
+	});
+
+	// The documented [settings.*]-style pass-through must survive strictness:
+	// keys covered by a rest schema are not excess. Credentials has no such
+	// section, so here the check is that a fully valid file still decodes.
+	it("still accepts a valid file under strict decoding", () => {
+		expect(
+			strictOk({
+				profiles: {
+					p: { username: "tester", github_token: { op: "op://V/i/f" }, resolve: { op: { t: "op://V/n/t" } } },
+				},
+			}),
+		).toBe(true);
 	});
 });

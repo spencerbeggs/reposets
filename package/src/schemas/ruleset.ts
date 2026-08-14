@@ -1,81 +1,109 @@
-import { Schema } from "effect";
-import { taplo, tombi } from "xdg-effect";
+import { Effect, Schema } from "effect";
+import { docs, taplo, tombi } from "./annotations.js";
 
+/**
+ * A reference to a named value in the active credential profile.
+ *
+ * @public
+ */
 export const ResolvedRefSchema = Schema.Struct({
-	resolved: Schema.String.annotations({
+	resolved: Schema.String.annotate({
 		title: "Credential label",
 		description: "Reference to a named value in the active credential profile's resolve section",
 	}),
-}).annotations({
+}).annotate({
 	identifier: "ResolvedRef",
 	title: "Resolved reference",
 	description: "A reference to a credential-resolved value",
 });
 
+/**
+ * The decoded shape of {@link ResolvedRefSchema}.
+ *
+ * @public
+ */
 export type ResolvedRef = typeof ResolvedRefSchema.Type;
 
 // --- Bypass Actors ---
 
-const ActorTypeSchema = Schema.Literal(
+const ActorTypeSchema = Schema.Literals([
 	"Integration",
 	"OrganizationAdmin",
 	"RepositoryRole",
 	"Team",
 	"DeployKey",
-).annotations({
+]).annotate({
 	title: "Actor type",
 	description: "The type of actor that can bypass a ruleset",
 });
 
-const BypassModeSchema = Schema.Literal("always", "pull_request", "exempt").annotations({
+const BypassModeSchema = Schema.Literals(["always", "pull_request", "exempt"]).annotate({
 	title: "Bypass mode",
 	description: "When the specified actor can bypass the ruleset",
 });
 
+/**
+ * An actor permitted to bypass a ruleset's rules.
+ *
+ * @public
+ */
 export const BypassActorSchema = Schema.Struct({
 	actor_id: Schema.optional(
-		Schema.Union(Schema.Int, ResolvedRefSchema).annotations({
+		Schema.Union([Schema.Int, ResolvedRefSchema]).annotate({
 			title: "Actor ID",
 			description: "The ID of the actor, or a { resolved } reference to a credential label.",
 		}),
 	),
 	actor_type: ActorTypeSchema,
-	bypass_mode: Schema.optionalWith(BypassModeSchema, { default: () => "always" as const }),
-}).annotations({
+	bypass_mode: BypassModeSchema.pipe(Schema.withDecodingDefaultKey(Effect.succeed("always" as const))),
+}).annotate({
 	identifier: "BypassActor",
 	title: "Bypass actor",
 	description: "An actor that can bypass rules in a ruleset",
 });
 
+/**
+ * The decoded shape of {@link BypassActorSchema}.
+ *
+ * @public
+ */
 export type BypassActor = typeof BypassActorSchema.Type;
 
 // --- Conditions ---
 
+/**
+ * Include and exclude patterns for matching ref names.
+ *
+ * @public
+ */
 export const RefNameConditionSchema = Schema.Struct({
-	include: Schema.optionalWith(
-		Schema.Array(Schema.String).annotations({
+	include: Schema.Array(Schema.String)
+		.annotate({
 			title: "Include patterns",
 			description: "Ref name patterns to include. Accepts ~DEFAULT_BRANCH, ~ALL, or glob patterns.",
 			examples: [["~DEFAULT_BRANCH"]],
-		}),
-		{ default: () => [] },
-	),
-	exclude: Schema.optionalWith(
-		Schema.Array(Schema.String).annotations({
+		})
+		.pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([]))),
+	exclude: Schema.Array(Schema.String)
+		.annotate({
 			title: "Exclude patterns",
 			description: "Ref name patterns to exclude",
-		}),
-		{ default: () => [] },
-	),
-}).annotations({
+		})
+		.pipe(Schema.withDecodingDefaultKey(Effect.succeed<ReadonlyArray<string>>([]))),
+}).annotate({
 	identifier: "RefNameCondition",
 	title: "Ref name condition",
 	description: "Conditions for matching ref names (branches or tags)",
 });
 
+/**
+ * The conditions under which a ruleset applies.
+ *
+ * @public
+ */
 export const RulesetConditionsSchema = Schema.Struct({
 	ref_name: Schema.optional(RefNameConditionSchema),
-}).annotations({
+}).annotate({
 	identifier: "RulesetConditions",
 	title: "Ruleset conditions",
 	description: "Conditions that determine when the ruleset applies",
@@ -84,27 +112,27 @@ export const RulesetConditionsSchema = Schema.Struct({
 // --- Shared Sub-Schemas ---
 
 const RequiredReviewerSchema = Schema.Struct({
-	file_patterns: Schema.Array(Schema.String).annotations({
+	file_patterns: Schema.Array(Schema.String).annotate({
 		title: "File patterns",
 		description: "File patterns this reviewer must approve (fnmatch syntax)",
 	}),
-	minimum_approvals: Schema.Int.annotations({
+	minimum_approvals: Schema.Int.annotate({
 		title: "Minimum approvals",
 		description: "Minimum approvals required from this team (0 = optional)",
 	}),
 	reviewer: Schema.Struct({
-		id: Schema.Int.annotations({ title: "Team ID", description: "Team ID" }),
+		id: Schema.Int.annotate({ title: "Team ID", description: "Team ID" }),
 		type: Schema.Literal("Team"),
-	}).annotations({ title: "Reviewer team" }),
+	}).annotate({ title: "Reviewer team" }),
 });
 
 const StatusCheckSchema = Schema.Struct({
-	context: Schema.String.annotations({
+	context: Schema.String.annotate({
 		title: "Context",
 		description: "The status check context name that must be present on the commit",
 	}),
 	integration_id: Schema.optional(
-		Schema.Union(Schema.Int, ResolvedRefSchema).annotations({
+		Schema.Union([Schema.Int, ResolvedRefSchema]).annotate({
 			title: "Integration ID",
 			description: "The integration ID, or a { resolved } reference to a credential label",
 		}),
@@ -112,40 +140,40 @@ const StatusCheckSchema = Schema.Struct({
 });
 
 const WorkflowFileSchema = Schema.Struct({
-	path: Schema.String.annotations({ title: "Workflow path", description: "Path to the workflow file" }),
-	ref: Schema.optional(Schema.String.annotations({ title: "Ref", description: "Branch or tag of the workflow file" })),
-	repository_id: Schema.Union(Schema.Int, ResolvedRefSchema).annotations({
+	path: Schema.String.annotate({ title: "Workflow path", description: "Path to the workflow file" }),
+	ref: Schema.optional(Schema.String.annotate({ title: "Ref", description: "Branch or tag of the workflow file" })),
+	repository_id: Schema.Union([Schema.Int, ResolvedRefSchema]).annotate({
 		title: "Repository ID",
 		description: "Repository ID, or a { resolved } reference to a credential label",
 	}),
-	sha: Schema.optional(Schema.String.annotations({ title: "SHA", description: "Commit SHA of the workflow file" })),
+	sha: Schema.optional(Schema.String.annotate({ title: "SHA", description: "Commit SHA of the workflow file" })),
 });
 
 // --- Targets Shorthand ---
 
-const TargetPatternSchema = Schema.Union(
+const TargetPatternSchema = Schema.Union([
 	Schema.Struct({
-		include: Schema.String.annotations({ title: "Include pattern", description: "Glob pattern to include" }),
+		include: Schema.String.annotate({ title: "Include pattern", description: "Glob pattern to include" }),
 	}),
 	Schema.Struct({
-		exclude: Schema.String.annotations({ title: "Exclude pattern", description: "Glob pattern to exclude" }),
+		exclude: Schema.String.annotate({ title: "Exclude pattern", description: "Glob pattern to exclude" }),
 	}),
-).annotations({
+]).annotate({
 	identifier: "TargetPattern",
 	title: "Target pattern",
 	description: "An include or exclude pattern for ref matching",
 });
 
-const TargetsSchema = Schema.Union(
-	Schema.Literal("default", "all").annotations({
+const TargetsSchema = Schema.Union([
+	Schema.Literals(["default", "all"]).annotate({
 		title: "Target preset",
 		description: "'default' targets the default branch; 'all' targets all branches/tags",
 	}),
-	Schema.Array(TargetPatternSchema).annotations({
+	Schema.Array(TargetPatternSchema).annotate({
 		title: "Custom target patterns",
 		description: "Array of include/exclude patterns for fine-grained ref targeting",
 	}),
-).annotations({
+]).annotate({
 	identifier: "Targets",
 	title: "Targets shorthand",
 	description: "Shorthand for specifying ref_name conditions: 'default', 'all', or custom patterns",
@@ -154,54 +182,41 @@ const TargetsSchema = Schema.Union(
 // --- Pull Requests Shorthand ---
 
 const PullRequestsShorthandSchema = Schema.Struct({
-	approvals: Schema.optionalWith(
-		Schema.Int.pipe(Schema.between(0, 10)).annotations({
+	approvals: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 10 }))
+		.annotate({
 			title: "Required approvals",
 			description: "Number of approving reviews required (0-10)",
-		}),
-		{ default: () => 0 },
-	),
-	dismiss_stale_reviews: Schema.optionalWith(
-		Schema.Boolean.annotations({
-			title: "Dismiss stale reviews",
-			description: "Dismiss previous approvals when new commits are pushed",
-		}),
-		{ default: () => false as boolean },
-	),
-	code_owner_review: Schema.optionalWith(
-		Schema.Boolean.annotations({
-			title: "Code owner review",
-			description: "Require review from code owners for files they own",
-		}),
-		{ default: () => false as boolean },
-	),
-	last_push_approval: Schema.optionalWith(
-		Schema.Boolean.annotations({
-			title: "Last push approval",
-			description: "Most recent push must be approved by someone other than the pusher",
-		}),
-		{ default: () => false as boolean },
-	),
-	resolve_threads: Schema.optionalWith(
-		Schema.Boolean.annotations({
-			title: "Resolve threads",
-			description: "All review conversations must be resolved before merging",
-		}),
-		{ default: () => false as boolean },
-	),
+		})
+		.pipe(Schema.withDecodingDefaultKey(Effect.succeed(0))),
+	dismiss_stale_reviews: Schema.Boolean.annotate({
+		title: "Dismiss stale reviews",
+		description: "Dismiss previous approvals when new commits are pushed",
+	}).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
+	code_owner_review: Schema.Boolean.annotate({
+		title: "Code owner review",
+		description: "Require review from code owners for files they own",
+	}).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
+	last_push_approval: Schema.Boolean.annotate({
+		title: "Last push approval",
+		description: "Most recent push must be approved by someone other than the pusher",
+	}).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
+	resolve_threads: Schema.Boolean.annotate({
+		title: "Resolve threads",
+		description: "All review conversations must be resolved before merging",
+	}).pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
 	merge_methods: Schema.optional(
-		Schema.Array(Schema.Literal("merge", "squash", "rebase")).annotations({
+		Schema.Array(Schema.Literals(["merge", "squash", "rebase"])).annotate({
 			title: "Merge methods",
 			description: "Allowed merge methods. At least one must be enabled.",
 		}),
 	),
 	reviewers: Schema.optional(
-		Schema.Array(RequiredReviewerSchema).annotations({
+		Schema.Array(RequiredReviewerSchema).annotate({
 			title: "Required reviewers",
 			description: "Teams that must approve specific file patterns",
 		}),
 	),
-}).annotations({
+}).annotate({
 	identifier: "PullRequestsShorthand",
 	title: "Pull requests shorthand",
 	description: "Simplified pull request configuration (branch rulesets only)",
@@ -211,28 +226,28 @@ const PullRequestsShorthandSchema = Schema.Struct({
 
 const StatusChecksShorthandSchema = Schema.Struct({
 	update_branch: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Strict status checks",
 			description: "PRs must be tested with the latest code",
 		}),
 	),
 	on_creation: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Enforce on create",
 			description: "When false, allows branch creation even if checks would prohibit it",
 		}),
 	),
 	default_integration_id: Schema.optional(
-		Schema.Union(Schema.Int, ResolvedRefSchema).annotations({
+		Schema.Union([Schema.Int, ResolvedRefSchema]).annotate({
 			title: "Default integration ID",
 			description: "Default integration ID applied to all checks that do not specify one",
 		}),
 	),
-	required: Schema.Array(StatusCheckSchema).annotations({
+	required: Schema.Array(StatusCheckSchema).annotate({
 		title: "Required checks",
 		description: "Status checks that must pass",
 	}),
-}).annotations({
+}).annotate({
 	identifier: "StatusChecksShorthand",
 	title: "Status checks shorthand",
 	description: "Simplified status checks configuration",
@@ -240,7 +255,7 @@ const StatusChecksShorthandSchema = Schema.Struct({
 
 // --- Enforcement ---
 
-const EnforcementSchema = Schema.Literal("disabled", "active", "evaluate").annotations({
+const EnforcementSchema = Schema.Literals(["disabled", "active", "evaluate"]).annotate({
 	title: "Enforcement level",
 	description: "disabled = off, active = enforced, evaluate = test mode (GitHub Enterprise only)",
 });
@@ -248,27 +263,27 @@ const EnforcementSchema = Schema.Literal("disabled", "active", "evaluate").annot
 // --- Pattern Shorthand ---
 
 const PatternEntrySchema = Schema.Struct({
-	operator: Schema.Literal("starts_with", "ends_with", "contains", "regex").annotations({
+	operator: Schema.Literals(["starts_with", "ends_with", "contains", "regex"]).annotate({
 		title: "Operator",
 		description: "The operator to use for matching",
 	}),
-	pattern: Schema.String.annotations({
+	pattern: Schema.String.annotate({
 		title: "Pattern",
 		description: "The pattern to match",
 	}),
 	name: Schema.optional(
-		Schema.String.annotations({
+		Schema.String.annotate({
 			title: "Rule name",
 			description: "Display name for this pattern rule",
 		}),
 	),
 	negate: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Negate",
 			description: "If true, the rule fails when the pattern matches",
 		}),
 	),
-}).annotations({
+}).annotate({
 	identifier: "PatternEntry",
 	title: "Pattern entry",
 	description: "A pattern matching rule with operator, pattern, and optional name/negate",
@@ -277,35 +292,35 @@ const PatternEntrySchema = Schema.Struct({
 // --- Merge Queue Shorthand ---
 
 const MergeQueueShorthandSchema = Schema.Struct({
-	check_timeout: Schema.Int.pipe(Schema.between(1, 360)).annotations({
+	check_timeout: Schema.Int.check(Schema.isBetween({ minimum: 1, maximum: 360 })).annotate({
 		title: "Check timeout (minutes)",
 		description: "Max time for status checks to report",
 	}),
-	grouping: Schema.Literal("ALLGREEN", "HEADGREEN").annotations({
+	grouping: Schema.Literals(["ALLGREEN", "HEADGREEN"]).annotate({
 		title: "Grouping strategy",
 		description: "Whether all commits or only the head commit must pass checks",
 	}),
-	max_build: Schema.Int.pipe(Schema.between(0, 100)).annotations({
+	max_build: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 })).annotate({
 		title: "Max entries to build",
 		description: "Max queued PRs requesting checks simultaneously",
 	}),
-	max_merge: Schema.Int.pipe(Schema.between(0, 100)).annotations({
+	max_merge: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 })).annotate({
 		title: "Max entries to merge",
 		description: "Max PRs merged together in a group",
 	}),
-	merge_method: Schema.Literal("MERGE", "SQUASH", "REBASE").annotations({
+	merge_method: Schema.Literals(["MERGE", "SQUASH", "REBASE"]).annotate({
 		title: "Merge method",
 		description: "Merge method for queued PRs",
 	}),
-	min_merge: Schema.Int.pipe(Schema.between(0, 100)).annotations({
+	min_merge: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 100 })).annotate({
 		title: "Min entries to merge",
 		description: "Min PRs merged together in a group",
 	}),
-	min_wait: Schema.Int.pipe(Schema.between(0, 360)).annotations({
+	min_wait: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 360 })).annotate({
 		title: "Min wait time (minutes)",
 		description: "Wait time for min group size after first PR is added",
 	}),
-}).annotations({
+}).annotate({
 	identifier: "MergeQueueShorthand",
 	title: "Merge queue",
 	description: "Merge queue configuration",
@@ -315,18 +330,18 @@ const MergeQueueShorthandSchema = Schema.Struct({
 
 const CopilotReviewShorthandSchema = Schema.Struct({
 	draft_prs: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Review draft PRs",
 			description: "Review draft PRs before they are marked ready",
 		}),
 	),
 	on_push: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Review on push",
 			description: "Review each new push to the PR",
 		}),
 	),
-}).annotations({
+}).annotate({
 	identifier: "CopilotReviewShorthand",
 	title: "Copilot review",
 	description: "Copilot code review configuration",
@@ -335,19 +350,19 @@ const CopilotReviewShorthandSchema = Schema.Struct({
 // --- Code Scanning Shorthand ---
 
 const CodeScanningEntrySchema = Schema.Struct({
-	tool: Schema.String.annotations({
+	tool: Schema.String.annotate({
 		title: "Tool name",
 		description: "Name of the code scanning tool",
 	}),
-	alerts: Schema.Literal("none", "errors", "errors_and_warnings", "all").annotations({
+	alerts: Schema.Literals(["none", "errors", "errors_and_warnings", "all"]).annotate({
 		title: "Alerts threshold",
 		description: "Severity level at which alerts block updates",
 	}),
-	security_alerts: Schema.Literal("none", "critical", "high_or_higher", "medium_or_higher", "all").annotations({
+	security_alerts: Schema.Literals(["none", "critical", "high_or_higher", "medium_or_higher", "all"]).annotate({
 		title: "Security alerts threshold",
 		description: "Severity level at which security alerts block updates",
 	}),
-}).annotations({
+}).annotate({
 	identifier: "CodeScanningEntry",
 	title: "Code scanning tool",
 	description: "A code scanning tool with alert thresholds",
@@ -357,16 +372,16 @@ const CodeScanningEntrySchema = Schema.Struct({
 
 const WorkflowsShorthandSchema = Schema.Struct({
 	on_creation: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Enforce on creation",
 			description: "Enforce workflows when a branch is created (false = skip on creation)",
 		}),
 	),
-	required: Schema.Array(WorkflowFileSchema).annotations({
+	required: Schema.Array(WorkflowFileSchema).annotate({
 		title: "Required workflows",
 		description: "Workflows that must pass for this rule",
 	}),
-}).annotations({
+}).annotate({
 	identifier: "WorkflowsShorthand",
 	title: "Workflows",
 	description: "Required workflow configuration",
@@ -375,7 +390,7 @@ const WorkflowsShorthandSchema = Schema.Struct({
 // --- Shared Ruleset Fields ---
 
 const sharedRulesetFields = {
-	name: Schema.String.annotations({
+	name: Schema.String.annotate({
 		title: "Ruleset name",
 		description: "The name of the ruleset (used for matching when creating or updating)",
 	}),
@@ -384,43 +399,43 @@ const sharedRulesetFields = {
 	bypass_actors: Schema.optional(Schema.Array(BypassActorSchema)),
 	// Boolean shorthands
 	creation: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Restrict creation",
 			description: "When true, adds a creation rule",
 		}),
 	),
 	update: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Restrict updates",
 			description: "When true, adds an update rule with update_allows_fetch_and_merge: true",
 		}),
 	),
 	deletion: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Restrict deletion",
 			description: "When true, adds a deletion rule",
 		}),
 	),
 	required_linear_history: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Require linear history",
 			description: "When true, adds a required_linear_history rule",
 		}),
 	),
 	required_signatures: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Require signatures",
 			description: "When true, adds a required_signatures rule",
 		}),
 	),
 	non_fast_forward: Schema.optional(
-		Schema.Boolean.annotations({
+		Schema.Boolean.annotate({
 			title: "Prevent non-fast-forward",
 			description: "When true, adds a non_fast_forward rule",
 		}),
 	),
 	deployments: Schema.optional(
-		Schema.Array(Schema.String).annotations({
+		Schema.Array(Schema.String).annotate({
 			title: "Required deployments",
 			description: "Deployment environments that must succeed; converts to required_deployments rule",
 		}),
@@ -429,19 +444,19 @@ const sharedRulesetFields = {
 	status_checks: Schema.optional(StatusChecksShorthandSchema),
 	// Shared pattern rules
 	commit_message: Schema.optional(
-		Schema.Array(PatternEntrySchema).annotations({
+		Schema.Array(PatternEntrySchema).annotate({
 			title: "Commit message patterns",
 			description: "Commit message pattern rules",
 		}),
 	),
 	commit_author_email: Schema.optional(
-		Schema.Array(PatternEntrySchema).annotations({
+		Schema.Array(PatternEntrySchema).annotate({
 			title: "Commit author email patterns",
 			description: "Commit author email pattern rules",
 		}),
 	),
 	committer_email: Schema.optional(
-		Schema.Array(PatternEntrySchema).annotations({
+		Schema.Array(PatternEntrySchema).annotate({
 			title: "Committer email patterns",
 			description: "Committer email pattern rules",
 		}),
@@ -450,9 +465,14 @@ const sharedRulesetFields = {
 
 // --- Branch Ruleset ---
 
+/**
+ * A ruleset targeting branches.
+ *
+ * @public
+ */
 export const BranchRulesetSchema = Schema.Struct({
 	...sharedRulesetFields,
-	type: Schema.Literal("branch").annotations({
+	type: Schema.Literal("branch").annotate({
 		title: "Ruleset type",
 		description: "This ruleset applies to branches",
 	}),
@@ -460,69 +480,78 @@ export const BranchRulesetSchema = Schema.Struct({
 	merge_queue: Schema.optional(MergeQueueShorthandSchema),
 	copilot_review: Schema.optional(CopilotReviewShorthandSchema),
 	code_scanning: Schema.optional(
-		Schema.Array(CodeScanningEntrySchema).annotations({
+		Schema.Array(CodeScanningEntrySchema).annotate({
 			title: "Code scanning tools",
 			description: "Code scanning tool requirements",
 		}),
 	),
 	workflows: Schema.optional(WorkflowsShorthandSchema),
 	branch_name: Schema.optional(
-		Schema.Array(PatternEntrySchema).annotations({
+		Schema.Array(PatternEntrySchema).annotate({
 			title: "Branch name patterns",
 			description: "Branch name pattern rules",
 		}),
 	),
-}).annotations({
+}).annotate({
+	...tombi({ tableKeysOrder: "schema" }),
+	...taplo({
+		initKeys: ["name", "type", "enforcement", "targets"],
+		links: { key: docs("06-rulesets.md") },
+	}),
 	identifier: "BranchRuleset",
 	title: "Branch ruleset",
 	description: "A ruleset that applies to branches",
-	jsonSchema: {
-		...tombi({ tableKeysOrder: "schema" }),
-		...taplo({
-			initKeys: ["name", "type", "enforcement", "targets"],
-			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md" },
-		}),
-	},
 });
 
 // --- Tag Ruleset ---
 
+/**
+ * A ruleset targeting tags.
+ *
+ * @public
+ */
 export const TagRulesetSchema = Schema.Struct({
 	...sharedRulesetFields,
-	type: Schema.Literal("tag").annotations({
+	type: Schema.Literal("tag").annotate({
 		title: "Ruleset type",
 		description: "This ruleset applies to tags",
 	}),
 	tag_name: Schema.optional(
-		Schema.Array(PatternEntrySchema).annotations({
+		Schema.Array(PatternEntrySchema).annotate({
 			title: "Tag name patterns",
 			description: "Tag name pattern rules",
 		}),
 	),
-}).annotations({
+}).annotate({
+	...tombi({ tableKeysOrder: "schema" }),
+	...taplo({
+		initKeys: ["name", "type", "enforcement", "targets"],
+		links: { key: docs("06-rulesets.md") },
+	}),
 	identifier: "TagRuleset",
 	title: "Tag ruleset",
 	description: "A ruleset that applies to tags",
-	jsonSchema: {
-		...tombi({ tableKeysOrder: "schema" }),
-		...taplo({
-			initKeys: ["name", "type", "enforcement", "targets"],
-			links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md" },
-		}),
-	},
 });
 
 // --- Top-level Ruleset (discriminated union) ---
 
-export const RulesetSchema = Schema.Union(BranchRulesetSchema, TagRulesetSchema).annotations({
+/**
+ * A repository ruleset, discriminated on `type`.
+ *
+ * @public
+ */
+export const RulesetSchema = Schema.Union([BranchRulesetSchema, TagRulesetSchema]).annotate({
+	...taplo({ links: { key: docs("06-rulesets.md") } }),
 	identifier: "Ruleset",
 	title: "Repository ruleset",
 	description: "A set of rules to apply when specified conditions are met",
-	jsonSchema: taplo({
-		links: { key: "https://github.com/spencerbeggs/reposets/blob/main/docs/rulesets.md" },
-	}),
 });
 
+/**
+ * The decoded shape of {@link RulesetSchema}.
+ *
+ * @public
+ */
 export type Ruleset = typeof RulesetSchema.Type;
 
 // --- RulesetPayload ---
@@ -532,7 +561,11 @@ export type Ruleset = typeof RulesetSchema.Type;
 // file_path_restriction, file_extension_restriction, max_file_path_length, max_file_size.
 // These rule types have no shorthand fields and cannot be configured.
 
-/** API-compatible payload for creating/updating a ruleset. */
+/**
+ * API-compatible payload for creating or updating a ruleset.
+ *
+ * @public
+ */
 export interface RulesetPayload {
 	name: string;
 	target: "branch" | "tag";
@@ -543,8 +576,15 @@ export interface RulesetPayload {
 }
 
 /**
- * Builds an API-compatible ruleset payload from the config-level Ruleset.
- * Converts all shorthand fields into the GitHub API rules array format.
+ * Build an API-compatible ruleset payload from a config-level {@link Ruleset}.
+ *
+ * @remarks
+ * Converts every shorthand field into the GitHub API's flat `rules` array. The
+ * shorthands exist so a TOML config can say `creation = true` instead of
+ * spelling out `{ type = "creation" }`; this is where that expansion happens,
+ * and it is the only place that knows the mapping.
+ *
+ * @public
  */
 export function buildRulesetPayload(ruleset: Ruleset): RulesetPayload {
 	const rules: Record<string, unknown>[] = [];

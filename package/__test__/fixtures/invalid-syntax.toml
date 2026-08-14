@@ -1,3 +1,0 @@
-[groups.broken
-repos = ["missing-bracket"
-this is not valid toml at all
