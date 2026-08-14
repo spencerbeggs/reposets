@@ -166,7 +166,7 @@ const wouldForm = (action: ChangeAction): string =>
  * The id may be given in full or as a unique prefix, because nobody is going to
  * retype a UUID from a table.
  */
-const showHandler = (prefix: string): Effect.Effect<void, never, SyncJournal> =>
+export const showHandler = (prefix: string): Effect.Effect<void, never, SyncJournal> =>
 	Effect.gen(function* () {
 		const journal = yield* SyncJournal;
 
@@ -252,7 +252,7 @@ const showHandler = (prefix: string): Effect.Effect<void, never, SyncJournal> =>
  * next run reports a first sync where an out-of-band edit actually happened.
  * A command that quietly did both would be the most dangerous thing in this CLI.
  */
-const pruneHandler = (keep: number): Effect.Effect<void, never, SyncJournal> =>
+export const pruneHandler = (keep: number): Effect.Effect<void, never, SyncJournal> =>
 	Effect.gen(function* () {
 		const journal = yield* SyncJournal;
 		const removed = yield* journal.prune(keep).pipe(Effect.orElseSucceed(() => 0));
@@ -264,7 +264,7 @@ const pruneHandler = (keep: number): Effect.Effect<void, never, SyncJournal> =>
 		yield* Effect.log("Applied state and the cache are untouched — drift detection still works.");
 	});
 
-const clearHandler = (): Effect.Effect<void, never, SyncJournal> =>
+export const clearHandler = (): Effect.Effect<void, never, SyncJournal> =>
 	Effect.gen(function* () {
 		const journal = yield* SyncJournal;
 		const removed = yield* journal.clear().pipe(Effect.orElseSucceed(() => 0));

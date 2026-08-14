@@ -10,6 +10,7 @@ import {
 	Repo,
 	RepoRef,
 	RepositorySecret,
+	RepositorySecurity,
 	RepositoryVariable,
 	Ruleset,
 	WorkflowDispatch,
@@ -29,9 +30,10 @@ import { codeScanningPhase } from "../../src/sync/phases/code-scanning.js";
 import { environmentsPhase } from "../../src/sync/phases/environments.js";
 import { rulesetsPhase } from "../../src/sync/phases/rulesets.js";
 import { secretsPhase } from "../../src/sync/phases/secrets.js";
+import { securityPhase } from "../../src/sync/phases/security.js";
 import { settingsPhase } from "../../src/sync/phases/settings.js";
 import { variablesPhase } from "../../src/sync/phases/variables.js";
-import { recorder } from "./harness.js";
+import { recorder } from "../utils/harness.js";
 
 /**
  * A phase is a function of its `RepoContext`, so these construct one directly
@@ -172,6 +174,7 @@ const runPhase = async <R>(
 	const services = Layer.mergeAll(
 		GitHubRepository.layer,
 		RepositorySecret.layer,
+		RepositorySecurity.layer,
 		Ruleset.layer,
 		CodeScanning.layer,
 		DeploymentEnvironment.layer,
@@ -1308,5 +1311,180 @@ describe("code-scanning, and GitHub's own synthetic workflow", () => {
 
 		expect(out.lines.join("\n")).not.toContain("no workflow files");
 		expect(out.routes).toContain("PATCH /repos/{owner}/{repo}/code-scanning/default-setup");
+	});
+});
+
+// ---------------------------------------------------------------------------
+// security
+// ---------------------------------------------------------------------------
+
+/**
+ * This phase had **no tests at all** — 0% function coverage on a phase that
+ * writes to GitHub through three dedicated PUT/DELETE endpoints. The import of
+ * `RepositorySecurity` sat unused in this file, which is the fossil an
+ * intended-but-never-written test leaves behind.
+ *
+ * The GET endpoints signal by status: present means enabled, `notFound` means
+ * disabled. So a fixture models "off" with an error value, not `false`.
+ */
+describe("security phase", () => {
+	const securityConfig = config({
+		security: { baseline: { vulnerability_alerts: true, automated_security_fixes: true } },
+		groups: { g: { repos: ["widget"], credentials: "me", security: ["baseline"] } },
+	} as unknown as Partial<Config>);
+
+	const alerts = "GET /repos/{owner}/{repo}/vulnerability-alerts";
+	const fixes = "GET /repos/{owner}/{repo}/automated-security-fixes";
+	const reporting = "GET /repos/{owner}/{repo}/private-vulnerability-reporting";
+
+	// The three reads are NOT uniform, and a fixture assuming they are passes
+	// while modelling a state GitHub cannot produce:
+	//
+	//   vulnerability_alerts            status — success is on, notFound is off
+	//   automated_security_fixes        body   — Boolean(data.enabled)
+	//   private_vulnerability_reporting body   — Boolean(data.enabled)
+	//
+	// So `notFound` means "off" for the first and "could not read" for the other
+	// two, which is why they need different helpers rather than one.
+	const ALERTS_ON = {};
+	const ALERTS_OFF = GitHubError.notFound("RepositorySecurity.vulnerabilityAlerts", "alerts");
+	const ON = { enabled: true };
+	const OFF = { enabled: false };
+
+	it("does not apply to a group that references no security groups", async () => {
+		const built = await runPhase(securityPhase, context({ config: config({}) }), {
+			responses: { [alerts]: ALERTS_ON, [fixes]: ON },
+		});
+		expect(built.routes).toEqual([]);
+	});
+
+	it("enables a toggle that is off", async () => {
+		const out = await runPhase(securityPhase, context({ config: securityConfig }), {
+			responses: {
+				[alerts]: ALERTS_OFF,
+				[fixes]: OFF,
+			},
+		});
+
+		expect(out.routes).toContain("PUT /repos/{owner}/{repo}/vulnerability-alerts");
+		expect(out.routes).toContain("PUT /repos/{owner}/{repo}/automated-security-fixes");
+		expect(out.result.changes.map((c) => c.name).sort()).toEqual(["automated_security_fixes", "vulnerability_alerts"]);
+	});
+
+	it("disables a toggle that is on", async () => {
+		const off = config({
+			security: { baseline: { vulnerability_alerts: false } },
+			groups: { g: { repos: ["widget"], credentials: "me", security: ["baseline"] } },
+		} as unknown as Partial<Config>);
+
+		const out = await runPhase(securityPhase, context({ config: off }), { responses: { [alerts]: ALERTS_ON } });
+
+		expect(out.routes).toContain("DELETE /repos/{owner}/{repo}/vulnerability-alerts");
+		expect(out.routes).not.toContain("PUT /repos/{owner}/{repo}/vulnerability-alerts");
+	});
+
+	it("refuses automated fixes without alerts, before writing anything", async () => {
+		// GitHub rejects the pair. Caught ahead of the first write so the
+		// repository is not left half-configured with the error attributed to
+		// whichever toggle happened to go second.
+		const contradictory = config({
+			security: { baseline: { vulnerability_alerts: false, automated_security_fixes: true } },
+			groups: { g: { repos: ["widget"], credentials: "me", security: ["baseline"] } },
+		} as unknown as Partial<Config>);
+
+		const out = await runPhase(securityPhase, context({ config: contradictory }), {
+			responses: { [alerts]: ALERTS_ON, [fixes]: ON },
+		});
+
+		expect(out.result.errors).toHaveLength(1);
+		expect(out.result.errors[0]?.message).toContain("requires vulnerability_alerts");
+		// Nothing read and nothing written — the guard is before the loop.
+		expect(out.routes).toEqual([]);
+	});
+
+	it("leaves a toggle alone when live matches the baseline", async () => {
+		const out = await runPhase(securityPhase, context({ config: securityConfig }), {
+			responses: { [alerts]: ALERTS_ON, [fixes]: ON },
+			seed: [
+				{ kind: "security", name: "vulnerability_alerts", fingerprint: fingerprint(true) },
+				{ kind: "security", name: "automated_security_fixes", fingerprint: fingerprint(true) },
+			],
+		});
+
+		expect(out.result.changes).toHaveLength(0);
+		expect(out.routes.filter((r) => r.startsWith("PUT") || r.startsWith("DELETE"))).toEqual([]);
+	});
+
+	it("reports a toggle changed out of band and overwrites it", async () => {
+		// Baseline says we applied `true`; live says off. Somebody flipped it in
+		// the UI, and this is the branch that exists only because fingerprints
+		// are persisted across runs.
+		const out = await runPhase(securityPhase, context({ config: securityConfig }), {
+			responses: {
+				[alerts]: ALERTS_OFF,
+				[fixes]: ON,
+			},
+			seed: [
+				{ kind: "security", name: "vulnerability_alerts", fingerprint: fingerprint(true) },
+				{ kind: "security", name: "automated_security_fixes", fingerprint: fingerprint(true) },
+			],
+		});
+
+		const overwritten = out.result.changes.find((c) => c.name === "vulnerability_alerts");
+		expect(overwritten?.action).toBe("drift-overwritten");
+		expect(out.lines.join("\n")).toContain("changed outside reposets");
+	});
+
+	it("writes nothing on a dry run", async () => {
+		const out = await runPhase(securityPhase, context({ config: securityConfig, dryRun: true }), {
+			responses: {
+				[alerts]: ALERTS_OFF,
+				[fixes]: OFF,
+			},
+		});
+
+		expect(out.routes.filter((r) => r.startsWith("PUT") || r.startsWith("DELETE"))).toEqual([]);
+		// Still reported, so a dry run says what it would do.
+		expect(out.result.changes).toHaveLength(2);
+		// And records no baseline — a fingerprint for a write that never happened
+		// would make the next real run report drift against our own dry run.
+		expect(printOf(out, "security", "vulnerability_alerts")).toBeUndefined();
+	});
+
+	it("reports a toggle it cannot read, and keeps going", async () => {
+		// `read` maps every failure except notFound to None. One unreadable
+		// toggle must not cost the other its sync.
+		const out = await runPhase(securityPhase, context({ config: securityConfig }), {
+			responses: {
+				[alerts]: GitHubError.rejected("RepositorySecurity.vulnerabilityAlerts", 403, "no access"),
+				[fixes]: OFF,
+			},
+		});
+
+		expect(out.result.errors.map((e) => e.context)).toContain("get vulnerability_alerts");
+		expect(out.routes).toContain("PUT /repos/{owner}/{repo}/automated-security-fixes");
+	});
+
+	it("lets a later security group win, and leaves omitted fields alone", async () => {
+		// An absent field is not `false` — it means "do not manage this toggle".
+		const layered = config({
+			security: {
+				base: { vulnerability_alerts: true, private_vulnerability_reporting: true },
+				override: { vulnerability_alerts: false },
+			},
+			groups: { g: { repos: ["widget"], credentials: "me", security: ["base", "override"] } },
+		} as unknown as Partial<Config>);
+
+		const out = await runPhase(securityPhase, context({ config: layered }), {
+			responses: {
+				[alerts]: ALERTS_ON,
+				[reporting]: OFF,
+			},
+		});
+
+		expect(out.routes).toContain("DELETE /repos/{owner}/{repo}/vulnerability-alerts");
+		expect(out.routes).toContain("PUT /repos/{owner}/{repo}/private-vulnerability-reporting");
+		// automated_security_fixes appears in neither group, so it is never read.
+		expect(out.routes).not.toContain("GET /repos/{owner}/{repo}/automated-security-fixes");
 	});
 });

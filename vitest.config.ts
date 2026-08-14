@@ -22,7 +22,11 @@ export default async () => {
 				enabled: true,
 				provider: "v8",
 				thresholds: AgentPlugin.COVERAGE_LEVELS.standard.thresholds,
-				exclude: [],
+				// `[]` REPLACES vitest's defaults rather than adding to them, so an
+				// empty array leaves nothing excluded — which is how a test helper
+				// ended up measured as source. Test files themselves are already
+				// out; this is for the helpers beside them.
+				exclude: ["**/__test__/**"],
 			},
 		},
 	});
