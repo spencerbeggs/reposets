@@ -54,7 +54,9 @@ use_squash_pr_title_as_default, web_commit_signoff_required
 
 That is the same failure shape as a misspelled settings field, and for the same reason: GitHub accepts unknown keys silently. The difference is that a typo is the user's mistake and this one is ours — we type the field, so the schema tells the user it is supported.
 
-GraphQL's `updateRepository` does have `hasDiscussionsEnabled`, so the fix is upstream: add it to `GRAPHQL_ONLY_SETTINGS` in `@effected/github`. Until then the honest options are to drop it from the schema or to document it as unsupported.
+GraphQL's `updateRepository` does have `hasDiscussionsEnabled`, so the fix is upstream: add it to `GRAPHQL_ONLY_SETTINGS` in `@effected/github`. Filed as **spencerbeggs/effected#358**, which also asks for the more general thing — a field that is neither REST-accepted nor GraphQL-routed currently takes the REST path by default, and that default is what makes this class of bug invisible.
+
+Until it lands, the honest options are to drop the field from `SettingsGroupSchema` or to document it as unsupported. It has been in our schema since the v3 line, so anyone who set it has been told it applied on every run since.
 
 **Not yet verified live.** The reasoning is from the API types and the package source; a real sync setting `has_discussions` on a repository with discussions disabled, followed by reading the repository back, would settle it. That is the check this file is least confident without.
 
@@ -77,7 +79,7 @@ Each of these is a repository-level setting a declarative tool could reasonably 
 
 | Subsystem | Endpoint | Note |
 | :--- | :--- | :--- |
-| **Topics** | `repos/replace-all-topics` | a whole-list PUT, so it is naturally declarative — the closest thing to free |
+| **Topics** | `repos/replace-all-topics` | a whole-list PUT, so it is naturally declarative — the closest thing to free. Upstream support requested in **effected#359** |
 | **Actions default token permissions** | `actions/set-github-actions-default-workflow-permissions-repository` | read-vs-write default for `GITHUB_TOKEN`, and whether PRs can be approved by Actions. A security control, arguably the highest-value gap here |
 | **Actions permissions** | `actions/set-github-actions-permissions-repository`, `actions/set-allowed-actions-repository` | whether Actions runs at all, and which actions are allowed |
 | **Fork PR policy** | `actions/set-fork-pr-contributor-approval-permissions-repository`, `actions/set-private-repo-fork-pr-workflows-settings-repository` | who can run workflows from forks |
@@ -98,7 +100,7 @@ Sketches, not decisions. Each follows an existing pattern in the config so it co
 
 ### Topics — a settings-style group
 
-Whole-list replacement matches `replace-all-topics` exactly, and a group can compose them the way settings groups do:
+Whole-list replacement matches `replace-all-topics` exactly, and a group can compose them the way settings groups do. **GitHub lowercases every name**, so the applied-state baseline must be recorded from the response rather than the request or every run after the first reports drift:
 
 ```toml
 [topics.oss]
@@ -158,6 +160,33 @@ homepage = "https://github.com/spencerbeggs/reposets"
 ```
 
 Both are ordinary `PATCH /repos` fields. The one caveat is that a shared settings group would give every repository in it the same description, which is almost never wanted — so these probably belong per-repository, which the config has no shape for today. That is the actual open question, not the fields.
+
+## What each proposal needs upstream
+
+`@effected/github@0.4.0` exposes 28 modules:
+
+```text
+ArtifactMetadata Attestation CheckRun CodeScanning DeploymentEnvironment
+GitBranch GitCommit GitHubApp GitHubClient GitHubCommit GitHubContent
+GitHubError GitHubIssue GitHubRelease GitHubRepository GitTag GraphQL
+PullRequest PullRequestComment Repo RepositorySecret RepositorySecurity
+RepositoryVariable Resilience Rest Ruleset TokenPermissions WorkflowDispatch
+```
+
+None of the proposed subsystems is covered. The only label route in the package is `/repos/{owner}/{repo}/issues/{issue_number}/labels` — applying labels to an issue, not managing a repository's set.
+
+| Proposal | Upstream need | Filed |
+| :--- | :--- | :--- |
+| `description`, `homepage` | **none** — ordinary `PATCH /repos` fields `applySettings` already routes | — |
+| Topics | two members on `GitHubRepository` | **effected#359** |
+| `has_discussions` | one entry in `GRAPHQL_ONLY_SETTINGS` | **effected#358** |
+| Actions policy | a new service; several endpoints, one concept | not filed |
+| Labels | a new service | not filed |
+| Autolinks, webhooks, deploy keys, Pages, custom properties | a new service each | not filed |
+
+**The unfiled ones are unfiled on purpose.** Requesting surface we may not use is how a kit accumulates code nobody exercises, and this project's own evidence is that unexercised surface is where silent defects live — the security phase had no tests because its service was never wired into the harness, and `has_discussions` shipped inert for the whole v3 line. Ask for a capability when something is about to drive it against real repositories.
+
+Topics is the exception because its endpoint is *already* declarative: `PUT` replaces the whole set, which is the shape a config file describes. Every other candidate is per-item create/update/delete and needs a three-way reconcile before it is worth anything.
 
 ## The shape of the gap
 
