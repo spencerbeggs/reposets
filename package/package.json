@@ -61,10 +61,10 @@
 	},
 	"devDependencies": {
 		"@effected/schemastore": "^0.3.0",
-		"@savvy-web/bundler": "^2.1.14",
-		"@types/node": "catalog:silk",
+		"@savvy-web/bundler": "^2.1.12",
+		"@types/node": "catalog:build",
 		"tsx": "catalog:silk",
-		"typescript": "catalog:silk"
+		"typescript": "catalog:build"
 	},
 	"engines": {
 		"node": ">=24.11.0"
