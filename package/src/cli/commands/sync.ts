@@ -11,7 +11,7 @@ import {
 	WorkflowDispatch,
 } from "@effected/github";
 import type { Cache, Store } from "@effected/store";
-import type { Crypto, Redacted } from "effect";
+import type { Crypto } from "effect";
 import { Effect, Layer, Option } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { danglingReferences } from "../../lib/config-refs.js";

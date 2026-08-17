@@ -50,18 +50,18 @@
 	"dependencies": {
 		"@1password/sdk": "^0.5.0",
 		"@effect/platform-node": "catalog:effect",
-		"@effected/app": "^0.10.0",
-		"@effected/config-file": "^0.4.0",
-		"@effected/github": "^0.4.0",
-		"@effected/store": "^0.3.0",
-		"@effected/toml": "^0.4.0",
-		"@effected/xdg": "^0.2.1",
+		"@effected/app": "^0.11.0",
+		"@effected/config-file": "^0.5.0",
+		"@effected/github": "^0.5.0",
+		"@effected/store": "^0.4.0",
+		"@effected/toml": "^0.5.0",
+		"@effected/xdg": "^0.3.0",
 		"blakejs": "^1.2.1",
 		"effect": "catalog:effect"
 	},
 	"devDependencies": {
-		"@effected/schemastore": "^0.3.0",
-		"@savvy-web/bundler": "^2.1.12",
+		"@effected/schemastore": "^0.4.0",
+		"@savvy-web/bundler": "^2.1.14",
 		"@types/node": "catalog:build",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:build"

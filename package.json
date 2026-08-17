@@ -22,7 +22,6 @@
 		"build": "turbo run build:dev build:prod --log-order=grouped --output-logs=full --log-prefix=none",
 		"ci:build": "CI=\"true\" turbo run build:dev build:prod --log-order=grouped --log-prefix=none --output-logs=full --no-color",
 		"ci:test": "CI=\"true\" vitest run --coverage",
-		"cli": "tsx package/src/cli/index.ts",
 		"lint": "biome check --max-diagnostics=none",
 		"lint:fix": "biome check --write --max-diagnostics=none",
 		"lint:fix:unsafe": "biome check --write --unsafe --max-diagnostics=none",
@@ -36,10 +35,9 @@
 		"types:check": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@savvy-web/silk": "^3.7.6",
-		"@vitest-agent/plugin": "^2.2.3",
-		"reposets": "workspace:*",
-		"tsx": "catalog:silk"
+		"@savvy-web/silk": "^3.7.9",
+		"@vitest-agent/plugin": "^2.3.0",
+		"reposets": "workspace:*"
 	},
 	"packageManager": "pnpm@11.22.0+sha512.1ff870c4c6133dfd88fb2afc46dd13d47f09c9794b438c6fdb47ca98caf3bc16381ee0be93a091b8e3824cf01f889f46d7d9e20910fb0be1ab0fb5baa80dd621",
 	"engines": {

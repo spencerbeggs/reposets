@@ -47,6 +47,7 @@ jobs:
           upgrade-package-manager: "^11.0.0"
           upgrade-runtime-node: "^26.0.0"
           config-dependencies: |
+            @effected/pnpm-plugin-effect
             @savvy-web/pnpm-plugin-silk
           dependencies: |
             @effected/*

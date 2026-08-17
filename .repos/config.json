@@ -2,8 +2,8 @@
 	"repos": {
 		"effect": {
 			"url": "https://github.com/Effect-TS/effect",
-			"ref": "effect@4.0.0-beta.107",
-			"purpose": "Effect v4 core pinned to the exact beta this repo runs (4.0.0-beta.107); the authority for v4 APIs including effect/unstable/cli, which replaces the dead @effect/cli line",
+			"ref": "effect@4.0.0-rc.109",
+			"purpose": "Effect v4 core pinned to the exact prerelease this repo runs (4.0.0-rc.109); the authority for v4 APIs including effect/unstable/cli, which replaces the dead @effect/cli line",
 			"sparse": [
 				"packages/effect/src",
 				"packages/vitest/src"
