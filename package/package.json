@@ -52,7 +52,7 @@
 		"@effect/platform-node": "catalog:effect",
 		"@effected/app": "^0.11.0",
 		"@effected/config-file": "^0.5.0",
-		"@effected/github": "^0.5.0",
+		"@effected/github": "^0.7.0",
 		"@effected/store": "^0.4.0",
 		"@effected/toml": "^0.5.0",
 		"@effected/xdg": "^0.3.0",
@@ -61,7 +61,7 @@
 	},
 	"devDependencies": {
 		"@effected/schemastore": "^0.4.0",
-		"@savvy-web/bundler": "^2.1.14",
+		"@savvy-web/bundler": "^2.1.16",
 		"@types/node": "catalog:build",
 		"tsx": "catalog:silk",
 		"typescript": "catalog:build"
