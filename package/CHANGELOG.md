@@ -1,5 +1,17 @@
 # reposets
 
+## 1.0.3
+
+### Dependencies
+
+* | Dependency       | Type       | Action  | From   | To     |                                                                          |
+  | ---------------- | ---------- | ------- | ------ | ------ | ------------------------------------------------------------------------ |
+  | @effected/github | dependency | updated | ^0.5.0 | ^0.7.0 | [#71][#71] Thanks [@spencerbeggs](https://github.com/apps/spencerbeggs)! |
+
+### Patch Changes
+
+[#71]: https://github.com/spencerbeggs/reposets/pull/71
+
 ## 1.0.2
 
 ### Dependencies
