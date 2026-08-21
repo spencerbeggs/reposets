@@ -1,22 +1,40 @@
 {
-	"version": "1.0.0",
-	"project": {
-		"name": "spencerbeggs/reposets",
-		"type": "monorepo",
-		"repository": "https://github.com/spencerbeggs/reposets",
-		"maintainer": "C. Spencer Beggs"
-	},
-	"paths": {
-		"designDocs": ".claude/design",
-		"skills": ".claude/skills",
-		"context": "CLAUDE.md"
+	"integration": {
+		"ci": {
+			"enabled": false,
+			"syncOnMerge": false,
+			"validateOnPR": false
+		},
+		"git": {
+			"requireReviewForChanges": false,
+			"trackDesignDocs": true
+		}
 	},
 	"modules": {
 		"reposets": {
-			"path": "package",
-			"designDocsPath": ".claude/design/reposets",
 			"categories": ["architecture", "process", "testing", "other"],
-			"maintainer": "C. Spencer Beggs"
+			"designDocsPath": ".claude/design/reposets",
+			"maintainer": "C. Spencer Beggs",
+			"path": "package"
+		}
+	},
+	"paths": {
+		"context": "CLAUDE.md",
+		"designDocs": ".claude/design",
+		"skills": ".claude/skills"
+	},
+	"project": {
+		"maintainer": "C. Spencer Beggs",
+		"name": "spencerbeggs/reposets",
+		"repository": "https://github.com/spencerbeggs/reposets",
+		"type": "monorepo"
+	},
+	"quality": {
+		"designDocs": {
+			"maxLineLength": 120,
+			"minSections": ["Overview"],
+			"requireFrontmatter": true,
+			"requireTOC": false
 		}
 	},
 	"skills": {
@@ -32,23 +50,5 @@
 			"design-report"
 		]
 	},
-	"quality": {
-		"designDocs": {
-			"maxLineLength": 120,
-			"requireFrontmatter": true,
-			"requireTOC": false,
-			"minSections": ["Overview"]
-		}
-	},
-	"integration": {
-		"ci": {
-			"enabled": false,
-			"validateOnPR": false,
-			"syncOnMerge": false
-		},
-		"git": {
-			"trackDesignDocs": true,
-			"requireReviewForChanges": false
-		}
-	}
+	"version": "1.0.0"
 }
