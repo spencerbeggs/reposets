@@ -48,6 +48,28 @@ catalogs:
     effect:
       specifier: 4.0.0-rc.109
       version: 4.0.0-rc.109
+  effected:
+    '@effected/app':
+      specifier: ^0.11.1
+      version: 0.11.1
+    '@effected/config-file':
+      specifier: ^0.5.0
+      version: 0.5.0
+    '@effected/github':
+      specifier: ^0.7.0
+      version: 0.7.0
+    '@effected/schemastore':
+      specifier: ^0.4.0
+      version: 0.4.0
+    '@effected/store':
+      specifier: ^0.4.0
+      version: 0.4.0
+    '@effected/toml':
+      specifier: ^0.5.0
+      version: 0.5.0
+    '@effected/xdg':
+      specifier: ^0.3.0
+      version: 0.3.0
   silk:
     tsx:
       specifier: ^4.23.12
@@ -81,22 +103,22 @@ importers:
         specifier: catalog:effect
         version: 4.0.0-rc.109(effect@4.0.0-rc.109)(redis@6.2.1)
       '@effected/app':
-        specifier: ^0.11.1
+        specifier: catalog:effected
         version: 0.11.1(@effected/config-file@0.5.0(@effected/jsonc@0.7.0(effect@4.0.0-rc.109))(@effected/toml@0.5.0(effect@4.0.0-rc.109))(@effected/walker@0.5.0(@effected/glob@0.4.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(@effected/yaml@0.10.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(@effected/store@0.4.0(effect@4.0.0-rc.109))(@effected/xdg@0.3.0(@effected/config-file@0.5.0(@effected/jsonc@0.7.0(effect@4.0.0-rc.109))(@effected/toml@0.5.0(effect@4.0.0-rc.109))(@effected/walker@0.5.0(@effected/glob@0.4.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(@effected/yaml@0.10.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(@effected/walker@0.5.0(@effected/glob@0.4.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(effect@4.0.0-rc.109)
       '@effected/config-file':
-        specifier: ^0.5.0
+        specifier: catalog:effected
         version: 0.5.0(@effected/jsonc@0.7.0(effect@4.0.0-rc.109))(@effected/toml@0.5.0(effect@4.0.0-rc.109))(@effected/walker@0.5.0(@effected/glob@0.4.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(@effected/yaml@0.10.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109)
       '@effected/github':
-        specifier: ^0.7.0
+        specifier: catalog:effected
         version: 0.7.0(effect@4.0.0-rc.109)
       '@effected/store':
-        specifier: ^0.4.0
+        specifier: catalog:effected
         version: 0.4.0(effect@4.0.0-rc.109)
       '@effected/toml':
-        specifier: ^0.5.0
+        specifier: catalog:effected
         version: 0.5.0(effect@4.0.0-rc.109)
       '@effected/xdg':
-        specifier: ^0.3.0
+        specifier: catalog:effected
         version: 0.3.0(@effected/config-file@0.5.0(@effected/jsonc@0.7.0(effect@4.0.0-rc.109))(@effected/toml@0.5.0(effect@4.0.0-rc.109))(@effected/walker@0.5.0(@effected/glob@0.4.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(@effected/yaml@0.10.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(@effected/walker@0.5.0(@effected/glob@0.4.0(effect@4.0.0-rc.109))(effect@4.0.0-rc.109))(effect@4.0.0-rc.109)
       blakejs:
         specifier: ^1.2.1
@@ -106,7 +128,7 @@ importers:
         version: 4.0.0-rc.109
     devDependencies:
       '@effected/schemastore':
-        specifier: ^0.4.0
+        specifier: catalog:effected
         version: 0.4.0(effect@4.0.0-rc.109)
       '@savvy-web/bundler':
         specifier: ^2.1.21
