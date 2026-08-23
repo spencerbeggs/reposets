@@ -1,5 +1,17 @@
 # reposets
 
+## 1.0.5
+
+### Dependencies
+
+* | Dependency            | Type       | Action  | From   | To     |                                                                          |
+  | --------------------- | ---------- | ------- | ------ | ------ | ------------------------------------------------------------------------ |
+  | @effected/config-file | dependency | updated | ^0.5.0 | ^0.5.1 | [#82][#82] Thanks [@spencerbeggs](https://github.com/apps/spencerbeggs)! |
+
+### Patch Changes
+
+[#82]: https://github.com/spencerbeggs/reposets/pull/82
+
 ## 1.0.4
 
 ### Dependencies
