@@ -1,5 +1,23 @@
 # reposets
 
+## 1.0.7
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/app | dependency | updated | ^0.12.0 | ^0.12.1 |
+| @effected/config-file | dependency | updated | ^0.5.1 | ^0.5.2 |
+| @effected/store | dependency | updated | ^0.4.0 | ^0.5.0 |
+
+[#92][#92]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contributions!
+
+[#92]: https://github.com/spencerbeggs/reposets/pull/92
+
 ## 1.0.6
 
 ### Dependencies
