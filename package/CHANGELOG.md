@@ -1,5 +1,21 @@
 # reposets
 
+## 1.0.8
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/app | dependency | updated | ^0.12.1 | ^0.12.2 |
+
+[#95][#95]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contributions!
+
+[#95]: https://github.com/spencerbeggs/reposets/pull/95
+
 ## 1.0.7
 
 ### Dependencies
