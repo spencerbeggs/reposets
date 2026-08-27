@@ -1,17 +1,4 @@
 {
 	"$schema": "https://json.schemastore.org/tsconfig.json",
-	"compilerOptions": {
-		// TEMPORARY — remove once a fixed effect beta is released.
-		//
-		// effect@4.0.0-beta.107 ships a broken declaration: Schema.d.ts:10815
-		// references SchemaAST.Sentinel, which does not exist in SchemaAST.d.ts.
-		// The pre-commit hook typechecks project-wide from this config, so without
-		// this the bug fails every commit touching a .ts file. package/tsconfig.json
-		// already sets skipLibCheck via @savvy-web/bundler, which is why the
-		// package-scoped gate stays green either way.
-		//
-		// Fixed upstream, not yet published. Drop this block when the release lands.
-		"skipLibCheck": true
-	},
 	"extends": ["@savvy-web/silk/tsconfig/node/root.json"]
 }
