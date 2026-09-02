@@ -35,7 +35,7 @@
 		"types:check": "tsc --noEmit"
 	},
 	"devDependencies": {
-		"@savvy-web/silk": "^3.11.3",
+		"@savvy-web/silk": "^3.11.4",
 		"@vitest-agent/plugin": "^2.5.4",
 		"reposets": "workspace:*"
 	},
