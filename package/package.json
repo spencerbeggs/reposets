@@ -1,6 +1,6 @@
 {
 	"name": "reposets",
-	"version": "1.0.11",
+	"version": "1.0.12",
 	"description": "CLI tool to sync GitHub repo settings, secrets and rulesets across personal repositories",
 	"keywords": [
 		"github",
