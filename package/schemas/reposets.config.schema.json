@@ -480,6 +480,12 @@
 					]
 				}
 			},
+			"allOf": [
+				{
+					"type": "object",
+					"additionalProperties": {}
+				}
+			],
 			"title": "Settings group",
 			"description": "GitHub repository settings to apply. Known fields are typed; additional fields are passed through to the API.",
 			"x-tombi-table-keys-order": "schema",
@@ -489,71 +495,62 @@
 				}
 			}
 		},
-		"Objects_": {
-			"type": "object",
-			"properties": {
-				"file": {
-					"type": "object",
-					"additionalProperties": {
-						"type": "string"
-					},
-					"title": "File entries",
-					"description": "Named entries with file path values, resolved relative to config directory",
-					"x-tombi-additional-key-label": "name"
-				}
-			},
-			"required": ["file"],
-			"additionalProperties": false
-		},
-		"Objects_1": {
-			"type": "object",
-			"properties": {
-				"value": {
-					"type": "object",
-					"additionalProperties": {
-						"anyOf": [
-							{
-								"type": "string"
-							},
-							{
-								"type": "object"
-							}
-						]
-					},
-					"title": "Value entries",
-					"description": "Named entries with inline values. Strings used as-is, objects JSON-stringified.",
-					"x-tombi-additional-key-label": "name"
-				}
-			},
-			"required": ["value"],
-			"additionalProperties": false
-		},
-		"Objects_2": {
-			"type": "object",
-			"properties": {
-				"resolved": {
-					"type": "object",
-					"additionalProperties": {
-						"type": "string"
-					},
-					"title": "Resolved entries",
-					"description": "Named entries mapped to credential labels. Values come from the active credential profile.",
-					"x-tombi-additional-key-label": "name"
-				}
-			},
-			"required": ["resolved"],
-			"additionalProperties": false
-		},
 		"SecretGroup": {
 			"anyOf": [
 				{
-					"$ref": "#/$defs/Objects_"
+					"type": "object",
+					"properties": {
+						"file": {
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							},
+							"title": "File entries",
+							"description": "Named entries with file path values, resolved relative to config directory",
+							"x-tombi-additional-key-label": "name"
+						}
+					},
+					"required": ["file"],
+					"additionalProperties": false
 				},
 				{
-					"$ref": "#/$defs/Objects_1"
+					"type": "object",
+					"properties": {
+						"value": {
+							"type": "object",
+							"additionalProperties": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "object"
+									}
+								]
+							},
+							"title": "Value entries",
+							"description": "Named entries with inline values. Strings used as-is, objects JSON-stringified.",
+							"x-tombi-additional-key-label": "name"
+						}
+					},
+					"required": ["value"],
+					"additionalProperties": false
 				},
 				{
-					"$ref": "#/$defs/Objects_2"
+					"type": "object",
+					"properties": {
+						"resolved": {
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							},
+							"title": "Resolved entries",
+							"description": "Named entries mapped to credential labels. Values come from the active credential profile.",
+							"x-tombi-additional-key-label": "name"
+						}
+					},
+					"required": ["resolved"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Secret group",
@@ -567,13 +564,59 @@
 		"VariableGroup": {
 			"anyOf": [
 				{
-					"$ref": "#/$defs/Objects_"
+					"type": "object",
+					"properties": {
+						"file": {
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							},
+							"title": "File entries",
+							"description": "Named entries with file path values, resolved relative to config directory",
+							"x-tombi-additional-key-label": "name"
+						}
+					},
+					"required": ["file"],
+					"additionalProperties": false
 				},
 				{
-					"$ref": "#/$defs/Objects_1"
+					"type": "object",
+					"properties": {
+						"value": {
+							"type": "object",
+							"additionalProperties": {
+								"anyOf": [
+									{
+										"type": "string"
+									},
+									{
+										"type": "object"
+									}
+								]
+							},
+							"title": "Value entries",
+							"description": "Named entries with inline values. Strings used as-is, objects JSON-stringified.",
+							"x-tombi-additional-key-label": "name"
+						}
+					},
+					"required": ["value"],
+					"additionalProperties": false
 				},
 				{
-					"$ref": "#/$defs/Objects_2"
+					"type": "object",
+					"properties": {
+						"resolved": {
+							"type": "object",
+							"additionalProperties": {
+								"type": "string"
+							},
+							"title": "Resolved entries",
+							"description": "Named entries mapped to credential labels. Values come from the active credential profile.",
+							"x-tombi-additional-key-label": "name"
+						}
+					},
+					"required": ["resolved"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Variable group",
@@ -583,12 +626,6 @@
 					"key": "https://github.com/spencerbeggs/reposets/blob/main/docs/05-secrets-and-variables.md"
 				}
 			}
-		},
-		"Union_": {
-			"type": "string",
-			"enum": ["disabled", "active", "evaluate"],
-			"title": "Enforcement level",
-			"description": "disabled = off, active = enforced, evaluate = test mode (GitHub Enterprise only)"
 		},
 		"RefNameCondition": {
 			"type": "object",
@@ -632,16 +669,6 @@
 			"additionalProperties": false,
 			"title": "Ruleset conditions",
 			"description": "Conditions that determine when the ruleset applies"
-		},
-		"Union_1": {
-			"anyOf": [
-				{
-					"$ref": "#/$defs/RulesetConditions"
-				},
-				{
-					"type": "null"
-				}
-			]
 		},
 		"ResolvedRef": {
 			"type": "object",
@@ -697,34 +724,6 @@
 			"title": "Bypass actor",
 			"description": "An actor that can bypass rules in a ruleset"
 		},
-		"Union_2": {
-			"anyOf": [
-				{
-					"type": "array",
-					"items": {
-						"$ref": "#/$defs/BypassActor"
-					}
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
-		"Union_3": {
-			"anyOf": [
-				{
-					"type": "array",
-					"title": "Required deployments",
-					"description": "Deployment environments that must succeed; converts to required_deployments rule",
-					"items": {
-						"type": "string"
-					}
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
 		"TargetPattern": {
 			"anyOf": [
 				{
@@ -774,16 +773,6 @@
 			],
 			"title": "Targets shorthand",
 			"description": "Shorthand for specifying ref_name conditions: 'default', 'all', or custom patterns"
-		},
-		"Union_4": {
-			"anyOf": [
-				{
-					"$ref": "#/$defs/Targets"
-				},
-				{
-					"type": "null"
-				}
-			]
 		},
 		"StatusChecksShorthand": {
 			"type": "object",
@@ -873,16 +862,6 @@
 			"title": "Status checks shorthand",
 			"description": "Simplified status checks configuration"
 		},
-		"Union_5": {
-			"anyOf": [
-				{
-					"$ref": "#/$defs/StatusChecksShorthand"
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
 		"PatternEntry": {
 			"type": "object",
 			"properties": {
@@ -927,64 +906,15 @@
 			"title": "Pattern entry",
 			"description": "A pattern matching rule with operator, pattern, and optional name/negate"
 		},
-		"Union_6": {
-			"anyOf": [
-				{
-					"type": "array",
-					"title": "Commit message patterns",
-					"description": "Commit message pattern rules",
-					"items": {
-						"$ref": "#/$defs/PatternEntry"
-					}
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
-		"Union_7": {
-			"anyOf": [
-				{
-					"type": "array",
-					"title": "Commit author email patterns",
-					"description": "Commit author email pattern rules",
-					"items": {
-						"$ref": "#/$defs/PatternEntry"
-					}
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
-		"Union_8": {
-			"anyOf": [
-				{
-					"type": "array",
-					"title": "Committer email patterns",
-					"description": "Committer email pattern rules",
-					"items": {
-						"$ref": "#/$defs/PatternEntry"
-					}
-				},
-				{
-					"type": "null"
-				}
-			]
-		},
 		"PullRequestsShorthand": {
 			"type": "object",
 			"properties": {
 				"approvals": {
 					"type": "integer",
-					"allOf": [
-						{
-							"minimum": 0,
-							"maximum": 10,
-							"title": "Required approvals",
-							"description": "Number of approving reviews required (0-10)"
-						}
-					]
+					"minimum": 0,
+					"maximum": 10,
+					"title": "Required approvals",
+					"description": "Number of approving reviews required (0-10)"
 				},
 				"dismiss_stale_reviews": {
 					"type": "boolean",
@@ -1041,24 +971,16 @@
 									},
 									"minimum_approvals": {
 										"type": "integer",
-										"allOf": [
-											{
-												"title": "Minimum approvals",
-												"description": "Minimum approvals required from this team (0 = optional)"
-											}
-										]
+										"title": "Minimum approvals",
+										"description": "Minimum approvals required from this team (0 = optional)"
 									},
 									"reviewer": {
 										"type": "object",
 										"properties": {
 											"id": {
 												"type": "integer",
-												"allOf": [
-													{
-														"title": "Team ID",
-														"description": "Team ID"
-													}
-												]
+												"title": "Team ID",
+												"description": "Team ID"
 											},
 											"type": {
 												"type": "string",
@@ -1089,14 +1011,10 @@
 			"properties": {
 				"check_timeout": {
 					"type": "integer",
-					"allOf": [
-						{
-							"minimum": 1,
-							"maximum": 360,
-							"title": "Check timeout (minutes)",
-							"description": "Max time for status checks to report"
-						}
-					]
+					"minimum": 1,
+					"maximum": 360,
+					"title": "Check timeout (minutes)",
+					"description": "Max time for status checks to report"
 				},
 				"grouping": {
 					"type": "string",
@@ -1106,25 +1024,17 @@
 				},
 				"max_build": {
 					"type": "integer",
-					"allOf": [
-						{
-							"minimum": 0,
-							"maximum": 100,
-							"title": "Max entries to build",
-							"description": "Max queued PRs requesting checks simultaneously"
-						}
-					]
+					"minimum": 0,
+					"maximum": 100,
+					"title": "Max entries to build",
+					"description": "Max queued PRs requesting checks simultaneously"
 				},
 				"max_merge": {
 					"type": "integer",
-					"allOf": [
-						{
-							"minimum": 0,
-							"maximum": 100,
-							"title": "Max entries to merge",
-							"description": "Max PRs merged together in a group"
-						}
-					]
+					"minimum": 0,
+					"maximum": 100,
+					"title": "Max entries to merge",
+					"description": "Max PRs merged together in a group"
 				},
 				"merge_method": {
 					"type": "string",
@@ -1134,25 +1044,17 @@
 				},
 				"min_merge": {
 					"type": "integer",
-					"allOf": [
-						{
-							"minimum": 0,
-							"maximum": 100,
-							"title": "Min entries to merge",
-							"description": "Min PRs merged together in a group"
-						}
-					]
+					"minimum": 0,
+					"maximum": 100,
+					"title": "Min entries to merge",
+					"description": "Min PRs merged together in a group"
 				},
 				"min_wait": {
 					"type": "integer",
-					"allOf": [
-						{
-							"minimum": 0,
-							"maximum": 360,
-							"title": "Min wait time (minutes)",
-							"description": "Wait time for min group size after first PR is added"
-						}
-					]
+					"minimum": 0,
+					"maximum": 360,
+					"title": "Min wait time (minutes)",
+					"description": "Wait time for min group size after first PR is added"
 				}
 			},
 			"required": ["check_timeout", "grouping", "max_build", "max_merge", "merge_method", "min_merge", "min_wait"],
@@ -1301,13 +1203,33 @@
 					"description": "The name of the ruleset (used for matching when creating or updating)"
 				},
 				"enforcement": {
-					"$ref": "#/$defs/Union_"
+					"type": "string",
+					"enum": ["disabled", "active", "evaluate"],
+					"title": "Enforcement level",
+					"description": "disabled = off, active = enforced, evaluate = test mode (GitHub Enterprise only)"
 				},
 				"conditions": {
-					"$ref": "#/$defs/Union_1"
+					"anyOf": [
+						{
+							"$ref": "#/$defs/RulesetConditions"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"bypass_actors": {
-					"$ref": "#/$defs/Union_2"
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/BypassActor"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"creation": {
 					"anyOf": [
@@ -1382,22 +1304,84 @@
 					]
 				},
 				"deployments": {
-					"$ref": "#/$defs/Union_3"
+					"anyOf": [
+						{
+							"type": "array",
+							"title": "Required deployments",
+							"description": "Deployment environments that must succeed; converts to required_deployments rule",
+							"items": {
+								"type": "string"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"targets": {
-					"$ref": "#/$defs/Union_4"
+					"anyOf": [
+						{
+							"$ref": "#/$defs/Targets"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"status_checks": {
-					"$ref": "#/$defs/Union_5"
+					"anyOf": [
+						{
+							"$ref": "#/$defs/StatusChecksShorthand"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"commit_message": {
-					"$ref": "#/$defs/Union_6"
+					"anyOf": [
+						{
+							"type": "array",
+							"title": "Commit message patterns",
+							"description": "Commit message pattern rules",
+							"items": {
+								"$ref": "#/$defs/PatternEntry"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"commit_author_email": {
-					"$ref": "#/$defs/Union_7"
+					"anyOf": [
+						{
+							"type": "array",
+							"title": "Commit author email patterns",
+							"description": "Commit author email pattern rules",
+							"items": {
+								"$ref": "#/$defs/PatternEntry"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"committer_email": {
-					"$ref": "#/$defs/Union_8"
+					"anyOf": [
+						{
+							"type": "array",
+							"title": "Committer email patterns",
+							"description": "Committer email pattern rules",
+							"items": {
+								"$ref": "#/$defs/PatternEntry"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"type": {
 					"type": "string",
@@ -1497,13 +1481,33 @@
 					"description": "The name of the ruleset (used for matching when creating or updating)"
 				},
 				"enforcement": {
-					"$ref": "#/$defs/Union_"
+					"type": "string",
+					"enum": ["disabled", "active", "evaluate"],
+					"title": "Enforcement level",
+					"description": "disabled = off, active = enforced, evaluate = test mode (GitHub Enterprise only)"
 				},
 				"conditions": {
-					"$ref": "#/$defs/Union_1"
+					"anyOf": [
+						{
+							"$ref": "#/$defs/RulesetConditions"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"bypass_actors": {
-					"$ref": "#/$defs/Union_2"
+					"anyOf": [
+						{
+							"type": "array",
+							"items": {
+								"$ref": "#/$defs/BypassActor"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"creation": {
 					"anyOf": [
@@ -1578,22 +1582,84 @@
 					]
 				},
 				"deployments": {
-					"$ref": "#/$defs/Union_3"
+					"anyOf": [
+						{
+							"type": "array",
+							"title": "Required deployments",
+							"description": "Deployment environments that must succeed; converts to required_deployments rule",
+							"items": {
+								"type": "string"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"targets": {
-					"$ref": "#/$defs/Union_4"
+					"anyOf": [
+						{
+							"$ref": "#/$defs/Targets"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"status_checks": {
-					"$ref": "#/$defs/Union_5"
+					"anyOf": [
+						{
+							"$ref": "#/$defs/StatusChecksShorthand"
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"commit_message": {
-					"$ref": "#/$defs/Union_6"
+					"anyOf": [
+						{
+							"type": "array",
+							"title": "Commit message patterns",
+							"description": "Commit message pattern rules",
+							"items": {
+								"$ref": "#/$defs/PatternEntry"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"commit_author_email": {
-					"$ref": "#/$defs/Union_7"
+					"anyOf": [
+						{
+							"type": "array",
+							"title": "Commit author email patterns",
+							"description": "Commit author email pattern rules",
+							"items": {
+								"$ref": "#/$defs/PatternEntry"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"committer_email": {
-					"$ref": "#/$defs/Union_8"
+					"anyOf": [
+						{
+							"type": "array",
+							"title": "Committer email patterns",
+							"description": "Committer email pattern rules",
+							"items": {
+								"$ref": "#/$defs/PatternEntry"
+							}
+						},
+						{
+							"type": "null"
+						}
+					]
 				},
 				"type": {
 					"type": "string",
@@ -1657,12 +1723,8 @@
 				},
 				"id": {
 					"type": "integer",
-					"allOf": [
-						{
-							"title": "Reviewer ID",
-							"description": "The numeric GitHub ID of the user or team"
-						}
-					]
+					"title": "Reviewer ID",
+					"description": "The numeric GitHub ID of the user or team"
 				}
 			},
 			"required": ["type", "id"],
@@ -1717,14 +1779,10 @@
 					"anyOf": [
 						{
 							"type": "integer",
-							"allOf": [
-								{
-									"minimum": 0,
-									"maximum": 43200,
-									"title": "Wait timer (minutes)",
-									"description": "Number of minutes to wait before allowing deployments to proceed (0-43200)"
-								}
-							]
+							"minimum": 0,
+							"maximum": 43200,
+							"title": "Wait timer (minutes)",
+							"description": "Number of minutes to wait before allowing deployments to proceed (0-43200)"
 						},
 						{
 							"type": "null"
@@ -1931,29 +1989,26 @@
 			"title": "Variable scopes",
 			"description": "Assign variable groups to GitHub variable scopes (actions, environments)"
 		},
-		"Objects_3": {
-			"type": "object",
-			"properties": {
-				"preserve": {
-					"type": "array",
-					"title": "Preserve list",
-					"description": "Resource names that should never be deleted during cleanup",
-					"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-					"items": {
-						"type": "string"
-					}
-				}
-			},
-			"required": ["preserve"],
-			"additionalProperties": false
-		},
 		"CleanupScope": {
 			"anyOf": [
 				{
 					"type": "boolean"
 				},
 				{
-					"$ref": "#/$defs/Objects_3"
+					"type": "object",
+					"properties": {
+						"preserve": {
+							"type": "array",
+							"title": "Preserve list",
+							"description": "Resource names that should never be deleted during cleanup",
+							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": ["preserve"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Cleanup scope",
@@ -1965,7 +2020,20 @@
 					"type": "boolean"
 				},
 				{
-					"$ref": "#/$defs/Objects_3"
+					"type": "object",
+					"properties": {
+						"preserve": {
+							"type": "array",
+							"title": "Preserve list",
+							"description": "Resource names that should never be deleted during cleanup",
+							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": ["preserve"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Cleanup scope",
@@ -1977,7 +2045,20 @@
 					"type": "boolean"
 				},
 				{
-					"$ref": "#/$defs/Objects_3"
+					"type": "object",
+					"properties": {
+						"preserve": {
+							"type": "array",
+							"title": "Preserve list",
+							"description": "Resource names that should never be deleted during cleanup",
+							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": ["preserve"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Cleanup scope",
@@ -1989,7 +2070,20 @@
 					"type": "boolean"
 				},
 				{
-					"$ref": "#/$defs/Objects_3"
+					"type": "object",
+					"properties": {
+						"preserve": {
+							"type": "array",
+							"title": "Preserve list",
+							"description": "Resource names that should never be deleted during cleanup",
+							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": ["preserve"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Cleanup scope",
@@ -2021,7 +2115,20 @@
 					"type": "boolean"
 				},
 				{
-					"$ref": "#/$defs/Objects_3"
+					"type": "object",
+					"properties": {
+						"preserve": {
+							"type": "array",
+							"title": "Preserve list",
+							"description": "Resource names that should never be deleted during cleanup",
+							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": ["preserve"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Cleanup scope",
@@ -2033,7 +2140,20 @@
 					"type": "boolean"
 				},
 				{
-					"$ref": "#/$defs/Objects_3"
+					"type": "object",
+					"properties": {
+						"preserve": {
+							"type": "array",
+							"title": "Preserve list",
+							"description": "Resource names that should never be deleted during cleanup",
+							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": ["preserve"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Cleanup scope",
@@ -2059,7 +2179,20 @@
 					"type": "boolean"
 				},
 				{
-					"$ref": "#/$defs/Objects_3"
+					"type": "object",
+					"properties": {
+						"preserve": {
+							"type": "array",
+							"title": "Preserve list",
+							"description": "Resource names that should never be deleted during cleanup",
+							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": ["preserve"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Cleanup scope",
@@ -2071,7 +2204,20 @@
 					"type": "boolean"
 				},
 				{
-					"$ref": "#/$defs/Objects_3"
+					"type": "object",
+					"properties": {
+						"preserve": {
+							"type": "array",
+							"title": "Preserve list",
+							"description": "Resource names that should never be deleted during cleanup",
+							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
+							"items": {
+								"type": "string"
+							}
+						}
+					},
+					"required": ["preserve"],
+					"additionalProperties": false
 				}
 			],
 			"title": "Cleanup scope",
@@ -2110,10 +2256,10 @@
 					"title": "Repository names",
 					"description": "List of repository names (without owner prefix) to sync in this group",
 					"examples": [["repo-one", "repo-two", "repo-three"]],
+					"x-tombi-array-values-order": "ascending",
 					"items": {
 						"type": "string"
-					},
-					"x-tombi-array-values-order": "ascending"
+					}
 				},
 				"credentials": {
 					"type": "string",
