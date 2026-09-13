@@ -345,16 +345,24 @@ export const syncHandler = (input: {
 export const syncCommand = Command.make(
 	"sync",
 	{
-		dryRun: Flag.Boolean("dry-run").pipe(Flag.withDescription("Report what would change without writing anything")),
-		noCleanup: Flag.Boolean("no-cleanup").pipe(Flag.withDescription("Skip deletion of undeclared resources")),
+		dryRun: Flag.Boolean("dry-run").pipe(
+			Flag.withDefault(false),
+			Flag.withDescription("Report what would change without writing anything"),
+		),
+		noCleanup: Flag.Boolean("no-cleanup").pipe(
+			Flag.withDefault(false),
+			Flag.withDescription("Skip deletion of undeclared resources"),
+		),
 		failOnDrift: Flag.Boolean("fail-on-drift").pipe(
+			Flag.withDefault(false),
 			Flag.withDescription("Exit non-zero when a resource was changed outside reposets"),
 		),
-		group: Flag.String("group").pipe(Flag.withDescription("Sync only this group"), Flag.optional),
-		repo: Flag.String("repo").pipe(Flag.withDescription("Sync only this repository"), Flag.optional),
-		only: Flag.String("only").pipe(Flag.withDescription("Run only these phases"), (f) => Flag.atLeast(f, 0)),
-		skip: Flag.String("skip").pipe(Flag.withDescription("Skip these phases"), (f) => Flag.atLeast(f, 0)),
+		group: Flag.String("group").pipe(Flag.optional, Flag.withDescription("Sync only this group")),
+		repo: Flag.String("repo").pipe(Flag.optional, Flag.withDescription("Sync only this repository")),
+		only: Flag.String("only").pipe(Flag.atLeast(0), Flag.withDescription("Run only these phases")),
+		skip: Flag.String("skip").pipe(Flag.atLeast(0), Flag.withDescription("Skip these phases")),
 		debug: Flag.Boolean("debug").pipe(
+			Flag.withDefault(false),
 			Flag.withDescription("Annotate output with value sources and the fingerprints behind a drift report"),
 		),
 	},

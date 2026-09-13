@@ -31,9 +31,10 @@ import { syncHandler } from "./sync.js";
 export const driftCommand = Command.make(
 	"drift",
 	{
-		group: Flag.String("group").pipe(Flag.withDescription("Check only this group"), Flag.optional),
-		repo: Flag.String("repo").pipe(Flag.withDescription("Check only this repository"), Flag.optional),
+		group: Flag.String("group").pipe(Flag.optional, Flag.withDescription("Check only this group")),
+		repo: Flag.String("repo").pipe(Flag.optional, Flag.withDescription("Check only this repository")),
 		debug: Flag.Boolean("debug").pipe(
+			Flag.withDefault(false),
 			Flag.withDescription("Show the applied and live fingerprints behind each drift report"),
 		),
 	},

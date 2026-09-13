@@ -10,23 +10,23 @@ const EMPTY: Credentials = { profiles: {} };
 const profileFlag = Flag.String("profile").pipe(Flag.withDescription("Credential profile name"));
 
 const opFlag = Flag.String("op").pipe(
-	Flag.withDescription('1Password secret reference, e.g. "op://Vault/item/field"'),
 	Flag.optional,
+	Flag.withDescription('1Password secret reference, e.g. "op://Vault/item/field"'),
 );
 
 const envFlag = Flag.String("env").pipe(
-	Flag.withDescription('Name of an environment variable holding the token, e.g. "REPOSETS_GITHUB_TOKEN"'),
 	Flag.optional,
+	Flag.withDescription('Name of an environment variable holding the token, e.g. "REPOSETS_GITHUB_TOKEN"'),
 );
 
 const usernameFlag = Flag.String("username").pipe(
-	Flag.withDescription("The personal account this profile acts as. Mutually exclusive with --org"),
 	Flag.optional,
+	Flag.withDescription("The personal account this profile acts as. Mutually exclusive with --org"),
 );
 
 const orgFlag = Flag.String("org").pipe(
-	Flag.withDescription("The organization this profile acts within. Mutually exclusive with --username"),
 	Flag.optional,
+	Flag.withDescription("The organization this profile acts within. Mutually exclusive with --username"),
 );
 
 /**

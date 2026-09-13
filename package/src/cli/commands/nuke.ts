@@ -4,6 +4,7 @@ import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
 
 const forceFlag = Flag.Boolean("force").pipe(
+	Flag.withDefault(false),
 	Flag.withDescription("Delete without asking. Intended for scripts; there is no undo"),
 );
 

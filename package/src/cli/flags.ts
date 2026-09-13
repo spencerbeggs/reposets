@@ -19,8 +19,8 @@ import { makeConfigFilesLive } from "../services/ConfigFiles.js";
  */
 export const ConfigFlag = GlobalFlag.Setting("config")({
 	flag: Flag.String("config").pipe(
-		Flag.withDescription("Path to reposets.config.toml, or a directory containing it"),
 		Flag.optional,
+		Flag.withDescription("Path to reposets.config.toml, or a directory containing it"),
 	),
 });
 

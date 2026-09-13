@@ -4,13 +4,13 @@ import type { ChangeAction, ChangeRecord, RunSummary } from "../../store/SyncJou
 import { SyncJournal } from "../../store/SyncJournal.js";
 
 const limitFlag = Flag.Int("limit").pipe(
-	Flag.withDescription("How many runs to show, newest first"),
 	Flag.withDefault(20),
+	Flag.withDescription("How many runs to show, newest first"),
 );
 
 const repoFlag = Flag.String("repo").pipe(
-	Flag.withDescription('Only runs that touched this repository, as "owner/name"'),
 	Flag.optional,
+	Flag.withDescription('Only runs that touched this repository, as "owner/name"'),
 );
 
 /**
@@ -291,7 +291,7 @@ export const historyCommand = Command.make("history", { limit: limitFlag, repo: 
 		Command.make(
 			"prune",
 			{
-				keep: Flag.Int("keep").pipe(Flag.withDescription("How many of the newest runs to keep"), Flag.withDefault(50)),
+				keep: Flag.Int("keep").pipe(Flag.withDefault(50), Flag.withDescription("How many of the newest runs to keep")),
 			},
 			({ keep }) => pruneHandler(keep),
 		).pipe(Command.withDescription("Delete all but the newest runs from the journal")),
