@@ -1,5 +1,15 @@
 # reposets
 
+## 1.0.15
+
+### Bug Fixes
+
+- Updated cli commands with Effect v4 default flag handling to restore previous behavior.
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/spencerbeggs) for their contributions!
+
 ## 1.0.14
 
 ### Dependencies
