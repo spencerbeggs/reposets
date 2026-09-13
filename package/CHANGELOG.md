@@ -1,5 +1,28 @@
 # reposets
 
+## 1.0.14
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effect/platform-node | dependency | updated | 4.0.0-rc.112 | 4.0.0-rc.115 |
+| @effected/app | dependency | updated | ^0.15.0 | ^0.16.1 |
+| @effected/config-file | dependency | updated | ^0.7.0 | ^0.9.0 |
+| @effected/github | dependency | updated | ^0.9.0 | ^0.10.1 |
+| @effected/store | dependency | updated | ^0.7.0 | ^0.8.0 |
+| @effected/toml | dependency | updated | ^0.6.0 | ^0.7.0 |
+| @effected/xdg | dependency | updated | ^0.4.1 | ^0.5.1 |
+| effect | dependency | updated | 4.0.0-rc.112 | 4.0.0-rc.115 |
+
+[#134][#134]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contributions!
+
+[#134]: https://github.com/spencerbeggs/reposets/pull/134
+
 ## 1.0.13
 
 ### Dependencies
@@ -445,7 +468,9 @@ Thanks to [@spencerbeggs](https://github.com/spencerbeggs) for their contributio
   - `reposets.credentials.schema.json` now uses its raw GitHub URL as `$id`
 
   ### Schema Generation Pipeline
-  Replaced hand-rolled Ajv validation with xdg-effect's `JsonSchemaValidator`&#10;service. The generation script now uses the standard&#10;`generateMany` -> `validateMany` -> `writeMany` pipeline.
+  Replaced hand-rolled Ajv validation with xdg-effect's `JsonSchemaValidator`
+  service. The generation script now uses the standard
+  `generateMany` -> `validateMany` -> `writeMany` pipeline.
   ## Dependencies
   - Upgraded `xdg-effect` from 0.3.1 to 0.3.3
 
