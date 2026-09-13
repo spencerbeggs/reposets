@@ -3,7 +3,7 @@ import { Effect, FileSystem, Path } from "effect";
 import { Command, Flag, Prompt } from "effect/unstable/cli";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
 
-const forceFlag = Flag.boolean("force").pipe(
+const forceFlag = Flag.Boolean("force").pipe(
 	Flag.withDescription("Delete without asking. Intended for scripts; there is no undo"),
 );
 
@@ -134,7 +134,7 @@ export const nukeHandler = (
 			}
 
 			yield* Effect.log("");
-			const confirmed = yield* Prompt.confirm({
+			const confirmed = yield* Prompt.Confirm({
 				message: `Delete ${targets.length} file${targets.length === 1 ? "" : "s"}?`,
 			}).pipe(Effect.orElseSucceed(() => false));
 

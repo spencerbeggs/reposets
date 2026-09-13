@@ -6,7 +6,7 @@ import { makeConfigFilesLive } from "../services/ConfigFiles.js";
  * `--config`, as a global flag.
  *
  * @remarks
- * `GlobalFlag.setting` returns a `Context.Service` carrying the parsed value,
+ * `GlobalFlag.Setting` returns a `Context.Service` carrying the parsed value,
  * which is the bridge between parse time and layer-construction time: a layer
  * can require the flag in `R` instead of receiving it as a constructor argument.
  *
@@ -17,8 +17,8 @@ import { makeConfigFilesLive } from "../services/ConfigFiles.js";
  *
  * @public
  */
-export const ConfigFlag = GlobalFlag.setting("config")({
-	flag: Flag.string("config").pipe(
+export const ConfigFlag = GlobalFlag.Setting("config")({
+	flag: Flag.String("config").pipe(
 		Flag.withDescription("Path to reposets.config.toml, or a directory containing it"),
 		Flag.optional,
 	),

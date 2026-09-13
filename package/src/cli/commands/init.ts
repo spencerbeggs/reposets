@@ -4,7 +4,7 @@ import { Effect, FileSystem, Path } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
 
-const projectFlag = Flag.boolean("project").pipe(
+const projectFlag = Flag.Boolean("project").pipe(
 	Flag.withDescription("Scaffold into the current directory instead of the XDG config directory"),
 );
 

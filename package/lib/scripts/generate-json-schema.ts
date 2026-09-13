@@ -41,7 +41,14 @@ const program = Effect.gen(function* () {
 	const validator = yield* SchemaValidator;
 
 	for (const entry of entries) {
-		const document = yield* StoreDocument.fromSchema(entry.schema, { $id: entry.$id });
+		// Both TOML files decode strictly, so the published schema must reject
+		// unknown keys too. rc.115 flipped the generator default to open objects
+		// (`onExcessProperty: "ignore"`); without this the editor stops flagging a
+		// misspelled key that `validate` and `sync` would then refuse.
+		const document = yield* StoreDocument.fromSchema(entry.schema, {
+			$id: entry.$id,
+			jsonSchema: { onExcessProperty: "error" },
+		});
 
 		// Strict: the language-server keyword families (x-taplo, x-tombi-*) are
 		// carried through the Draft-07 lowering by AnnotationCarriers, and a
