@@ -3,12 +3,12 @@ import { Command, Flag } from "effect/unstable/cli";
 import type { ChangeAction, ChangeRecord, RunSummary } from "../../store/SyncJournal.js";
 import { SyncJournal } from "../../store/SyncJournal.js";
 
-const limitFlag = Flag.integer("limit").pipe(
+const limitFlag = Flag.Int("limit").pipe(
 	Flag.withDescription("How many runs to show, newest first"),
 	Flag.withDefault(20),
 );
 
-const repoFlag = Flag.string("repo").pipe(
+const repoFlag = Flag.String("repo").pipe(
 	Flag.withDescription('Only runs that touched this repository, as "owner/name"'),
 	Flag.optional,
 );
@@ -284,17 +284,14 @@ export const historyCommand = Command.make("history", { limit: limitFlag, repo: 
 	Command.withSubcommands([
 		Command.make(
 			"show",
-			{ run: Flag.string("run").pipe(Flag.withDescription("A run id, or a unique prefix")) },
+			{ run: Flag.String("run").pipe(Flag.withDescription("A run id, or a unique prefix")) },
 			({ run }) => showHandler(run),
 		).pipe(Command.withDescription("Show every resource one run touched")),
 
 		Command.make(
 			"prune",
 			{
-				keep: Flag.integer("keep").pipe(
-					Flag.withDescription("How many of the newest runs to keep"),
-					Flag.withDefault(50),
-				),
+				keep: Flag.Int("keep").pipe(Flag.withDescription("How many of the newest runs to keep"), Flag.withDefault(50)),
 			},
 			({ keep }) => pruneHandler(keep),
 		).pipe(Command.withDescription("Delete all but the newest runs from the journal")),

@@ -7,24 +7,24 @@ import { ReposetsCredentialsFile } from "../../services/ConfigFiles.js";
 
 const EMPTY: Credentials = { profiles: {} };
 
-const profileFlag = Flag.string("profile").pipe(Flag.withDescription("Credential profile name"));
+const profileFlag = Flag.String("profile").pipe(Flag.withDescription("Credential profile name"));
 
-const opFlag = Flag.string("op").pipe(
+const opFlag = Flag.String("op").pipe(
 	Flag.withDescription('1Password secret reference, e.g. "op://Vault/item/field"'),
 	Flag.optional,
 );
 
-const envFlag = Flag.string("env").pipe(
+const envFlag = Flag.String("env").pipe(
 	Flag.withDescription('Name of an environment variable holding the token, e.g. "REPOSETS_GITHUB_TOKEN"'),
 	Flag.optional,
 );
 
-const usernameFlag = Flag.string("username").pipe(
+const usernameFlag = Flag.String("username").pipe(
 	Flag.withDescription("The personal account this profile acts as. Mutually exclusive with --org"),
 	Flag.optional,
 );
 
-const orgFlag = Flag.string("org").pipe(
+const orgFlag = Flag.String("org").pipe(
 	Flag.withDescription("The organization this profile acts within. Mutually exclusive with --username"),
 	Flag.optional,
 );
