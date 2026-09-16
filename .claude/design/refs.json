@@ -10,14 +10,14 @@
 		{
 			"source": "CLAUDE.md",
 			"target": ".claude/design/reposets/cli-campaign-journal.md",
-			"hash": "36e171958be90f348faba640021a5c43d76bd37f65a940dbd1f7e04779b46dd1",
-			"recordedAt": "2026-08-14"
+			"hash": "f6bced8888a0c4c1a53f4bb83a6f893709f2378dbf3ac593bd461dfaed9629bf",
+			"recordedAt": "2026-09-16"
 		},
 		{
 			"source": "CLAUDE.md",
 			"target": ".claude/design/reposets/cli.md",
-			"hash": "ee4d1181fcf746c58e452f4b4785e7341dc6164ff57817aa7187d10cc32f0f10",
-			"recordedAt": "2026-08-14"
+			"hash": "0e4a1c4b1e08da64685293547200760c4023859849b205c328c962a0ab088fe3",
+			"recordedAt": "2026-09-16"
 		},
 		{
 			"source": "CLAUDE.md",
@@ -28,8 +28,8 @@
 		{
 			"source": "CLAUDE.md",
 			"target": ".claude/design/reposets/json-schema.md",
-			"hash": "153beecf6fdf69dc9baf34c3135bc8587d2181f2aa8631832fef54c337fb0a8d",
-			"recordedAt": "2026-08-14"
+			"hash": "6abc2afdb36909eab4faa1c01745af492ef3a81c37bc2f5bc937a37314752dc1",
+			"recordedAt": "2026-09-16"
 		},
 		{
 			"source": "CLAUDE.md",
@@ -46,8 +46,8 @@
 		{
 			"source": "CLAUDE.md",
 			"target": ".claude/design/reposets/session-handoff.md",
-			"hash": "f30f8658ee43459e244ee391de4c3d14044c6b70eefc499af84857877521fe30",
-			"recordedAt": "2026-08-14"
+			"hash": "7443a13c1a2074aa8d0af28fa329714897d7a7d9f4964b22c5a8db7016f50282",
+			"recordedAt": "2026-09-16"
 		}
 	]
 }
