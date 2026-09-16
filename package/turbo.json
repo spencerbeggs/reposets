@@ -2,15 +2,19 @@
 	"extends": ["//"],
 	"tasks": {
 		"build:dev": {
-			"dependsOn": ["$TURBO_EXTENDS$", "generate:json-schema"]
+			"dependsOn": ["$TURBO_EXTENDS$", "schema:build"]
 		},
 		"build:prod": {
-			"dependsOn": ["$TURBO_EXTENDS$", "generate:json-schema"]
+			"dependsOn": ["$TURBO_EXTENDS$", "schema:build"]
 		},
-		"generate:json-schema": {
+		"schema:build": {
 			"cache": true,
-			"inputs": ["src/schemas/**", "lib/scripts/generate-json-schema.ts"],
+			"inputs": ["src/schemas/**", "lib/configs/schemastore.config.ts"],
+			"outputLogs": "errors-only",
 			"outputs": ["schemas/**"]
+		},
+		"schema:check": {
+			"cache": false
 		}
 	}
 }

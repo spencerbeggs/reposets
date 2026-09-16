@@ -5,8 +5,8 @@ category: process
 status: current
 completeness: 95
 created: 2026-08-14
-updated: 2026-08-14
-last-synced: 2026-08-14
+updated: 2026-09-16
+last-synced: 2026-09-16
 related:
   - cli-campaign-journal.md
   - sandbox.md
@@ -46,7 +46,7 @@ That applies to the user's `!` shell too — a bare `SB=…` on its own line is 
 
 **Verify a build by content, not by mtime.** A `dist` whose mtime is *older* than its source can still be current — a lint pass touches source after the build. Grep the built chunk for the symbol, and grep a known-present symbol as a control.
 
-**`pnpm run test` regenerates `package/schemas/*.json`.** `vitest.setup.ts` runs `pnpm turbo run build:dev` as a global setup, and `build:dev` depends on `generate:json-schema`. Two consequences: the test suite mutates tracked files, and it writes them unformatted, so `pnpm test` followed by `pnpm lint` fails on formatting until `lint:fix` folds them back. This cost me three wrong conclusions about the schema generator, which was correct every time — its `unchanged` means "the file already matches what I would write", not "the schema did not change".
+**`pnpm run test` regenerates `package/schemas/*.json`.** `vitest.setup.ts` runs `pnpm turbo run build:dev` as a global setup, and `build:dev` depends on `schema:build` (the `@effected/schemastore-cli` build, replacing the old `generate:json-schema` script — see [json-schema.md](json-schema.md)). Two consequences: the test suite mutates tracked files, and it writes them unformatted, so `pnpm test` followed by `pnpm lint` fails on formatting until `lint:fix` folds them back. This cost me three wrong conclusions about the schema generator, which was correct every time — its `unchanged` means "the file already matches what I would write", not "the schema did not change".
 
 **The push guard false-positives on unrelated repos.** Pushing `reposets-sandbox/sandbox-alpha` — a repo with three files and no manifest — was blocked because *this* repo carries `file:` overrides. Worth reporting to the silk plugin; the guard appears to read the session's cwd rather than the push target. Do not work around it; ask.
 

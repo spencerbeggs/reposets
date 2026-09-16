@@ -61,6 +61,9 @@ catalogs:
     '@effected/schemastore':
       specifier: ^0.12.0
       version: 0.12.0
+    '@effected/schemastore-cli':
+      specifier: ^0.12.0
+      version: 0.12.0
     '@effected/store':
       specifier: ^0.8.0
       version: 0.8.0
@@ -70,10 +73,6 @@ catalogs:
     '@effected/xdg':
       specifier: ^0.5.2
       version: 0.5.2
-  silk:
-    tsx:
-      specifier: ^4.23.13
-      version: 4.23.13
 
 overrides:
   '@effect/vitest>vitest': ^5.0.0
@@ -134,15 +133,15 @@ importers:
       '@effected/schemastore':
         specifier: catalog:effected
         version: 0.12.0(effect@4.0.0-rc.115)
+      '@effected/schemastore-cli':
+        specifier: catalog:effected
+        version: 0.12.0(@effected/config-file@0.10.0(@effected/jsonc@0.11.0(effect@4.0.0-rc.115))(@effected/toml@0.7.0(effect@4.0.0-rc.115))(@effected/walker@0.9.0(@effected/glob@0.6.0(effect@4.0.0-rc.115))(effect@4.0.0-rc.115))(@effected/yaml@0.15.1(effect@4.0.0-rc.115))(effect@4.0.0-rc.115))(@effected/schemastore@0.12.0(effect@4.0.0-rc.115))(effect@4.0.0-rc.115)(redis@6.2.1)
       '@savvy-web/bundler':
         specifier: ^2.3.9
         version: 2.3.9(@effected/jsonc@0.11.0(effect@4.0.0-rc.115))(@effected/semver@0.7.0(effect@4.0.0-rc.115))(@effected/walker@0.9.0(@effected/glob@0.6.0(effect@4.0.0-rc.115))(effect@4.0.0-rc.115))(@types/node@26.5.1)(react@19.3.0)(redis@6.2.1)(tsx@4.23.13)(typescript@7.0.2)
       '@types/node':
         specifier: catalog:build
         version: 26.5.1
-      tsx:
-        specifier: catalog:silk
-        version: 4.23.13
       typescript:
         specifier: catalog:build
         version: 7.0.2
@@ -524,6 +523,14 @@ packages:
     resolution: {integrity: sha512-agkMQQsQNPhOCf21GDMy6ribN5rI4O0ELyJ/eKlNAN/GspE3dqyh7HU6uvC+W1f+amhaEcyFwxkl3RxcfcOzdQ==}
     engines: {node: '>=24.11.0'}
     peerDependencies:
+      effect: 4.0.0-rc.115
+
+  '@effected/schemastore-cli@0.12.0':
+    resolution: {integrity: sha512-NvyowrlUjtVzQde1ggbFDDW2I8soF0b849NXPBxCENt57zrcMCJS1icBfpf3cOsQFswgdugPkr+zPgzUtrXGWw==}
+    engines: {node: '>=24.11.0'}
+    hasBin: true
+    peerDependencies:
+      '@effected/schemastore': 0.12.0
       effect: 4.0.0-rc.115
 
   '@effected/schemastore@0.12.0':
@@ -1457,6 +1464,12 @@ packages:
     engines: {node: '>=24.11.0'}
     cpu: [x64]
     os: [linux]
+
+  '@vitest-agent/sidecar-win32-x64@2.1.21':
+    resolution: {integrity: sha512-13CUX9SnMzANBCPvkSGdW5N3zZMT9t0QeGvmp0iVtGfslHYqI16f0gTaFnW7w2gFyWkuU2Aokby1rEm1kKespQ==}
+    engines: {node: '>=24.11.0'}
+    cpu: [x64]
+    os: [win32]
 
   '@vitest-agent/sidecar@2.1.21':
     resolution: {integrity: sha512-dw+NE/66nMLdXjIdnj8k+X0VAtJ0w4+h5+vmXxmvPS4SdkxkFBE8Y4Djux4f6z/ZZq/qrjl0xtGSLErgBvr2Nw==}
@@ -3492,6 +3505,21 @@ snapshots:
       '@effected/spdx': 0.7.0(effect@4.0.0-rc.115)
       effect: 4.0.0-rc.115
 
+  '@effected/schemastore-cli@0.12.0(@effected/config-file@0.10.0(@effected/jsonc@0.11.0(effect@4.0.0-rc.115))(@effected/toml@0.7.0(effect@4.0.0-rc.115))(@effected/walker@0.9.0(@effected/glob@0.6.0(effect@4.0.0-rc.115))(effect@4.0.0-rc.115))(@effected/yaml@0.15.1(effect@4.0.0-rc.115))(effect@4.0.0-rc.115))(@effected/schemastore@0.12.0(effect@4.0.0-rc.115))(effect@4.0.0-rc.115)(redis@6.2.1)':
+    dependencies:
+      '@effect/platform-node': 4.0.0-rc.115(effect@4.0.0-rc.115)(redis@6.2.1)
+      '@effected/cli': 0.5.1(@effected/config-file@0.10.0(@effected/jsonc@0.11.0(effect@4.0.0-rc.115))(@effected/toml@0.7.0(effect@4.0.0-rc.115))(@effected/walker@0.9.0(@effected/glob@0.6.0(effect@4.0.0-rc.115))(effect@4.0.0-rc.115))(@effected/yaml@0.15.1(effect@4.0.0-rc.115))(effect@4.0.0-rc.115))(effect@4.0.0-rc.115)
+      '@effected/schemastore': 0.12.0(effect@4.0.0-rc.115)
+      ajv: 8.20.0
+      ajv-formats: 3.0.1(ajv@8.20.0)
+      effect: 4.0.0-rc.115
+      jiti: 2.6.1
+    transitivePeerDependencies:
+      - '@effected/config-file'
+      - bufferutil
+      - redis
+      - utf-8-validate
+
   '@effected/schemastore@0.12.0(effect@4.0.0-rc.115)':
     dependencies:
       '@effected/semver': 0.7.0(effect@4.0.0-rc.115)
@@ -4438,11 +4466,15 @@ snapshots:
   '@vitest-agent/sidecar-linux-x64@2.1.21':
     optional: true
 
+  '@vitest-agent/sidecar-win32-x64@2.1.21':
+    optional: true
+
   '@vitest-agent/sidecar@2.1.21':
     optionalDependencies:
       '@vitest-agent/sidecar-darwin-arm64': 2.1.21
       '@vitest-agent/sidecar-linux-arm64': 2.1.21
       '@vitest-agent/sidecar-linux-x64': 2.1.21
+      '@vitest-agent/sidecar-win32-x64': 2.1.21
 
   '@vitest-agent/ui@2.4.5(ink@7.1.1(react@19.3.0))(react@19.3.0)':
     dependencies:

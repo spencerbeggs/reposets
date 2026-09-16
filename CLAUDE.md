@@ -18,10 +18,10 @@ Load the relevant doc when working on that subsystem. Do NOT load all of them at
 ## Commands
 
 ```bash
-pnpm run build         # turbo build:dev + build:prod (generate:json-schema runs first)
+pnpm run build         # turbo build:dev + build:prod (schema:build runs first)
 pnpm run typecheck     # turbo types:check across workspaces
 pnpm run types:check   # tsc --noEmit at the repo root
-pnpm cli               # run the CLI from source: tsx package/src/cli/index.ts
+pnpm exec reposets     # run the CLI from the dev build (node_modules/reposets -> package/dist/dev/pkg)
 pnpm run test          # vitest run; coverage is always on
 pnpm run test:watch
 pnpm run test:coverage
@@ -29,10 +29,11 @@ pnpm run lint          # biome check
 pnpm run lint:fix
 pnpm run lint:md
 pnpm run lint:md:fix
-pnpm --filter reposets generate:json-schema   # regenerate package/schemas/
+pnpm --filter reposets schema:build   # regenerate package/schemas/
+pnpm --filter reposets schema:check   # CI gate: 0 clean, 1 drift/stale/gate failure, 2 config problem
 ```
 
-`pnpm run test` rewrites `package/schemas/*.json`: `vitest.setup.ts` runs `turbo run build:dev` as a global setup and `build:dev` depends on `generate:json-schema`. It writes them unformatted, so `pnpm run lint` fails on formatting after a test run until `lint:fix` folds them back. Expect it — it is not a regression.
+`pnpm run test` rewrites `package/schemas/*.json`: `vitest.setup.ts` runs `turbo run build:dev` as a global setup and `build:dev` depends on `schema:build`. It writes them unformatted, so `pnpm run lint` fails on formatting after a test run until `lint:fix` folds them back. Expect it — it is not a regression.
 
 ## Repository layout
 
@@ -46,7 +47,7 @@ package/src/store/        # AppliedState, SyncJournal, RepoCache, migrations (SQ
 package/src/sync/         # SyncEngine, the Phase contract, decide(); phases/ holds one module per phase
 package/src/schemas/      # Effect Schema: config, credentials, common, environment, ruleset, annotations
 package/src/lib/          # config-refs, org-only, credential-labels, fingerprint, schema-issues
-package/lib/scripts/      # generate-json-schema.ts
+package/lib/configs/      # schemastore.config.ts
 package/__test__/         # tests mirroring src/
 lib/configs/              # commitlint, lint-staged, markdownlint
 ```
@@ -57,7 +58,8 @@ There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. E
 
 `package/` builds with `@savvy-web/bundler`, driven by `package/savvy.build.ts` (`node savvy.build.ts --target dev|prod`). Turbo tasks, with `package/turbo.json` extending the root:
 
-- `generate:json-schema` — `tsx lib/scripts/generate-json-schema.ts`; both build tasks depend on it
+- `schema:build` — `schemastore build lib/configs/schemastore.config.ts`; both build tasks depend on it. Cached on `src/schemas/**` and the config, outputs `schemas/**`
+- `schema:check` — same config, uncached; the CI gate
 - `build:dev` → `dist/dev/pkg/`
 - `build:prod` → `dist/prod/npm/pkg/` and `dist/prod/github/pkg/`
 - `types:check` → `tsc --noEmit`
@@ -125,7 +127,9 @@ Lookup order, first match wins: `--config`, then an upward walk from cwd for `re
 
 ### JSON schema
 
-`package/lib/scripts/generate-json-schema.ts` builds `package/schemas/` from `ConfigSchema` and `CredentialsSchema` using `@effected/schemastore`: `StoreDocument.fromSchema` → `SchemaValidator.validate` in strict mode → `SchemaFile.write`. The `tombi()` / `taplo()` / `docs()` annotation helpers are **local**, in `package/src/schemas/annotations.ts`, and their results spread at the top level of `.annotate({ ... })` — v4 has no `jsonSchema` annotation to nest them under.
+`package/lib/configs/schemastore.config.ts` is a `defineConfig({...})` from `@effected/schemastore`, run by the `schemastore` bin from `@effected/schemastore-cli` (same version, `catalog:effected`). It builds `package/schemas/` from `ConfigSchema` and `CredentialsSchema`, plus `catalog.json` from each entry's `catalog: { description, fileMatch }`. There is no hand-rolled generator: 0.12 moved the ajv engine into the CLI (`AjvValidator.layer`), so the library no longer exports `SchemaValidator.layer` to wire.
+
+Decisions in the config are load-bearing: entries are keyed `reposets.config.schema` / `reposets.credentials.schema` so the `$id` derived from `baseUrl` (raw GitHub, `main`) with `layout: "flat"` and no `versions` is byte-identical to the URLs the SchemaStore catalog pins. Both are `published: true` with `drift: "allow"` because they are unversioned — there is no label to bump into, so they regenerate in place. 0.12 closes generated objects by default; do not re-add the old `onExcessProperty: "error"` pin. The `tombi()` / `taplo()` / `docs()` annotation helpers are **local**, in `package/src/schemas/annotations.ts`, and their results spread at the top level of `.annotate({ ... })` — v4 has no `jsonSchema` annotation to nest them under.
 
 ### Token permissions
 
