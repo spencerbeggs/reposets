@@ -61,3 +61,6 @@ tombi.toml
 
 # dogfood mailbox (local collaboration state)
 .claude/dogfood/
+
+# okfit migration scratch
+.okfit-migration/

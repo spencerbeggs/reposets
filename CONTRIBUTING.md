@@ -69,4 +69,4 @@ Open a PR with a clear description of what changed and why.
 
 ## Architecture
 
-This project uses Effect for all async work and service composition. See `.claude/design/` for architecture docs if you need deeper context.
+This project uses Effect for all async work and service composition. See the OKF bundle under `okf/` (start at `okf/index.md`) for architecture docs if you need deeper context.

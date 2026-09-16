@@ -2,18 +2,21 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## Design documentation
+## Design knowledge lives in the bundle
 
-Load the relevant doc when working on that subsystem. Do NOT load all of them at once.
+This repository's design knowledge — architecture, service boundaries, config format, CLI behavior, decisions, gotchas, invariants — is an [OKF](https://github.com/spencerbeggs/okfit) bundle under `okf/`. Start at `okf/index.md`, which lists every subdirectory, and read `okf/project.md` for what this repository is and its non-goals. Load the concept relevant to the subsystem you are touching; do NOT load the whole bundle at once. The `mcp__plugin_okfit_mcp__*` tools (`list_concepts`, `get_concept`, `concept_neighbors`, `describe_vocabulary`, `validate_bundle`, `stale_report`) are the preferred way to browse it; `pnpm exec okfit validate .` is the shell fallback.
 
-- Architecture, layer composition, the phase pipeline, drift detection and local state → `@./.claude/design/reposets/architecture.md`
-- Each service's responsibility and the boundaries between them → `@./.claude/design/reposets/services.md`
-- TOML config and credentials format, and the 1.0 breaking changes → `@./.claude/design/reposets/config-format.md`
-- Command surface, flags and output decisions → `@./.claude/design/reposets/cli.md`
-- Build-time JSON schema generation → `@./.claude/design/reposets/json-schema.md`
-- Sandbox repositories and live testing → `@./.claude/design/reposets/sandbox.md`
-- What running the CLI against real repositories found, wave by wave → `@./.claude/design/reposets/cli-campaign-journal.md`
-- Where the current work stands and the traps that cost time → `@./.claude/design/reposets/session-handoff.md`
+A first-turn shortlist:
+
+- `okf/modules/reposets.md` — the one workspace package: CLI, sync engine, phases, services
+- `okf/interfaces/cli.md` — the command tree, flags, and exit-code promises
+- `okf/interfaces/config-file.md` — `reposets.config.toml`'s shape
+- `okf/interfaces/credentials-file.md` — `reposets.credentials.toml`'s shape
+- `okf/conventions/*` — imports, code style, Effect patterns, commits
+- `okf/runbooks/sandbox-campaign.md` — activating the gitignored sandbox config for live testing
+- `okf/gotchas/test-run-rewrites-schemas.md` — why `pnpm run lint` fails right after `pnpm run test`
+- `okf/gotchas/pnpm-exec-runs-the-dev-build.md` — why a source change looks invisible until rebuilt
+- `okf/gotchas/nul-bytes-hide-from-grep.md` — why a plain `grep` can silently miss a match in the store
 
 ## Commands
 
@@ -33,7 +36,7 @@ pnpm --filter reposets schema:build   # regenerate package/schemas/
 pnpm --filter reposets schema:check   # CI gate: 0 clean, 1 drift/stale/gate failure, 2 config problem
 ```
 
-`pnpm run test` rewrites `package/schemas/*.json`: `vitest.setup.ts` runs `turbo run build:dev` as a global setup and `build:dev` depends on `schema:build`. It writes them unformatted, so `pnpm run lint` fails on formatting after a test run until `lint:fix` folds them back. Expect it — it is not a regression.
+`pnpm run test` rewrites `package/schemas/*.json` unformatted, which then fails `pnpm run lint` until `lint:fix` runs — see `okf/gotchas/test-run-rewrites-schemas.md`.
 
 ## Repository layout
 
@@ -52,114 +55,27 @@ package/__test__/         # tests mirroring src/
 lib/configs/              # commitlint, lint-staged, markdownlint
 ```
 
-There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github`. Read that package rather than looking for a wrapper here.
+There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github` — read that package rather than looking for a wrapper here.
 
 ## Build system
 
-`package/` builds with `@savvy-web/bundler`, driven by `package/savvy.build.ts` (`node savvy.build.ts --target dev|prod`). Turbo tasks, with `package/turbo.json` extending the root:
-
-- `schema:build` — `schemastore build lib/configs/schemastore.config.ts`; both build tasks depend on it. Cached on `src/schemas/**` and the config, outputs `schemas/**`
-- `schema:check` — same config, uncached; the CI gate
-- `build:dev` → `dist/dev/pkg/`
-- `build:prod` → `dist/prod/npm/pkg/` and `dist/prod/github/pkg/`
-- `types:check` → `tsc --noEmit`
-
-Dual registry, from `publishConfig.targets`: npm (`reposets`) and GitHub Packages (`@spencerbeggs/reposets`).
+`package/` builds with `@savvy-web/bundler`, driven by `package/savvy.build.ts` (`node savvy.build.ts --target dev|prod`). Turbo tasks, with `package/turbo.json` extending the root: `schema:build` (cached, both build tasks depend on it), `schema:check` (uncached CI gate), `build:dev` → `dist/dev/pkg/`, `build:prod` → `dist/prod/npm/pkg/` and `dist/prod/github/pkg/`, `types:check` → `tsc --noEmit`. Dual registry publishing (npm `reposets` and GitHub Packages `@spencerbeggs/reposets`) is detailed in `okf/modules/workspace.md`.
 
 ## TypeScript
 
-- TypeScript 7, the native compiler, invoked as `tsc`. No project references.
-- Root `tsconfig.json` extends `@savvy-web/silk/tsconfig/node/root.json`; `package/tsconfig.json` extends `@savvy-web/bundler/tsconfig/ecma.json`.
-- Target `es2025`, module and resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`.
-- The root `skipLibCheck: true` is a **temporary** workaround for a broken declaration in `effect@4.0.0-beta.107`. Remove it once a fixed beta ships.
+TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround for a broken declaration in `effect@4.0.0-beta.107` — remove it once a fixed beta ships.
 
 ## reposets CLI
 
-CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos.
+CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos. Built on **`effect/unstable/cli`, from core** — see the three warnings below and `okf/interfaces/cli.md` for the full command tree, flags and exit codes; `okf/interfaces/config-file.md` and `okf/interfaces/credentials-file.md` for the two TOML files' shapes; `okf/interfaces/json-schemas.md` for how `package/schemas/*.json` is built; `okf/interfaces/token-permissions.md` for the required fine-grained PAT scopes.
 
-- Built on **`effect/unstable/cli`, from core**. `@effect/cli` does not exist on the Effect v4 line — do not reach for it.
-- `package/src/cli/index.ts` bootstraps `App.layer` (`@effected/app`) and provides `ConfigLive`, `CredentialsFilesLive` and `SyncJournalLive` once at the root command.
-- All async work is modeled as Effect programs.
+## Three early traps
 
-### CLI commands
-
-Global flag: `--config` (a path to `reposets.config.toml`, or a directory containing it). Core contributes `--help`, `--version`, `--wizard` and `--log-level`.
-
-`--log-level` is **core's own severity filter** (`all|trace|debug|…|none`) and it is the per-run silencer. There is no `log_level` config key and no verbosity tiers — 1.0 deleted both. Output is one level, plus `--debug` on `sync` and `drift` for two diagnostic suffixes.
-
-- `sync` — apply the config to every repo in a group, or all groups. `--dry-run`, `--no-cleanup`, `--fail-on-drift`, `--group`, `--repo`, `--debug`, and `--only`/`--skip` to select phases by name (`--only` wins over `--skip`)
-- `drift` — report resources changed outside reposets and change nothing; exits non-zero when drift is found. It is `sync --dry-run --no-cleanup --fail-on-drift` through the same handler, deliberately
-- `list`, `validate`, `doctor`
-- `history` [`--limit`, `--repo`], with `show --run <id-or-prefix>`, `prune --keep <n>` and `clear`. Both deletions leave applied state and the cache alone, so drift detection still works
-- `init [--project]` — scaffold both TOML files into the XDG config dir, or into cwd with `--project`
-- `nuke [--force]` — delete every reposets file on this machine. Nothing on GitHub is touched, and it refuses a non-interactive shell without `--force`
-- `credentials create|list|delete` — manage named profiles; `create` takes exactly one of `--username`/`--org` and one of `--op`/`--env`
-
-`validate` and `doctor` run offline and check reference integrity (`danglingReferences`), organization-only constructs (`orgOnlyViolations`) and undeclared credential labels (`undefinedCredentialLabels`) — pure functions in `package/src/lib/`, called by the commands. They are **not** registered on the config spec's `validate` callback: v3's `validateConfigRefs` is gone, and the rebuild's loss of it made a misspelled section name sync nothing, report nothing and exit 0. `sync` runs `danglingReferences` before it writes.
-
-`doctor` prints migration hints for the keys 1.0 removed (`owner`, `owner` inside a group, `log_level`) rather than reporting them as unknown keys.
-
-### Services
-
-Four services live here: `ConfigFiles` (`ReposetsConfigFile` + `ReposetsCredentialsFile` over `@effected/config-file`, both decoding strictly), `CredentialResolver`, `OnePasswordClient` and `SyncLogger`. Three store services — `AppliedState`, `SyncJournal`, `RepoCache` — are wired by `App.layer`.
-
-`SyncEngine` walks a list of `Phase` values, which are **data** rather than a hardcoded sequence — that is what lets `--only`/`--skip` select a subset. `PHASE_NAMES` is the order and the array is the contract: settings → security → code-scanning → environments → secrets → variables → rulesets → cleanup. Environments must exist before environment-scoped secrets, and `cleanup` runs last because every other phase's writes define what "declared" means.
-
-`sync` merges eight `@effected/github` services over `GitHubClient.layerFromToken({ token })`. A token is fixed at client construction, so `sync` partitions groups by credential profile and runs one engine per partition, while providing journal, logger, cache and resolver **once** around the whole loop.
-
-### Configuration files
-
-Lookup order, first match wins: `--config`, then an upward walk from cwd for `reposets.config.toml`, then `~/.config/reposets/` (respecting `$XDG_CONFIG_HOME`). `--config` **replaces** the walk rather than preceding it, and a `--config` path that does not exist fails instead of falling through.
-
-| File | Contents |
-| :--- | :------- |
-| `reposets.config.toml` | `[settings.*]`, `[secrets.*]`, `[variables.*]`, `[rulesets.*]`, `[environments.*]`, `[security.*]`, `[code_scanning.*]` and `[groups.*]`. Every section defaults to `{}` |
-| `reposets.credentials.toml` | `[profiles.<name>]` with exactly one of `username`/`org`, a `github_token` **reference**, an optional `op_service_account`, and an optional `[resolve]` section |
-
-1.0 breaking changes, all load-bearing:
-
-- **No `owner` in the config**, at top level or per group. The owner is a property of the credential profile, which declares exactly one of `username` or `org`. The declared type is what lets `validate` reject org-only constructs offline; `sync` still verifies it against GitHub before writing.
-- **`credentials` is required on every `[groups.*]`**, and it selects the profile's **token**, not only its `[resolve]` values.
-- **Tokens are never stored on disk.** `github_token` is `{ op = "op://..." }` or `{ env = "VAR" }`. `op_service_account` is an `{ env }` reference; the 1Password service-account token itself comes from `OP_SERVICE_ACCOUNT_TOKEN`.
-- **`log_level` and the four verbosity tiers are deleted.**
-
-`[resolve]` has four sub-groups — `op`, `env`, `file` and `value` — contributing to one flat label namespace. Secret and variable groups are discriminated unions of exactly one kind: `{ file }`, `{ value }` or `{ resolved }`. Cleanup is per group, each scope a three-way `CleanupScope`: `false`, `true`, or `{ preserve = [...] }`; security and code scanning have no cleanup scope, so omitted means leave alone. Keep `reposets.credentials.toml` out of version control.
-
-### JSON schema
-
-`package/lib/configs/schemastore.config.ts` is a `defineConfig({...})` from `@effected/schemastore`, run by the `schemastore` bin from `@effected/schemastore-cli` (same version, `catalog:effected`). It builds `package/schemas/` from `ConfigSchema` and `CredentialsSchema`, plus `catalog.json` from each entry's `catalog: { description, fileMatch }`. There is no hand-rolled generator: 0.12 moved the ajv engine into the CLI (`AjvValidator.layer`), so the library no longer exports `SchemaValidator.layer` to wire.
-
-Decisions in the config are load-bearing: entries are keyed `reposets.config.schema` / `reposets.credentials.schema` so the `$id` derived from `baseUrl` (raw GitHub, `main`) with `layout: "flat"` and no `versions` is byte-identical to the URLs the SchemaStore catalog pins. Both are `published: true` with `drift: "allow"` because they are unversioned — there is no label to bump into, so they regenerate in place. 0.12 closes generated objects by default; do not re-add the old `onExcessProperty: "error"` pin. The `tombi()` / `taplo()` / `docs()` annotation helpers are **local**, in `package/src/schemas/annotations.ts`, and their results spread at the top level of `.annotate({ ... })` — v4 has no `jsonSchema` annotation to nest them under.
-
-### Token permissions
-
-A fine-grained personal access token is required. `REQUIRED_PERMISSIONS` in `package/src/cli/commands/doctor.ts` is the authority and `doctor` prints it — read it there rather than duplicating the list. Two entries are counterintuitive and easy to "fix" wrongly: **Repository > Actions is Read**, because the code-scanning phase only counts workflow files, and there is **no account-level permission** — v3 listed `Account permissions > GPG keys` as the secrets-encryption scope, which was wrong. Secret public keys come from repository-scoped endpoints already covered by Secrets.
+- **`@effect/cli` does not exist on the Effect v4 line.** Use `effect/unstable/cli` instead.
+- **There is no `package/src/services/github/`.** Every GitHub resource service lives upstream in `@effected/github` — read that package.
+- **`blakejs` is CommonJS.** Default-import then destructure: `import { blake2bHex } from "blakejs"` builds cleanly and throws at runtime.
 
 ## Conventions
 
-### Imports
-
-- `.js` extensions on relative imports (enforced by Biome's `useImportExtensions`)
-- `node:` protocol for Node built-ins (`useNodejsImportProtocol`)
-- `import type` for type-only imports
-- `blakejs` is **CommonJS**: default-import then destructure. `import { blake2bHex } from "blakejs"` builds cleanly and throws at runtime
-
-### Code style (Biome)
-
-`biome.jsonc` extends `@savvy-web/silk/biome`. Tabs, 120-column lines, no unused variables, no import cycles. `useExplicitType` is **off** — explicit return types are a house convention here, not a lint error.
-
-### Effect patterns
-
-- Services are `Context.Service` classes; layers via `Layer.effect` / `Layer.succeed`
-- Errors are tagged data classes extending `Data.TaggedError`
-- CLI commands use `Effect.log`/`Effect.logError`, never `Console.log`; `CliLogger` routes Error and Fatal to stderr and reads `Console` off the fiber
-- All sync output flows through `SyncLogger` rather than direct console calls
-- Resolved credentials are `Redacted.Redacted<string>`; unwrap only where a value must physically leave the process
-- I/O wrapped in `Effect.try` / `Effect.tryPromise`
-- Provide layers at the entrypoint and in per-command handlers, never inside service implementations
-
-### Commits
-
-- Conventional commit format required (commitlint)
-- Types: build, chore, ci, docs, feat, fix, perf, refactor, release, revert, style, test
-- DCO signoff required: `Signed-off-by: Name <email>`
+Imports, code style, Effect patterns and commit format are documented in `okf/conventions/*` — load the relevant one rather than duplicating it here.
+</content>

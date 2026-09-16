@@ -1,0 +1,12 @@
+#:schema https://raw.githubusercontent.com/spencerbeggs/okfit/main/schemas/1.0/config.json
+
+[bundle]
+path = "okf"
+profile = "software-project"
+
+[actors]
+agent = "okfit/claude-code"
+humans = ["human:spencer"]
+
+[tags.effect]
+description = "Concerns an Effect v4 idiom: layers, services, error channels, schemas, or the effect/unstable/cli framework."
