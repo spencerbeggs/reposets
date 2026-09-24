@@ -1,5 +1,21 @@
 # reposets
 
+## 1.0.21
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/github | dependency | updated | ^0.12.0 | ^0.13.0 |
+
+[#166][#166]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contributions!
+
+[#166]: https://github.com/spencerbeggs/reposets/pull/166
+
 ## 1.0.20
 
 ### Dependencies
