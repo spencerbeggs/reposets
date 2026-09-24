@@ -36,8 +36,8 @@
 	},
 	"devDependencies": {
 		"@okfit/plugin": "^0.5.2",
-		"@savvy-web/silk": "^4.2.7",
-		"@vitest-agent/plugin": "^4.1.6",
+		"@savvy-web/silk": "^4.2.8",
+		"@vitest-agent/plugin": "^4.1.7",
 		"reposets": "workspace:*"
 	},
 	"engines": {
