@@ -1,7 +1,9 @@
+import { CliExit } from "@effected/cli";
 import { AppDirs } from "@effected/xdg";
-import { Effect, FileSystem, Path } from "effect";
-import { Command, Flag, Prompt } from "effect/unstable/cli";
+import { Console, Effect, FileSystem, Path, Stdio } from "effect";
+import { CliError, Command, Flag, Prompt } from "effect/unstable/cli";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
+import { Invocation } from "../../services/Invocation.js";
 
 const forceFlag = Flag.Boolean("force").pipe(
 	Flag.withDefault(false),
@@ -100,47 +102,50 @@ export const nukeHandler = (
 	force: boolean,
 	// `Prompt` runs against the CLI's own environment rather than raw stdio,
 	// which is what lets a test drive the confirmation without a terminal.
-): Effect.Effect<void, never, FileSystem.FileSystem | Path.Path | AppDirs | Command.Environment> =>
+): Effect.Effect<
+	void,
+	CliError.UserError,
+	FileSystem.FileSystem | Path.Path | AppDirs | Invocation | Command.Environment | CliExit
+> =>
 	Effect.gen(function* () {
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
 		const appDirs = yield* AppDirs;
+		const { cwd } = yield* Invocation;
 
-		const targets = yield* findTargets(fs, path, appDirs, process.cwd());
+		const targets = yield* findTargets(fs, path, appDirs, cwd);
 
 		if (targets.length === 0) {
-			yield* Effect.log("Nothing to remove — no reposets files found on this machine.");
+			yield* Console.log("Nothing to remove — no reposets files found on this machine.");
 			return;
 		}
 
-		yield* Effect.log("This will delete:");
+		yield* Console.log("This will delete:");
 		for (const target of targets) {
-			yield* Effect.log(`  ${target.path}`);
-			yield* Effect.log(`    ${target.what} — loses ${target.cost}`);
+			yield* Console.log(`  ${target.path}`);
+			yield* Console.log(`    ${target.what} — loses ${target.cost}`);
 		}
-		yield* Effect.log("");
-		yield* Effect.log("Nothing on GitHub is touched. Everything reposets applied stays applied.");
+		yield* Console.log("");
+		yield* Console.log("Nothing on GitHub is touched. Everything reposets applied stays applied.");
 
 		if (!force) {
-			// `process.stdin.isTTY` is undefined when piped. Prompting there either
-			// hangs forever or reads whatever happens to be on stdin, and both are
-			// worse than refusing.
-			if (process.stdin.isTTY !== true) {
-				yield* Effect.logError("");
-				yield* Effect.logError("Refusing: not an interactive terminal, and --force was not given.");
-				yield* Effect.sync(() => {
-					process.exitCode = 1;
-				});
-				return;
+			// A piped stdin is not a terminal. Prompting there either hangs forever
+			// or reads whatever happens to be on stdin, and both are worse than
+			// refusing — which is a usage error: the invocation needed `--force`.
+			const stdio = yield* Stdio.Stdio;
+			if (!(yield* stdio.stdinIsTerminal)) {
+				return yield* Effect.fail(
+					new CliError.UserError({ cause: "Refusing: not an interactive terminal, and --force was not given." }),
+				);
 			}
 
-			yield* Effect.log("");
+			yield* Console.log("");
 			const confirmed = yield* Prompt.Confirm({
 				message: `Delete ${targets.length} file${targets.length === 1 ? "" : "s"}?`,
 			}).pipe(Effect.orElseSucceed(() => false));
 
 			if (!confirmed) {
-				yield* Effect.log("Nothing was deleted.");
+				yield* Console.log("Nothing was deleted.");
 				return;
 			}
 		}
@@ -153,15 +158,20 @@ export const nukeHandler = (
 				continue;
 			}
 			removed += 1;
-			yield* Effect.log(`  removed ${target.path}`);
+			yield* Console.log(`  removed ${target.path}`);
 		}
 
-		yield* Effect.log("");
-		yield* Effect.log(
+		yield* Console.log("");
+		yield* Console.log(
 			removed === targets.length
 				? `Done. ${removed} file${removed === 1 ? "" : "s"} removed.`
 				: `Removed ${removed} of ${targets.length}; the rest are listed above.`,
 		);
+		// A file left behind is a real failure — the user asked for it gone — so
+		// the run exits 1, after every target has been attempted and reported.
+		if (removed < targets.length) {
+			yield* CliExit.set(1);
+		}
 	});
 
 /**

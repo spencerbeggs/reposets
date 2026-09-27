@@ -2,7 +2,7 @@
 title: Reference checks live on commands, not the config loader
 description: danglingReferences, orgOnlyViolations and undefinedCredentialLabels are pure functions commands call, not a config-spec validate callback.
 type: Decision
-status: stable
+status: deprecated
 tags: [architecture, dx]
 generated:
   by: okfit/claude-code
@@ -16,7 +16,7 @@ sources:
   - id: credential-labels
     resource: ../../package/src/lib/credential-labels.ts
   - id: schema-issues
-    resource: ../../package/src/lib/schema-issues.ts
+    resource: https://github.com/spencerbeggs/reposets/blob/44aea126785aa7eb2168e9ce3adee93e1288c724/package/src/lib/schema-issues.ts
   - id: validate-command
     resource: ../../package/src/cli/commands/validate.ts
   - id: sync-command

@@ -5,8 +5,8 @@ description: Import extension and protocol rules, blakejs's CommonJS trap, and t
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 3c864ffb7082f65b061cda75e8d71ca3c551b927dae1bbaf43457abf028aa58b
+  at: 2026-09-27T17:39:49Z
+  body_sha256: 63441352d9b3e4e7bebcba0af4e34d4ff61d4083ca9cd65f546c138bf826400a
 tags: [dx]
 ---
 
@@ -17,7 +17,10 @@ Use `.js` extensions on every relative import, even though the source is
 Node resolves at runtime under `nodenext`.
 
 Use the `node:` protocol for every Node built-in (`node:fs`, `node:path`,
-`node:process`) — Biome's `useNodejsImportProtocol` rule enforces this.
+`node:os`) — Biome's `useNodejsImportProtocol` rule enforces this. Do not
+import `node:process` below the CLI entrypoint at all; see
+[`effect-patterns.md`](effect-patterns.md) for the `Invocation` service
+that replaces it.
 
 Use `import type` for every type-only import — `verbatimModuleSyntax` in
 `tsconfig.json` makes a plain `import` of a type-only binding a compile

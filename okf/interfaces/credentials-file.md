@@ -7,8 +7,8 @@ resource: ../../package/src/schemas/credentials.ts
 tags: [security, github]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 7acd04e1668513ea9196bf31f637eb3495af816dbb3ef17a8c1a5631e1d98cab
+  at: 2026-09-27T17:39:49Z
+  body_sha256: 2a20dd005bb87b9a362d6263746fb841375c53b377edbae147a9fd154262d1f0
 sources:
   - id: credentials-schema
     resource: ../../package/src/schemas/credentials.ts
@@ -53,6 +53,15 @@ available)[^credentials-schema]. `op_service_account` is likewise an
 `{ env }` reference — the 1Password service-account token itself always
 comes from the `OP_SERVICE_ACCOUNT_TOKEN` environment variable, never from
 a field in this file.
+
+An environment reference is read at the moment it is needed, through
+Effect's `Config` from the ambient `ConfigProvider`. That applies to a
+`github_token = { env = "..." }`, a `[resolve].env` label and
+`OP_SERVICE_ACCOUNT_TOKEN` alike. In the shipped bin the provider is the
+process environment. A variable that is set but empty counts as not set,
+so resolution fails with `environment variable VAR is not set` instead of
+producing an empty token that would only fail later, against GitHub, with
+a worse message.[^credential-resolver]
 
 `[profiles.<name>.resolve]` defines named labels in four sub-groups — `op`
 (1Password references), `env` (environment variable names), `file` (file

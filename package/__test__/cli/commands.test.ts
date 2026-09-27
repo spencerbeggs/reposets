@@ -1,9 +1,9 @@
-import { mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { chmodSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { App } from "@effected/app";
-import { Effect, Layer, Logger } from "effect";
+import { ConfigProvider, Effect, Layer } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	createHandler,
@@ -13,20 +13,25 @@ import {
 import { describeIdentity, doctorHandler } from "../../src/cli/commands/doctor.js";
 import { initHandler } from "../../src/cli/commands/init.js";
 import { listHandler } from "../../src/cli/commands/list.js";
-import { partitionByProfile } from "../../src/cli/commands/sync.js";
+import { nukeHandler } from "../../src/cli/commands/nuke.js";
+import { partitionByProfile, syncHandler } from "../../src/cli/commands/sync.js";
+import { validateHandler } from "../../src/cli/commands/validate.js";
 import { CredentialsFilesLive, makeConfigFilesLive } from "../../src/services/ConfigFiles.js";
+import { Invocation } from "../../src/services/Invocation.js";
 import { migrations } from "../../src/store/migrations.js";
 import { PHASE_NAMES, selectPhases } from "../../src/sync/phase.js";
+import { on, run, runOutcome, text } from "../utils/capture.js";
 
 /**
  * These drive the command **handlers**, not the argv parser — the parser is
  * `effect/unstable/cli`'s and is not this repo's to test. What is worth testing
  * is what each handler reads, writes and prints.
  *
- * Output is captured through a real `Logger`, the same way the `SyncLogger`
- * suite does, so `Effect.log` and `Effect.logError` are both exercised. The
- * collector records the level, because "doctor must not print a secret" is a
- * claim about every stream, not just stdout.
+ * Output is captured through the shipped `CliLogger` over a recording
+ * `Console` (see `../utils/capture.ts`), so both `Console.log` program output
+ * and `Effect.log*` diagnostics are exercised, each tagged with the stream it
+ * lands on — "doctor must not print a secret" is a claim about every stream,
+ * not just stdout.
  */
 
 let dir: string;
@@ -39,9 +44,6 @@ beforeEach(() => {
 	home = join(dir, "home");
 	mkdirSync(dir, { recursive: true });
 	mkdirSync(home, { recursive: true });
-	process.env.XDG_CONFIG_HOME = join(home, ".config");
-	process.env.XDG_STATE_HOME = join(home, ".local/state");
-	process.env.XDG_CACHE_HOME = join(home, ".cache");
 	// Both config files resolve by walking UP from the working directory. Left
 	// at the repo root, that walk climbs out of the temp fixture and finds this
 	// repository's own reposets.*.toml — so a test would read the developer's
@@ -52,37 +54,42 @@ beforeEach(() => {
 afterEach(() => {
 	process.chdir(previousCwd);
 	rmSync(dir, { recursive: true, force: true });
-	delete process.env.XDG_CONFIG_HOME;
-	delete process.env.XDG_STATE_HOME;
-	delete process.env.XDG_CACHE_HOME;
 });
-
-interface Line {
-	readonly level: string;
-	readonly text: string;
-}
-
-/** Run a command handler against the real layers, capturing every log line. */
-const run = async (handler: Effect.Effect<void, unknown, never>): Promise<ReadonlyArray<Line>> => {
-	const lines: Line[] = [];
-	const collector = Logger.make<unknown, void>((options) => {
-		lines.push({
-			level: String(options.logLevel),
-			text: Array.isArray(options.message) ? options.message.join(" ") : String(options.message),
-		});
-	});
-	await Effect.runPromise(handler.pipe(Effect.provide(Logger.layer([collector]))) as Effect.Effect<void>);
-	return lines;
-};
 
 const AppLive = App.layer({ namespace: "reposets-cli-test", store: { migrations } });
 
-/** Every service the four handlers require, over a temp XDG root. */
-const layers = (configFlag: string | undefined): Layer.Layer<never, unknown, never> =>
-	Layer.mergeAll(makeConfigFilesLive(configFlag), CredentialsFilesLive).pipe(
+/**
+ * Every service the handlers require, over a temp XDG root.
+ *
+ * @remarks
+ * No test touches `process.env`. The environment is one explicit record, built
+ * per call (the fixture directory is minted per test), provided as the ambient
+ * `ConfigProvider` — the one seam every reader uses: `@effected/xdg` for `HOME`
+ * and `XDG_*`, the credential resolver and `doctor` for everything else. `extra`
+ * adds to it — a service-account token, a credential variable — for one test
+ * only. `Invocation` carries only the working directory and version.
+ */
+const layers = (
+	configFlag: string | undefined,
+	extra: Readonly<Record<string, string>> = {},
+): Layer.Layer<never, unknown, never> => {
+	const env: Record<string, string> = {
+		HOME: home,
+		XDG_CONFIG_HOME: join(home, ".config"),
+		XDG_STATE_HOME: join(home, ".local/state"),
+		XDG_CACHE_HOME: join(home, ".cache"),
+		...extra,
+	};
+	return Layer.mergeAll(
+		makeConfigFilesLive(configFlag),
+		CredentialsFilesLive,
+		Invocation.layer({ cwd: dir, version: "0.0.0-test" }),
+	).pipe(
 		Layer.provideMerge(AppLive),
 		Layer.provideMerge(NodeServices.layer),
+		Layer.provideMerge(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
 	) as unknown as Layer.Layer<never, unknown, never>;
+};
 
 /**
  * Provide a handler's services.
@@ -97,10 +104,9 @@ const layers = (configFlag: string | undefined): Layer.Layer<never, unknown, nev
 const provided = (
 	handler: Effect.Effect<void, unknown, never>,
 	configFlag?: string,
+	extra?: Readonly<Record<string, string>>,
 ): Effect.Effect<void, unknown, never> =>
-	handler.pipe(Effect.provide(layers(configFlag))) as Effect.Effect<void, unknown, never>;
-
-const text = (lines: ReadonlyArray<Line>): string => lines.map((line) => line.text).join("\n");
+	handler.pipe(Effect.provide(layers(configFlag, extra))) as Effect.Effect<void, unknown, never>;
 
 const CONFIG = `[settings.defaults]
 has_issues = true
@@ -408,27 +414,24 @@ describe("doctor", () => {
 
 	it("reports which form each credential profile uses, and never a value", async () => {
 		const SECRET = "ghp_DO_NOT_PRINT_THIS_9f3a";
-		process.env.REPOSETS_DOCTOR_TEST = SECRET;
-		try {
-			writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
-			writeFileSync(
-				join(dir, "reposets.credentials.toml"),
-				`[profiles.personal]\nusername = "acme"\ngithub_token = { env = "REPOSETS_DOCTOR_TEST" }\n\n[profiles.personal.resolve.op]\nNPM = "op://Private/npm/token"\n`,
-			);
-			const lines = await run(
-				provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml")),
-			);
-			const out = text(lines);
+		writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
+		writeFileSync(
+			join(dir, "reposets.credentials.toml"),
+			`[profiles.personal]\nusername = "acme"\ngithub_token = { env = "REPOSETS_DOCTOR_TEST" }\n\n[profiles.personal.resolve.op]\nNPM = "op://Private/npm/token"\n`,
+		);
+		const lines = await run(
+			provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"), {
+				REPOSETS_DOCTOR_TEST: SECRET,
+			}),
+		);
+		const out = text(lines);
 
-			expect(out).toContain("Credentials: 1 profile(s)");
-			// The variable NAME is an address and is printed.
-			expect(out).toContain("env REPOSETS_DOCTOR_TEST");
-			// Its VALUE is a secret and must not be, on any stream.
-			expect(out).not.toContain(SECRET);
-			expect(JSON.stringify(lines)).not.toContain(SECRET);
-		} finally {
-			delete process.env.REPOSETS_DOCTOR_TEST;
-		}
+		expect(out).toContain("Credentials: 1 profile(s)");
+		// The variable NAME is an address and is printed.
+		expect(out).toContain("env REPOSETS_DOCTOR_TEST");
+		// Its VALUE is a secret and must not be, on any stream.
+		expect(out).not.toContain(SECRET);
+		expect(JSON.stringify(lines)).not.toContain(SECRET);
 	});
 
 	it("names the --config file, not a valid one nearer the working directory", async () => {
@@ -496,102 +499,67 @@ describe("doctor", () => {
 	});
 
 	it("warns when op references exist but the service account token is absent", async () => {
-		const saved = process.env.OP_SERVICE_ACCOUNT_TOKEN;
-		delete process.env.OP_SERVICE_ACCOUNT_TOKEN;
-		try {
-			writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
-			writeFileSync(
-				join(dir, "reposets.credentials.toml"),
-				`[profiles.p]\nusername = "acme"\ngithub_token = { op = "op://Private/gh/token" }\n`,
-			);
-			const out = text(
-				await run(
-					provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml")),
-				),
-			);
-			expect(out).toContain("OP_SERVICE_ACCOUNT_TOKEN: NOT SET");
-		} finally {
-			if (saved !== undefined) process.env.OP_SERVICE_ACCOUNT_TOKEN = saved;
-		}
+		// The environment record carries no OP_SERVICE_ACCOUNT_TOKEN at all —
+		// whatever the developer's shell exports never reaches the handler.
+		writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
+		writeFileSync(
+			join(dir, "reposets.credentials.toml"),
+			`[profiles.p]\nusername = "acme"\ngithub_token = { op = "op://Private/gh/token" }\n`,
+		);
+		const out = text(
+			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
+		);
+		expect(out).toContain("OP_SERVICE_ACCOUNT_TOKEN: NOT SET");
 	});
 
 	it("does not print the 1Password service account token when it is set", async () => {
 		const SECRET = "ops_SERVICE_ACCOUNT_SECRET_VALUE";
-		const saved = process.env.OP_SERVICE_ACCOUNT_TOKEN;
-		process.env.OP_SERVICE_ACCOUNT_TOKEN = SECRET;
-		try {
-			writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
-			writeFileSync(
-				join(dir, "reposets.credentials.toml"),
-				`[profiles.p]\nusername = "acme"\ngithub_token = { op = "op://Private/gh/token" }\n`,
-			);
-			const lines = await run(
-				provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml")),
-			);
-			expect(text(lines)).toContain("OP_SERVICE_ACCOUNT_TOKEN: set");
-			expect(JSON.stringify(lines)).not.toContain(SECRET);
-		} finally {
-			if (saved === undefined) delete process.env.OP_SERVICE_ACCOUNT_TOKEN;
-			else process.env.OP_SERVICE_ACCOUNT_TOKEN = saved;
-		}
+		writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
+		writeFileSync(
+			join(dir, "reposets.credentials.toml"),
+			`[profiles.p]\nusername = "acme"\ngithub_token = { op = "op://Private/gh/token" }\n`,
+		);
+		const lines = await run(
+			provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"), {
+				OP_SERVICE_ACCOUNT_TOKEN: SECRET,
+			}),
+		);
+		expect(text(lines)).toContain("OP_SERVICE_ACCOUNT_TOKEN: set");
+		expect(JSON.stringify(lines)).not.toContain(SECRET);
 	});
 });
 
 describe("init", () => {
 	it("scaffolds both files and a .gitignore into the project directory", async () => {
-		const previous = process.cwd();
-		process.chdir(dir);
-		try {
-			const out = text(await run(provided(initHandler(true) as never)));
-			expect(out).toContain("Created:");
-			expect(readFileSync(join(dir, "reposets.config.toml"), "utf8")).toContain("reposets configuration");
-			expect(readFileSync(join(dir, ".gitignore"), "utf8")).toContain("reposets.credentials.toml");
-		} finally {
-			process.chdir(previous);
-		}
+		const out = text(await run(provided(initHandler(true) as never)));
+		expect(out).toContain("Created:");
+		expect(readFileSync(join(dir, "reposets.config.toml"), "utf8")).toContain("reposets configuration");
+		expect(readFileSync(join(dir, ".gitignore"), "utf8")).toContain("reposets.credentials.toml");
 	});
 
 	it("never writes a secret into the credentials template", async () => {
-		const previous = process.cwd();
-		process.chdir(dir);
-		try {
-			await run(provided(initHandler(true) as never));
-			const template = readFileSync(join(dir, "reposets.credentials.toml"), "utf8");
-			// The v3 template showed `github_token = "ghp_your_token_here"`, which
-			// taught the shape the schema no longer accepts.
-			expect(template).not.toContain("ghp_");
-			expect(template).not.toContain("op_service_account_token");
-			expect(template).toContain('github_token = { op = "op://');
-		} finally {
-			process.chdir(previous);
-		}
+		await run(provided(initHandler(true) as never));
+		const template = readFileSync(join(dir, "reposets.credentials.toml"), "utf8");
+		// The v3 template showed `github_token = "ghp_your_token_here"`, which
+		// taught the shape the schema no longer accepts.
+		expect(template).not.toContain("ghp_");
+		expect(template).not.toContain("op_service_account_token");
+		expect(template).toContain('github_token = { op = "op://');
 	});
 
 	it("is safe to re-run and does not overwrite", async () => {
-		const previous = process.cwd();
-		process.chdir(dir);
-		try {
-			await run(provided(initHandler(true) as never));
-			writeFileSync(join(dir, "reposets.config.toml"), 'owner = "edited-by-hand"\n');
-			const out = text(await run(provided(initHandler(true) as never)));
-			expect(out).toContain("Already exists:");
-			expect(readFileSync(join(dir, "reposets.config.toml"), "utf8")).toContain("edited-by-hand");
-		} finally {
-			process.chdir(previous);
-		}
+		await run(provided(initHandler(true) as never));
+		writeFileSync(join(dir, "reposets.config.toml"), 'owner = "edited-by-hand"\n');
+		const out = text(await run(provided(initHandler(true) as never)));
+		expect(out).toContain("Already exists:");
+		expect(readFileSync(join(dir, "reposets.config.toml"), "utf8")).toContain("edited-by-hand");
 	});
 
 	it("does not duplicate the .gitignore entry on a second run", async () => {
-		const previous = process.cwd();
-		process.chdir(dir);
-		try {
-			await run(provided(initHandler(true) as never));
-			await run(provided(initHandler(true) as never));
-			const gitignore = readFileSync(join(dir, ".gitignore"), "utf8");
-			expect(gitignore.split("reposets.credentials.toml").length - 1).toBe(1);
-		} finally {
-			process.chdir(previous);
-		}
+		await run(provided(initHandler(true) as never));
+		await run(provided(initHandler(true) as never));
+		const gitignore = readFileSync(join(dir, ".gitignore"), "utf8");
+		expect(gitignore.split("reposets.credentials.toml").length - 1).toBe(1);
 	});
 });
 
@@ -702,5 +670,171 @@ describe("credentials create never echoes a pasted secret", () => {
 	it("the echo detector can actually fail", () => {
 		// Guard against the leak assertions rotting into no-ops.
 		expect(JSON.stringify([{ text: `rejected: ${SECRET}` }])).toContain(SECRET);
+	});
+});
+
+/**
+ * The exit-code contract, per handler: a usage error exits 64 with its message
+ * on stderr only; a finding exits 1 by succeeding; program output is on stdout.
+ *
+ * `runOutcome` stands in for `CliRuntime.main` — a `UserError` becomes 64, the
+ * `CliExit` cell becomes the code — so these pin the handler's half of the
+ * contract. The spawned-bin suite (`bin.e2e.test.ts`) pins the other half.
+ */
+describe("exit codes and streams", () => {
+	const CREDS = `[profiles.default]\nusername = "acme"\ngithub_token = { env = "GH" }\n`;
+	const configPath = (): string => join(dir, "reposets.config.toml");
+
+	const syncWith = (input: { only?: ReadonlyArray<string>; group?: string }) =>
+		syncHandler({
+			dryRun: true,
+			noCleanup: true,
+			failOnDrift: false,
+			group: input.group,
+			repo: undefined,
+			only: input.only ?? [],
+			skip: [],
+			debug: false,
+		});
+
+	it("validate writes its result to stdout and exits 0", async () => {
+		writeFileSync(configPath(), CONFIG.replace('secrets = { actions = ["deploy"] }\n', ""));
+		writeFileSync(join(dir, "reposets.credentials.toml"), CREDS);
+		const outcome = await runOutcome(provided(validateHandler as never, configPath()));
+
+		expect(outcome.exitCode).toBe(0);
+		expect(on(outcome.lines, "stdout")[0]).toBe(`Valid: ${configPath()}`);
+		expect(on(outcome.lines, "stderr")).toEqual([]);
+	});
+
+	it("validate reports a dangling reference on stderr and exits 1", async () => {
+		// CONFIG's group asks for secret group `deploy`, which it never defines.
+		writeFileSync(configPath(), CONFIG);
+		writeFileSync(join(dir, "reposets.credentials.toml"), CREDS);
+		const outcome = await runOutcome(provided(validateHandler as never, configPath()));
+
+		expect(outcome.exitCode).toBe(1);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("'deploy' does not exist");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("list writes the summary to stdout and nothing to stderr", async () => {
+		writeFileSync(configPath(), CONFIG);
+		writeFileSync(join(dir, "reposets.credentials.toml"), CREDS);
+		const outcome = await runOutcome(provided(listHandler as never, configPath()));
+
+		expect(outcome.exitCode).toBe(0);
+		expect(on(outcome.lines, "stdout")).toContain("[my-projects] (owner: acme, credentials: default)");
+		expect(on(outcome.lines, "stderr")).toEqual([]);
+	});
+
+	it("list with no config anywhere is a finding: stderr, exit 1", async () => {
+		const outcome = await runOutcome(provided(listHandler as never));
+
+		expect(outcome.exitCode).toBe(1);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("No config file found");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("sync refuses an unknown phase as a usage error, before reading any config", async () => {
+		// No config file exists at all: the phase check must not depend on one.
+		const outcome = await runOutcome(provided(syncWith({ only: ["settings", "secrts"] }) as never));
+
+		expect(outcome.exitCode).toBe(64);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("Unknown phase name(s): secrts");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("sync refuses a --group that names nothing as a usage error", async () => {
+		writeFileSync(configPath(), CONFIG.replace('secrets = { actions = ["deploy"] }\n', ""));
+		writeFileSync(join(dir, "reposets.credentials.toml"), CREDS);
+		const outcome = await runOutcome(provided(syncWith({ group: "nope" }) as never, configPath()));
+
+		expect(outcome.exitCode).toBe(64);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("No group named 'nope'");
+	});
+
+	it("sync with a dangling reference is a finding: exit 1, nothing synced", async () => {
+		writeFileSync(configPath(), CONFIG);
+		writeFileSync(join(dir, "reposets.credentials.toml"), CREDS);
+		const outcome = await runOutcome(provided(syncWith({}) as never, configPath()));
+
+		expect(outcome.exitCode).toBe(1);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("Nothing was synced");
+	});
+
+	it("credentials create refuses both --op and --env with exit 64", async () => {
+		const outcome = await runOutcome(
+			provided(createHandler({ profile: "p", op: "op://V/i/f", env: "V", username: "u", org: undefined }) as never),
+		);
+		expect(outcome.exitCode).toBe(64);
+		expect(on(outcome.lines, "stderr")).toEqual(["Provide exactly one of --op or --env, not both."]);
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("credentials delete of a profile that does not exist exits 64", async () => {
+		const outcome = await runOutcome(provided(deleteHandler("ghost") as never));
+		expect(outcome.exitCode).toBe(64);
+		expect(on(outcome.lines, "stderr")).toEqual(["Profile 'ghost' not found."]);
+	});
+
+	// A read-only directory is how these provoke a real write/remove failure.
+	// Root ignores permission bits, so under root the failure never happens and
+	// the tests would prove nothing — they skip instead.
+	const isRoot = process.getuid?.() === 0;
+
+	it("init exits 0 when every file is written", async () => {
+		const outcome = await runOutcome(provided(initHandler(true) as never));
+		expect(outcome.exitCode).toBe(0);
+		expect(on(outcome.lines, "stderr").join("\n")).not.toContain("Could not write");
+	});
+
+	it.skipIf(isRoot)("init that cannot write a file is a failure: stderr, exit 1", async () => {
+		const target = join(dir, "readonly");
+		mkdirSync(target);
+		chmodSync(target, 0o555);
+		try {
+			const outcome = await runOutcome(
+				initHandler(true).pipe(
+					Effect.provide(Invocation.layer({ cwd: target, version: "0.0.0-test" })),
+					Effect.provide(layers(undefined)),
+				) as never,
+			);
+			expect(outcome.exitCode).toBe(1);
+			expect(on(outcome.lines, "stderr").join("\n")).toContain(
+				`Could not write: ${join(target, "reposets.config.toml")}`,
+			);
+			expect(on(outcome.lines, "stdout").join("\n")).not.toContain("Created:");
+		} finally {
+			chmodSync(target, 0o755);
+		}
+	});
+
+	it("nuke --force that removes everything exits 0", async () => {
+		writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
+		const outcome = await runOutcome(provided(nukeHandler(true) as never));
+		expect(outcome.exitCode).toBe(0);
+		expect(on(outcome.lines, "stdout").join("\n")).toContain(`removed ${join(dir, "reposets.config.toml")}`);
+	});
+
+	it.skipIf(isRoot)("nuke --force that leaves a file behind is a failure: stderr, exit 1", async () => {
+		const locked = join(dir, "locked");
+		mkdirSync(locked);
+		writeFileSync(join(locked, "reposets.config.toml"), CONFIG);
+		chmodSync(locked, 0o555);
+		try {
+			const outcome = await runOutcome(
+				nukeHandler(true).pipe(
+					Effect.provide(Invocation.layer({ cwd: locked, version: "0.0.0-test" })),
+					Effect.provide(layers(undefined)),
+				) as never,
+			);
+			expect(outcome.exitCode).toBe(1);
+			expect(on(outcome.lines, "stderr").join("\n")).toContain(
+				`could not remove ${join(locked, "reposets.config.toml")}`,
+			);
+		} finally {
+			chmodSync(locked, 0o755);
+		}
 	});
 });

@@ -2,7 +2,7 @@
 type: Decision
 title: There are no verbosity tiers
 description: Output is one level, plus a --debug flag on sync and drift that adds two diagnostic suffixes, rather than a config-selected tier of output detail.
-status: stable
+status: deprecated
 tags: [dx, observability]
 generated:
   by: okfit/claude-code

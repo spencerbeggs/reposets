@@ -1,10 +1,9 @@
-import { cwd, env } from "node:process";
+import { SchemaIssueRenderer } from "@effected/cli";
 import { GitHubClient } from "@effected/github";
 import { Toml } from "@effected/toml";
 import { AppDirs } from "@effected/xdg";
-import { Effect, FileSystem, Layer, Option, Path, Result } from "effect";
+import { Config, Console, Effect, FileSystem, Layer, Option, Path, Result } from "effect";
 import { Command } from "effect/unstable/cli";
-import { formatSchemaIssue } from "../../lib/schema-issues.js";
 import { SettingsGroupSchema } from "../../schemas/config.js";
 import type { CredentialProfile } from "../../schemas/credentials.js";
 import { profileOwner } from "../../schemas/credentials.js";
@@ -15,6 +14,7 @@ import {
 	ReposetsCredentialsFile,
 } from "../../services/ConfigFiles.js";
 import { CredentialResolver, CredentialResolverLive } from "../../services/CredentialResolver.js";
+import { Invocation } from "../../services/Invocation.js";
 import { OP_SERVICE_ACCOUNT_TOKEN, OnePasswordClientLive } from "../../services/OnePasswordClient.js";
 import { ConfigFlag } from "../flags.js";
 
@@ -57,8 +57,7 @@ const REMOVED_KEYS: Readonly<Record<string, string>> = {
 	owner: "removed in 1.0 — the owner now belongs to the credential profile, which declares `username` or `org`",
 	"owner (in groups)":
 		"removed in 1.0 — a group's owner comes from the profile named by its `credentials`, so a group cannot override it",
-	log_level:
-		"removed in 1.0 — output is one level; use --debug for diagnostics, or core's --log-level to filter by severity",
+	log_level: "removed in 1.0 — output is one level; use --debug for diagnostics, or redirect stdout to quieten a run",
 };
 
 /**
@@ -185,6 +184,7 @@ const locateConfig = (
 	path: Path.Path,
 	appDirs: AppDirs["Service"],
 	configFlag: string | undefined,
+	cwd: string,
 ): Effect.Effect<string | undefined> =>
 	Effect.gen(function* () {
 		const candidates: string[] = [];
@@ -201,7 +201,7 @@ const locateConfig = (
 			candidates.push(configFlag, path.join(configFlag, CONFIG_FILENAME));
 		}
 
-		let dir = cwd();
+		let dir = cwd;
 		for (;;) {
 			candidates.push(path.join(dir, CONFIG_FILENAME));
 			const parent = path.dirname(dir);
@@ -237,6 +237,12 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * *form* each profile uses — `op://…` addresses and environment variable
  * *names* — and whether the 1Password service account variable is present. It
  * never resolves a reference, so there is no value in scope to leak.
+ *
+ * The report — failing sections included — is the command's output and goes to
+ * stdout in one piece, so `reposets doctor > report.txt` captures all of it.
+ * Only the three early stops (no config, unreadable, unparseable) are
+ * diagnostics on stderr. `doctor` always exits 0: it describes, it does not
+ * gate — `validate` is the gate.
  *
  * @public
  */
@@ -291,6 +297,7 @@ export const doctorHandler = (configFlag: string | undefined) =>
 		const fs = yield* FileSystem.FileSystem;
 		const path = yield* Path.Path;
 		const appDirs = yield* AppDirs;
+		const invocation = yield* Invocation;
 
 		// Discovery is best-effort by contract: a source that fails to decode is
 		// skipped rather than reported. Now that decoding is strict, a config with a
@@ -312,13 +319,13 @@ export const doctorHandler = (configFlag: string | undefined) =>
 		const validationIssue =
 			discovered._tag === "Failure" ? (discovered.failure as { readonly issue?: unknown }).issue : undefined;
 
-		const configPath = sources[0]?.path ?? (yield* locateConfig(fs, path, appDirs, configFlag));
+		const configPath = sources[0]?.path ?? (yield* locateConfig(fs, path, appDirs, configFlag, invocation.cwd));
 		if (configPath === undefined) {
 			yield* Effect.logError("No config found. Run 'reposets init' to create one.");
 			return;
 		}
 
-		yield* Effect.log(`Config: ${configPath}`);
+		yield* Console.log(`Config: ${configPath}`);
 
 		const text = yield* fs.readFileString(configPath).pipe(Effect.option);
 		if (text._tag === "None") {
@@ -346,14 +353,14 @@ export const doctorHandler = (configFlag: string | undefined) =>
 					// from `repos`.
 					const removedFrom = REMOVED_KEYS[where === "" ? key : `${key} (in groups)`] ?? REMOVED_KEYS[key];
 					if (removedFrom !== undefined) {
-						yield* Effect.log(`Warning: '${key}'${where} ${removedFrom}`);
+						yield* Console.log(`Warning: '${key}'${where} ${removedFrom}`);
 						warnings += 1;
 						continue;
 					}
 
 					const suggestion = findClosestMatch(key, known);
 					const hint = suggestion === undefined ? "" : ` — did you mean '${suggestion}'?`;
-					yield* Effect.log(`Warning: unknown key '${key}'${where}${hint}`);
+					yield* Console.log(`Warning: unknown key '${key}'${where}${hint}`);
 					warnings += 1;
 				}
 			});
@@ -372,7 +379,7 @@ export const doctorHandler = (configFlag: string | undefined) =>
 					suggestion === undefined
 						? " — it will be sent to GitHub as-is, which ignores fields it does not recognise"
 						: ` — did you mean '${suggestion}'?`;
-				yield* Effect.log(`Warning: unrecognised setting '${field}' in settings.${groupName}${hint}`);
+				yield* Console.log(`Warning: unrecognised setting '${field}' in settings.${groupName}${hint}`);
 				warnings += 1;
 			}
 		}
@@ -393,16 +400,16 @@ export const doctorHandler = (configFlag: string | undefined) =>
 
 		// Reaching `discover` without failing means the schema accepted it.
 		if (schemaValid) {
-			yield* Effect.log("Schema validation: passed");
+			yield* Console.log("Schema validation: passed");
 		} else {
-			yield* Effect.logError("Schema validation: FAILED — these values are rejected, not ignored");
-			for (const line of formatSchemaIssue(validationIssue)) {
-				yield* Effect.logError(`  ${line}`);
+			yield* Console.log("Schema validation: FAILED — these values are rejected, not ignored");
+			for (const line of SchemaIssueRenderer.render(validationIssue)) {
+				yield* Console.log(`  ${line}`);
 			}
 		}
 
 		// --- Credentials ------------------------------------------------------
-		yield* Effect.log("");
+		yield* Console.log("");
 		// Swallowing this failure would repeat the mistake strict decoding just
 		// exposed on the config side: a credentials file that exists and does not
 		// decode would report as "no profiles configured", indistinguishable from
@@ -414,18 +421,18 @@ export const doctorHandler = (configFlag: string | undefined) =>
 		const profileNames = Object.keys(credentials.profiles);
 
 		if (loaded._tag === "Failure") {
-			yield* Effect.logError(
+			yield* Console.log(
 				`Credentials: FAILED to load — ${String((loaded.failure as { message?: string }).message ?? loaded.failure)}`,
 			);
-			yield* Effect.logError(
+			yield* Console.log(
 				"  Unknown keys are rejected. `op_service_account_token` was removed — that token now comes from OP_SERVICE_ACCOUNT_TOKEN in the environment.",
 			);
 			// Falls through to the permissions section: a broken credentials file is
 			// not a reason to withhold the rest of the diagnosis.
 		} else if (profileNames.length === 0) {
-			yield* Effect.log("Credentials: no profiles configured");
+			yield* Console.log("Credentials: no profiles configured");
 		} else {
-			yield* Effect.log(`Credentials: ${profileNames.length} profile(s)`);
+			yield* Console.log(`Credentials: ${profileNames.length} profile(s)`);
 			let usesOnePassword = false;
 			for (const [name, profile] of Object.entries(credentials.profiles)) {
 				// A reference is an address, not a secret: safe to print, and the
@@ -443,12 +450,17 @@ export const doctorHandler = (configFlag: string | undefined) =>
 					}
 				}
 				const resolveSummary = sections.length === 0 ? "" : `, resolve ${sections.join(" ")}`;
-				yield* Effect.log(`  [${name}] github_token: ${token}${resolveSummary}`);
+				yield* Console.log(`  [${name}] github_token: ${token}${resolveSummary}`);
 			}
 
-			const hasServiceAccount = env[OP_SERVICE_ACCOUNT_TOKEN] !== undefined && env[OP_SERVICE_ACCOUNT_TOKEN] !== "";
+			// Through `Config`, like the client that will need it: an empty value
+			// counts as unset there, and it must here too, or this line would say
+			// "set" about a token the client then refuses.
+			const hasServiceAccount = Option.isSome(
+				yield* Config.option(Config.String(OP_SERVICE_ACCOUNT_TOKEN)).pipe(Effect.orElseSucceed(() => Option.none())),
+			);
 			if (usesOnePassword) {
-				yield* Effect.log(
+				yield* Console.log(
 					hasServiceAccount
 						? `  ${OP_SERVICE_ACCOUNT_TOKEN}: set`
 						: `  ${OP_SERVICE_ACCOUNT_TOKEN}: NOT SET — op:// references cannot be resolved`,
@@ -461,8 +473,8 @@ export const doctorHandler = (configFlag: string | undefined) =>
 		// Three files, three directories, three different rules for finding them.
 		// Printing them is the cheapest way to end "which config is it reading?",
 		// which is otherwise answered by guessing.
-		yield* Effect.log("");
-		yield* Effect.log(`Version: ${env.__PACKAGE_VERSION__ ?? "0.0.0 (dev build)"}`);
+		yield* Console.log("");
+		yield* Console.log(`Version: ${invocation.version}`);
 		// `discover` reports the sources the resolver chain actually found, which
 		// is the only honest answer to "which credentials file is in play" — the
 		// chain has three tiers and the answer is not guessable from cwd.
@@ -484,8 +496,8 @@ export const doctorHandler = (configFlag: string | undefined) =>
 				: credentialSources.length === 0
 					? `${path.join(appDirs.dirs.config, CREDENTIALS_FILENAME)} (not created yet)`
 					: (credentialSources[0]?.path ?? "");
-		yield* Effect.log(`Credentials file: ${credentialsLine}`);
-		yield* Effect.log(`State database: ${path.join(appDirs.dirs.state, "store.db")}`);
+		yield* Console.log(`Credentials file: ${credentialsLine}`);
+		yield* Console.log(`State database: ${path.join(appDirs.dirs.state, "store.db")}`);
 
 		// --- Does the token actually work? ------------------------------------
 		//
@@ -494,7 +506,7 @@ export const doctorHandler = (configFlag: string | undefined) =>
 		// working setup from three broken ones: a revoked token, an `op://` path
 		// pointing at an item that is not there, and a service-account token
 		// without access to the vault all produce exactly the output above.
-		yield* Effect.log("");
+		yield* Console.log("");
 		for (const [name, profile] of Object.entries(credentials.profiles)) {
 			const resolverLayer = Layer.provide(CredentialResolverLive, OnePasswordClientLive);
 
@@ -504,7 +516,7 @@ export const doctorHandler = (configFlag: string | undefined) =>
 			}).pipe(Effect.provide(resolverLayer), Effect.result);
 
 			if (resolved._tag === "Failure") {
-				yield* Effect.logError(`Token [${name}]: could not resolve — ${String(resolved.failure)}`);
+				yield* Console.log(`Token [${name}]: could not resolve — ${String(resolved.failure)}`);
 				continue;
 			}
 
@@ -516,29 +528,29 @@ export const doctorHandler = (configFlag: string | undefined) =>
 			}).pipe(Effect.provide(GitHubClient.layerFromToken({ token: resolved.success })), Effect.result);
 
 			if (identity._tag !== "Success") {
-				yield* Effect.logError(`Token [${name}]: resolved but REJECTED by GitHub — ${String(identity.failure)}`);
+				yield* Console.log(`Token [${name}]: resolved but REJECTED by GitHub — ${String(identity.failure)}`);
 				continue;
 			}
 
 			const line = describeIdentity(name, profile, identity.success.login);
-			yield* line.ok ? Effect.log(line.text) : Effect.logError(line.text);
+			yield* Console.log(line.text);
 		}
 
 		// --- Token permissions ------------------------------------------------
-		yield* Effect.log("");
-		yield* Effect.log("Required fine-grained token permissions:");
+		yield* Console.log("");
+		yield* Console.log("Required fine-grained token permissions:");
 		for (const [scope, permission, why] of REQUIRED_PERMISSIONS) {
-			yield* Effect.log(`  ${scope} > ${permission} — ${why}`);
+			yield* Console.log(`  ${scope} > ${permission} — ${why}`);
 		}
-		yield* Effect.log("  (Metadata: Read is mandatory and granted automatically)");
+		yield* Console.log("  (Metadata: Read is mandatory and granted automatically)");
 		// Said plainly because the list above looks like a checklist that was
 		// checked. GitHub reports a permission set for App installation tokens
 		// only; a fine-grained PAT's scopes are not readable through the API, so
 		// this is a requirement to compare against by hand.
-		yield* Effect.log("  These are NOT verified — GitHub does not expose a fine-grained token's own scopes.");
+		yield* Console.log("  These are NOT verified — GitHub does not expose a fine-grained token's own scopes.");
 
-		yield* Effect.log("");
-		yield* Effect.log(warnings === 0 ? "No unknown keys detected." : `${warnings} warning(s) found.`);
+		yield* Console.log("");
+		yield* Console.log(warnings === 0 ? "No unknown keys detected." : `${warnings} warning(s) found.`);
 	});
 
 /**

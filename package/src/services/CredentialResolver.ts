@@ -1,7 +1,6 @@
 import { readFileSync } from "node:fs";
 import { isAbsolute, resolve as resolvePath } from "node:path";
-import { env } from "node:process";
-import { Context, Data, Effect, Layer, Redacted } from "effect";
+import { Config, Context, Data, Effect, Layer, Option, Redacted } from "effect";
 import type { CredentialProfile, CredentialSourceSchema } from "../schemas/credentials.js";
 import { OnePasswordClient } from "./OnePasswordClient.js";
 
@@ -72,14 +71,31 @@ export interface CredentialResolverShape {
 	) => Effect.Effect<ReadonlyMap<string, Redacted.Redacted<string>>, ResolveError>;
 }
 
-/** Read an environment variable, failing in terms of its name. */
+/**
+ * Read an environment variable, failing in terms of its name.
+ *
+ * @remarks
+ * Read through `Config`, so the value comes from the ambient `ConfigProvider` —
+ * the process environment in the shipped bin, an explicit record in a test —
+ * and never from `process` directly. The provider treats an empty variable as
+ * absent, so `FOO=""` fails as "not set" rather than resolving to an empty
+ * credential that would only fail later, against GitHub, with a worse message.
+ */
 const fromEnv = (label: string, variable: string): Effect.Effect<Redacted.Redacted<string>, ResolveError> =>
-	Effect.suspend(() => {
-		const value = env[variable];
-		return value === undefined
-			? Effect.fail(new ResolveError({ label, source: "env", reason: `environment variable ${variable} is not set` }))
-			: Effect.succeed(Redacted.make(value, { label }));
-	});
+	Config.option(Config.String(variable)).pipe(
+		Effect.mapError(
+			(error) => new ResolveError({ label, source: "env", reason: `could not read ${variable}: ${error.message}` }),
+		),
+		Effect.flatMap(
+			Option.match({
+				onNone: () =>
+					Effect.fail(
+						new ResolveError({ label, source: "env", reason: `environment variable ${variable} is not set` }),
+					),
+				onSome: (value) => Effect.succeed(Redacted.make(value, { label })),
+			}),
+		),
+	);
 
 /** Read a file, failing in terms of its path. */
 const fromFile = (

@@ -1,4 +1,5 @@
-import { Effect } from "effect";
+import { CliExit } from "@effected/cli";
+import { Console, Effect } from "effect";
 import { Command } from "effect/unstable/cli";
 import type { Config } from "../../schemas/config.js";
 import { profileOwner } from "../../schemas/credentials.js";
@@ -31,7 +32,8 @@ const scopeParts = (
  * A reading command: it decodes the config and prints its structure, touching
  * neither GitHub nor the store. Empty collections are omitted rather than
  * printed as `(none)` — a group that assigns nothing should read as a short
- * entry, not a wall of blanks.
+ * entry, not a wall of blanks. The summary is the command's output, so it is
+ * written to stdout.
  *
  * @public
  */
@@ -41,8 +43,10 @@ export const listHandler = Effect.gen(function* () {
 	const sources = yield* configFile.discover;
 
 	if (sources.length === 0) {
+		// A finding about this machine, not a usage error: exit 1, like `sync`
+		// and `validate` do when there is no config to read.
 		yield* Effect.logError("No config file found. Run 'reposets init' to create one.");
-		return;
+		return yield* CliExit.set(1);
 	}
 
 	const config = yield* configFile.load;
@@ -62,11 +66,11 @@ export const listHandler = Effect.gen(function* () {
 			profile === undefined
 				? `credentials: ${group.credentials} — NOT FOUND`
 				: `owner: ${profileOwner(profile).owner}, credentials: ${group.credentials}`;
-		yield* Effect.log(`[${groupName}] (${acts})`);
+		yield* Console.log(`[${groupName}] (${acts})`);
 		const owner = profile === undefined ? "(unknown)" : profileOwner(profile).owner;
 
 		for (const repo of group.repos) {
-			yield* Effect.log(`  - ${owner}/${repo}`);
+			yield* Console.log(`  - ${owner}/${repo}`);
 		}
 
 		for (const [label, names] of [
@@ -77,21 +81,21 @@ export const listHandler = Effect.gen(function* () {
 			["code_scanning", group.code_scanning],
 		] as const) {
 			if (names !== undefined && names.length > 0) {
-				yield* Effect.log(`  ${label}: ${names.join(", ")}`);
+				yield* Console.log(`  ${label}: ${names.join(", ")}`);
 			}
 		}
 
 		const secrets = scopeParts(group.secrets);
 		if (secrets.length > 0) {
-			yield* Effect.log(`  secrets: ${secrets.join(", ")}`);
+			yield* Console.log(`  secrets: ${secrets.join(", ")}`);
 		}
 
 		const variables = scopeParts(group.variables);
 		if (variables.length > 0) {
-			yield* Effect.log(`  variables: ${variables.join(", ")}`);
+			yield* Console.log(`  variables: ${variables.join(", ")}`);
 		}
 
-		yield* Effect.log("");
+		yield* Console.log("");
 	}
 });
 

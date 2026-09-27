@@ -1,8 +1,9 @@
-import { cwd } from "node:process";
+import { CliExit } from "@effected/cli";
 import { AppDirs } from "@effected/xdg";
-import { Effect, FileSystem, Path } from "effect";
+import { Console, Effect, FileSystem, Path } from "effect";
 import { Command, Flag } from "effect/unstable/cli";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
+import { Invocation } from "../../services/Invocation.js";
 
 const projectFlag = Flag.Boolean("project").pipe(
 	Flag.withDefault(false),
@@ -116,6 +117,9 @@ const CREDENTIALS_TEMPLATE = `# reposets credentials
  * references and so is not catastrophic to commit, but it still names a
  * person's vault layout, and the habit is worth keeping.
  *
+ * What was created or found goes to stdout; the next-steps guidance to stderr.
+ * A file that could not be written is reported on stderr and exits 1.
+ *
  * @public
  */
 export const initHandler = (project: boolean) =>
@@ -124,22 +128,29 @@ export const initHandler = (project: boolean) =>
 		const path = yield* Path.Path;
 		const appDirs = yield* AppDirs;
 
-		const targetDir = project ? cwd() : yield* appDirs.ensureConfig;
+		const targetDir = project ? (yield* Invocation).cwd : yield* appDirs.ensureConfig;
 		yield* fs.makeDirectory(targetDir, { recursive: true });
 
+		/**
+		 * A write that fails is a real failure of this command — the user asked
+		 * for a file and did not get one — so it is reported on stderr and the
+		 * run exits 1 through `CliExit`. The remaining files are still attempted:
+		 * one unwritable path should not hide what else did or did not happen.
+		 */
+		const failed = (target: string): Effect.Effect<void, never, CliExit> =>
+			Effect.logError(`Could not write: ${target}`).pipe(Effect.andThen(CliExit.set(1)));
+
 		/** Write a file unless it is already there; report either way. */
-		const scaffold = (name: string, contents: string): Effect.Effect<void, never, never> =>
+		const scaffold = (name: string, contents: string): Effect.Effect<void, never, CliExit> =>
 			Effect.gen(function* () {
 				const target = path.join(targetDir, name);
 				const exists = yield* fs.exists(target).pipe(Effect.orElseSucceed(() => false));
 				if (exists) {
-					yield* Effect.log(`Already exists: ${target}`);
+					yield* Console.log(`Already exists: ${target}`);
 					return;
 				}
 				const written = yield* fs.writeFileString(target, contents).pipe(Effect.option);
-				yield* written._tag === "Some"
-					? Effect.log(`Created: ${target}`)
-					: Effect.logError(`Could not write: ${target}`);
+				yield* written._tag === "Some" ? Console.log(`Created: ${target}`) : failed(target);
 			});
 
 		yield* scaffold(CONFIG_FILENAME, CONFIG_TEMPLATE);
@@ -151,19 +162,21 @@ export const initHandler = (project: boolean) =>
 
 		if (existing === undefined) {
 			const written = yield* fs.writeFileString(gitignorePath, `${CREDENTIALS_FILENAME}\n`).pipe(Effect.option);
-			if (written._tag === "Some") {
-				yield* Effect.log(`Created .gitignore with ${CREDENTIALS_FILENAME}`);
-			}
+			yield* written._tag === "Some"
+				? Console.log(`Created .gitignore with ${CREDENTIALS_FILENAME}`)
+				: failed(gitignorePath);
 		} else if (!existing.includes(CREDENTIALS_FILENAME)) {
 			const separator = existing.endsWith("\n") ? "" : "\n";
 			const written = yield* fs
 				.writeFileString(gitignorePath, `${existing}${separator}${CREDENTIALS_FILENAME}\n`)
 				.pipe(Effect.option);
-			if (written._tag === "Some") {
-				yield* Effect.log(`Added ${CREDENTIALS_FILENAME} to .gitignore`);
-			}
+			yield* written._tag === "Some"
+				? Console.log(`Added ${CREDENTIALS_FILENAME} to .gitignore`)
+				: failed(gitignorePath);
 		}
 
+		// Guidance about what to do next, not a record of what was done — so it
+		// goes to stderr with the other diagnostics.
 		yield* Effect.log("");
 		yield* Effect.log("Done. Edit the config, then add a credential reference with:");
 		yield* Effect.log('  reposets credentials create --profile personal --username YOU --op "op://Vault/item/field"');

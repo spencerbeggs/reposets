@@ -1,3 +1,4 @@
+import { CliExit } from "@effected/cli";
 import type { ConfigReadError } from "@effected/config-file";
 import {
 	CodeScanning,
@@ -12,12 +13,12 @@ import {
 } from "@effected/github";
 import type { Cache, Store } from "@effected/store";
 import type { Crypto } from "effect";
-import { Effect, Layer, Option } from "effect";
-import { Command, Flag } from "effect/unstable/cli";
+import { Console, Effect, Layer, Option } from "effect";
+import { CliError, Command, Flag } from "effect/unstable/cli";
 import { danglingReferences } from "../../lib/config-refs.js";
-import { formatSchemaIssue } from "../../lib/schema-issues.js";
 import { ReposetsConfigFile, ReposetsCredentialsFile } from "../../services/ConfigFiles.js";
 import { CredentialResolver, CredentialResolverLive } from "../../services/CredentialResolver.js";
+import type { Invocation } from "../../services/Invocation.js";
 import { OnePasswordClientLive } from "../../services/OnePasswordClient.js";
 import { SyncLogger, SyncLoggerLive } from "../../services/SyncLogger.js";
 import { AppliedStateLive } from "../../store/AppliedState.js";
@@ -101,55 +102,38 @@ export const syncHandler = (input: {
 	readonly debug: boolean;
 }): Effect.Effect<
 	void,
-	ConfigReadError,
-	ReposetsConfigFile | ReposetsCredentialsFile | Store | Cache | Crypto.Crypto
+	ConfigReadError | CliError.UserError,
+	ReposetsConfigFile | ReposetsCredentialsFile | Store | Cache | Crypto.Crypto | Invocation | CliExit
 > =>
 	Effect.gen(function* () {
+		// Before anything else, and before the config is even read: a phase
+		// filter that does not name a phase is a typo — a usage error, exit 64 —
+		// and silently running everything is the worst available response.
+		const badPhases = [...unknownPhases(input.only), ...unknownPhases(input.skip)];
+		if (badPhases.length > 0) {
+			return yield* Effect.fail(
+				new CliError.UserError({
+					cause: `Unknown phase name(s): ${badPhases.join(", ")}. Valid phases: ${PHASE_NAMES.join(", ")}. Nothing was synced.`,
+				}),
+			);
+		}
+
 		const configFile = yield* ReposetsConfigFile;
 		const credentialsFile = yield* ReposetsCredentialsFile;
 
-		// One read, and the failure is NOT swallowed. `discover` propagates a
-		// decode failure — its error channel exists for that — so an earlier
+		// One read, and the failure is NOT swallowed. `discover` propagates a decode failure —
+		// its error channel exists for that — so an earlier
 		// `orElseSucceed(() => [])` here turned a config that was one key wrong
 		// into "nothing found", and sent the user to `init` to create a second
-		// one. The kit was reporting it correctly; we discarded it.
-		const discovered = yield* configFile.discover.pipe(Effect.result);
+		// one. It now fails the command, and the entrypoint's renderer prints the
+		// error, the issue lines that name each rejected value, and the cause of a
+		// TOML syntax error.
+		const discovered = yield* configFile.discover;
 
-		if (discovered._tag === "Failure") {
-			yield* Effect.logError(String(discovered.failure));
-
-			// The error names the file; the ISSUE names the value. Printing only
-			// the former sent the user to `doctor`, which printed "FAILED" and
-			// "no unknown keys detected" for anything that was not a misspelling —
-			// so a wrongly *shaped* value left the two commands pointing at each
-			// other and neither saying what was wrong.
-			const failure = discovered.failure as { readonly issue?: unknown; readonly cause?: unknown };
-
-			for (const line of formatSchemaIssue(failure.issue)) {
-				yield* Effect.logError(`  ${line}`);
-			}
-
-			// A TOML syntax error is a `ConfigCodecError`, whose own message is the
-			// bare "toml parse failed" — it carries `codec` and `operation` and no
-			// path. The line and column live on the cause, so printing it is the
-			// difference between "your config is broken somewhere" and "1:9,
-			// expected ] to close the table header".
-			if (failure.cause !== undefined) {
-				yield* Effect.logError(`  ${String(failure.cause)}`);
-			}
-			yield* Effect.sync(() => {
-				process.exitCode = 1;
-			});
-			return;
-		}
-
-		const source = discovered.success[0];
+		const source = discovered[0];
 		if (source === undefined) {
 			yield* Effect.logError("No config found. Run 'reposets init' to create one.");
-			yield* Effect.sync(() => {
-				process.exitCode = 1;
-			});
-			return;
+			return yield* CliExit.set(1);
 		}
 
 		const config = source.value;
@@ -162,18 +146,6 @@ export const syncHandler = (input: {
 		// section name syncs nothing, reports nothing and exits 0. That is the
 		// same failure as a `--repo` filter matching nothing, and it is worse in
 		// a config file, where the typo persists across every future run.
-		// Before anything else: a phase filter that does not name a phase is a
-		// typo, and silently running everything is the worst available response.
-		const badPhases = [...unknownPhases(input.only), ...unknownPhases(input.skip)];
-		if (badPhases.length > 0) {
-			yield* Effect.logError(`Unknown phase name(s): ${badPhases.join(", ")}. Valid phases: ${PHASE_NAMES.join(", ")}`);
-			yield* Effect.logError("Nothing was synced.");
-			yield* Effect.sync(() => {
-				process.exitCode = 1;
-			});
-			return;
-		}
-
 		const dangling = danglingReferences(config);
 		if (dangling.length > 0) {
 			yield* Effect.logError("Config references sections that do not exist:");
@@ -183,24 +155,24 @@ export const syncHandler = (input: {
 			}
 			yield* Effect.logError("");
 			yield* Effect.logError("Nothing was synced. Fix the references or run 'reposets validate' for the full list.");
-			yield* Effect.sync(() => {
-				process.exitCode = 1;
-			});
-			return;
+			return yield* CliExit.set(1);
 		}
 
 		const partitions = partitionByProfile(config.groups, input.group);
 
 		if (partitions.size === 0) {
-			yield* Effect.logError(
-				input.group === undefined
-					? "No groups configured. Add a [groups.<name>] section to sync anything."
-					: `No group named '${input.group}'. Configured: ${Object.keys(config.groups).join(", ") || "none"}`,
-			);
-			yield* Effect.sync(() => {
-				process.exitCode = 1;
-			});
-			return;
+			// Two different mistakes. `--group` naming a group that does not exist
+			// is the user asking for something invalid — a usage error, exit 64. A
+			// config with no groups at all is a finding about the file — exit 1.
+			if (input.group !== undefined) {
+				return yield* Effect.fail(
+					new CliError.UserError({
+						cause: `No group named '${input.group}'. Configured: ${Object.keys(config.groups).join(", ") || "none"}`,
+					}),
+				);
+			}
+			yield* Effect.logError("No groups configured. Add a [groups.<name>] section to sync anything.");
+			return yield* CliExit.set(1);
 		}
 
 		const resolverLayer = Layer.provide(CredentialResolverLive, OnePasswordClientLive);
@@ -324,16 +296,15 @@ export const syncHandler = (input: {
 			return { repos, changes, drifted, errors };
 		}).pipe(Effect.provide(sharedLayer));
 
-		yield* Effect.log(
+		yield* Console.log(
 			`${report.repos} repo(s), ${report.changes} change(s), ${report.drifted} drifted, ${report.errors} error(s)`,
 		);
 
 		// Drift is reported and converged by default; --fail-on-drift makes it a
-		// CI signal without changing what the run did.
+		// CI signal without changing what the run did. Either is a finding: the
+		// run itself succeeded, so it exits 1 through `CliExit`, not by failing.
 		if (report.errors > 0 || (input.failOnDrift && report.drifted > 0)) {
-			yield* Effect.sync(() => {
-				process.exitCode = 1;
-			});
+			yield* CliExit.set(1);
 		}
 	});
 

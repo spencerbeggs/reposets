@@ -1,13 +1,12 @@
-import { mkdirSync, rmSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { App } from "@effected/app";
-import { Effect, Layer, Logger } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { Effect, Layer } from "effect";
+import { describe, expect, it } from "vitest";
 import { clearHandler, historyHandler, pruneHandler, showHandler } from "../../src/cli/commands/history.js";
 import { migrations } from "../../src/store/migrations.js";
 import { SyncJournal, SyncJournalLive } from "../../src/store/SyncJournal.js";
+import type { Outcome } from "../utils/capture.js";
+import { on, runOutcome } from "../utils/capture.js";
 
 /**
  * `history` had no tests. It is the only way to read the journal, so a bug here
@@ -19,51 +18,36 @@ import { SyncJournal, SyncJournalLive } from "../../src/store/SyncJournal.js";
  * column-width and ordering logic pass while producing nonsense.
  */
 
-let dir: string;
-
-beforeEach(() => {
-	dir = join(tmpdir(), `reposets-history-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-	mkdirSync(join(dir, ".local/state"), { recursive: true });
-	process.env.XDG_STATE_HOME = join(dir, ".local/state");
-	process.env.XDG_CACHE_HOME = join(dir, ".cache");
-	process.env.XDG_CONFIG_HOME = join(dir, ".config");
-});
-
-afterEach(() => {
-	rmSync(dir, { recursive: true, force: true });
-	delete process.env.XDG_STATE_HOME;
-	delete process.env.XDG_CACHE_HOME;
-	delete process.env.XDG_CONFIG_HOME;
-});
-
+// `App.layerTest` is hermetic — fixed synthetic XDG paths and `:memory:`
+// databases — so no environment variable or temp directory is involved, and
+// nothing here touches `process.env`.
 const AppTest = App.layerTest({ namespace: "reposets-history-test", store: { migrations } });
 
-/** Run a handler against a real journal, seeding it first, and capture output. */
-const run = async (
+/** Run a handler against a real journal, seeding it first; capture both streams and the exit code. */
+const runFull = (
 	seed: (journal: SyncJournal["Service"]) => Effect.Effect<void, unknown, SyncJournal>,
 	// `historyHandler` carries SqlError; the subcommand handlers do not.
 	handler: Effect.Effect<void, unknown, SyncJournal>,
-): Promise<ReadonlyArray<string>> => {
-	const lines: string[] = [];
-	const collector = Logger.make<unknown, void>((options) => {
-		lines.push(Array.isArray(options.message) ? options.message.join(" ") : String(options.message));
-	});
-
+): Promise<Outcome> => {
 	const program = Effect.gen(function* () {
 		const journal = yield* SyncJournal;
 		yield* seed(journal).pipe(Effect.orDie);
 		yield* handler;
 	});
 
-	await Effect.runPromise(
+	return runOutcome(
 		program.pipe(
 			// `Crypto` is required: run ids are UUIDv7.
 			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(AppTest, NodeServices.layer))),
-			Effect.provide(Logger.layer([collector])),
-		) as Effect.Effect<void>,
+		) as Effect.Effect<void, unknown, never>,
 	);
-	return lines;
 };
+
+/** {@link runFull}, keeping only each line's text. */
+const run = async (
+	seed: (journal: SyncJournal["Service"]) => Effect.Effect<void, unknown, SyncJournal>,
+	handler: Effect.Effect<void, unknown, SyncJournal>,
+): Promise<ReadonlyArray<string>> => (await runFull(seed, handler)).lines.map((line) => line.text);
 
 const noSeed = () => Effect.void;
 
@@ -149,10 +133,10 @@ describe("history show", () => {
 		expect(out).not.toMatch(/^\s+updated\s/m);
 	});
 
-	it("refuses an ambiguous prefix instead of guessing", async () => {
+	it("refuses an ambiguous prefix instead of guessing, as a usage error", async () => {
 		// Showing the wrong run's changes is worse than asking for another
 		// character.
-		const lines = await run(
+		const outcome = await runFull(
 			(j) =>
 				Effect.gen(function* () {
 					const a = yield* j.startRun({ dryRun: false });
@@ -162,12 +146,30 @@ describe("history show", () => {
 				}),
 			showHandler(""),
 		);
-		expect(lines.join("\n")).toContain("matches 2 runs");
+		expect(outcome.exitCode).toBe(64);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("matches 2 runs");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
 	});
 
-	it("reports a prefix that matches nothing", async () => {
-		const lines = await run(noSeed, showHandler("deadbeef"));
-		expect(lines.join("\n")).toContain("No run matches");
+	it("reports a prefix that matches nothing, as a usage error", async () => {
+		const outcome = await runFull(noSeed, showHandler("deadbeef"));
+		expect(outcome.exitCode).toBe(64);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("No run matches");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("writes a found run to stdout and exits 0", async () => {
+		const outcome = await runFull(
+			(j) =>
+				Effect.gen(function* () {
+					const a = yield* j.startRun({ dryRun: false });
+					yield* j.finishRun(a, "success");
+				}),
+			showHandler(""),
+		);
+		expect(outcome.exitCode).toBe(0);
+		expect(on(outcome.lines, "stdout").join("\n")).toContain("run ");
+		expect(on(outcome.lines, "stderr")).toEqual([]);
 	});
 });
 

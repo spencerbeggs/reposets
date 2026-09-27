@@ -7,15 +7,21 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: c8495aebce619e80332c595d10378ee9b34e35fe34dff6f02bde7f816b1d3c46
+  at: 2026-09-27T17:39:49Z
+  body_sha256: 972b5c61e5ef5aeeb214591c206ebaad307986802c5f9896da97c3947a16ccce
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
   - id: cli-flags
     resource: ../../package/src/cli/flags.ts
-  - id: cli-logger
-    resource: ../../package/src/cli/logger.ts
+  - id: effected-cli
+    resource: npm:@effected/cli@0.9.0
+  - id: invocation
+    resource: ../../package/src/services/Invocation.ts
+  - id: core-command
+    resource: ../../.repos/effect/packages/effect/src/unstable/cli/Command.ts
+  - id: bin-e2e
+    resource: ../../package/__test__/cli/bin.e2e.test.ts
   - id: cli-sync
     resource: ../../package/src/cli/commands/sync.ts
   - id: cli-drift
@@ -44,8 +50,10 @@ sources:
 on the v4 line, where the old `@effect/cli` package does not exist. One
 subcommand file lives under `package/src/cli/commands/`, and
 [`package/src/cli/index.ts`](../../package/src/cli/index.ts) registers them
-on the root command via `Command.withSubcommands` and runs the tree through
-`Command.run({ version })`.[^cli-index] For the full flag and argument
+on the root command via `Command.withSubcommands`. It runs the tree through
+`Command.run(cli, { version })` wrapped in `@effected/cli`'s
+`CliRuntime.main`, which owns failure reporting, the logger and the exit
+code.[^cli-index][^effected-cli] For the full flag and argument
 reference, see [`docs/02-commands.md`](../../docs/02-commands.md).[^commands-doc]
 
 ## Command tree
@@ -79,33 +87,50 @@ rather than a plain parent flag specifically so it parses on either side of
 the subcommand name — `reposets --config x validate` and
 `reposets validate --config x` both work, where a plain parent flag rejects
 the trailing form.[^cli-flags] Core contributes `--help`, `--version`,
-`--wizard` and `--log-level` on top of it.
+`--wizard`, `--completions` and `--log-level` on top of it. `--version`
+prints the version the bundler substituted at build time, the same value
+`doctor` reports.[^cli-index]
 
 `Command.provide(ConfigLive)`, `Command.provide(CredentialsFilesLive)` and
 `Command.provide(SyncJournalLive)` all sit on the root command rather than
 on each subcommand — subcommand requirements bubble into the parent's `R`
 through `withSubcommands`, so one `provide` covers every subcommand.[^cli-index]
+The platform layer handed to `CliRuntime.main` supplies the rest: Node's
+services, `App.layer`, `CliColor.formatterLayer()` for colour-aware help and
+errors, and the `Invocation` service. `Invocation` carries the working
+directory and the version. Environment variables are read through Effect's
+`Config`, not `process.env`. `index.ts` is the only file under
+`package/src` that reads `process`.[^cli-index][^invocation]
 
-## `--log-level` is the per-run silencer
+## stdout is output, stderr is diagnostics
 
-`--log-level` is core's own severity filter (`all|trace|debug|…|none`), and
-it is the whole answer to "how do I quiet a run" — there is no `log_level`
-config key and no verbosity tier to reach for instead. `CliLoggerLive`
-decides where a record goes once it is emitted (errors and fatals to
-stderr via `console.error`, everything else to stdout via
-`console.log`),[^cli-logger] and `--log-level` decides which records are
-emitted at all, upstream of that routing:
+Every command writes its output with `Console.log`, to stdout. That covers
+`validate`'s `Valid:` lines, `list`, the whole `doctor` report, `history`
+and `show`, `prune` and `clear`, `credentials list` and the create and
+delete confirmations, `init`'s results, `nuke`'s target list and results,
+and `sync`'s and `drift`'s report and closing summary.[^sync-logger]
+Everything logged with `Effect.log*`, at any level, is a diagnostic on
+stderr, because `CliLogger.layer()`'s default sends every level
+there.[^effected-cli] `reposets drift > report.txt` therefore captures the
+report and leaves failures on the terminal.
 
-| | output | errors | exit code |
-| :--- | :--- | :--- | :--- |
-| default | everything | yes | correct |
-| `--log-level error` | errors only | yes | correct |
-| `--log-level none` | nothing | no | correct |
+## `--log-level` filters diagnostics, not output
 
-`--log-level error` is quiet on success and loud on failure with the exit
-code intact; `--log-level none` is the CI form where only the exit code
-matters. Neither flag changes what `sync` or `drift` actually do — only
-what they print.
+`--log-level` is core's own severity filter (`all|trace|debug|…|none`).
+Core applies it around the command handler only, so it filters the
+handler's `Effect.log*` calls and nothing else.[^core-command] There is no
+`log_level` config key and no verbosity tier either:
+
+| | report on stdout | handler diagnostics on stderr | usage errors and escaped failures | exit code |
+| :--- | :--- | :--- | :--- | :--- |
+| default | printed | printed | printed | correct |
+| `--log-level error` | printed | errors only | printed | correct |
+| `--log-level none` | printed | none | printed | correct |
+
+To quiet the report, redirect stdout. `--log-level` no longer does it; see
+[`gotchas/log-level-none-still-prints-reports.md`](../gotchas/log-level-none-still-prints-reports.md).
+Neither form changes what `sync` or `drift` does, only what reaches the
+terminal.
 
 ## `--only` wins over `--skip`
 
@@ -115,7 +140,8 @@ is a stronger statement than an exclusion, and the alternative — running
 nothing — is worse than an ambiguous but non-empty result. An unrecognised
 phase name in either flag is refused outright rather than filtered out
 silently, and refuses the whole invocation with `Unknown phase name(s): …`
-rather than running the phases it did recognise.[^cli-sync] Phase selection
+rather than running the phases it did recognise. It is checked before the
+config is loaded, and it is a usage error (exit 64).[^cli-sync] Phase selection
 always preserves `PHASE_NAMES` order regardless of the order the names were
 typed in.
 
@@ -145,13 +171,13 @@ GitHub.[^cli-validate] The order matters:
 1. **Reference integrity** (`danglingReferences`) runs first, because a
    group asking for a section that does not exist makes every later check
    about resources that were never going to be applied anyway.
-2. **Organization-only constructs** (`orgOnlyViolations`) — a ruleset
+2. **Undeclared credential labels** (`undefinedCredentialLabels`) — a
+   `resolved` secret or variable naming a label the group's profile does
+   not declare in its `[resolve]` section.
+3. **Organization-only constructs** (`orgOnlyViolations`) — a ruleset
    bypass actor, an environment reviewer, or a delegated bypass reviewer
    declared as a `Team`, assigned to a group whose credential profile
    declares `username` rather than `org`.
-3. **Undeclared credential labels** (`undefinedCredentialLabels`) — a
-   `resolved` secret or variable naming a label the group's profile does
-   not declare in its `[resolve]` section.
 
 Each violation is reported where it is *referenced*, not where it is
 defined, because "referenced" is where a config author actually needs to
@@ -161,9 +187,10 @@ request is made. On success, `validate` states the outcome first —
 `Valid: <path>` — before any detail, so a passing run cannot be misread as
 a complaint.
 
-## `doctor` — everything `validate` does, plus live posture
+## `doctor` — schema posture plus live posture
 
-`doctor` runs the same reference and credential checks as `validate`, adds
+`doctor` decodes the config against the schema as `validate` does, but it
+does not run `validate`'s three reference checks. It adds
 Levenshtein-distance typo detection against the raw TOML for unknown keys,
 prints migration hints for keys 1.0 removed via a `REMOVED_KEYS` map keyed
 by the same `where` suffix the warning uses (`owner`, `owner (in groups)`,
@@ -193,6 +220,9 @@ resolver chain actually found via `discover` (marked `(not created yet)`
 when the chain finds nothing, never guessed from cwd), and the state
 database path.
 
+`doctor` always exits 0: it reports, and `validate` gates. See
+[Exit codes](#exit-codes).
+
 ## `history`, `show`, `prune`, `clear`
 
 `history` lists past runs newest first with a `RUN` id column — the
@@ -216,10 +246,16 @@ GitHub.[^cli-nuke] Three properties are load-bearing:
   database specifically that the drift baselines cannot be reconstructed —
   the one irreversible consequence in the set. Config files can be
   restored from a backup or rewritten; fingerprints cannot.
-- Without `--force` it refuses a non-interactive shell (`process.stdin.isTTY
-  !== true`) rather than assuming an answer — a destructive command that
-  proceeds because nobody was there to answer is the one failure mode worth
-  engineering against.
+- Without `--force` it refuses when stdin is not a terminal, rather than
+  assuming an answer. A destructive command that proceeds because nobody
+  was there to answer is the one failure mode worth engineering against.
+  The check asks core's `Stdio.stdinIsTerminal`, so a test drives it
+  without touching `process`. The refusal is a `CliError.UserError` and
+  exits 64.
+
+Once confirmed, `nuke` attempts every target even when one fails. A
+target it could not remove is logged to stderr as `could not remove <path>`,
+and the run then exits 1 through `CliExit` after the rest were tried.
 
 ## `init` and `credentials`
 
@@ -227,7 +263,10 @@ GitHub.[^cli-nuke] Three properties are load-bearing:
 writing to the XDG config directory by default or to the current directory
 with `--project`. It never overwrites an existing file — only reports it —
 so it stays safe to re-run against an already-configured machine, and it
-adds the credentials file to `.gitignore` in both modes.[^cli-init]
+adds the credentials file to `.gitignore` in both modes.[^cli-init] A file
+it could not write, the `.gitignore` included, is logged to stderr as
+`Could not write: <path>`. The remaining files are still attempted, and
+the run exits 1 through `CliExit`.
 
 `credentials create` requires exactly one of `--username`/`--org` (what
 the profile acts as, which decides which settings are even valid for it)
@@ -249,29 +288,52 @@ summary line.
 
 ## Reporting a bad config
 
-`sync` and `doctor` both render the structured issue a `ConfigValidationError`
-carries through `formatSchemaIssue`, with the lines deduplicated — a union
-schema reports every branch it tried, so one wrong key in a three-member
-union used to print the same `unknown key` line three times, burying the
-lines that say which shapes were actually allowed.[^cli-sync]
+A config that fails to read or decode is not caught by the command. It
+propagates out of the handler, and `CliRuntime.main` renders it through the
+entrypoint's `render` callback on stderr, then exits 1.[^cli-index] For a
+`ConfigValidationError`, `render` prints the error's own message and then
+the issue lines `@effected/cli`'s `ConfigIssueRenderer.render` produces. It
+adds `Run 'reposets doctor' for suggested spellings.` only when one of those
+lines is an `unknown key` line, because a missing key has no spelling to
+suggest. For any other failure with a `cause`, such as a TOML syntax error
+whose message is only "toml parse failed", `render` prints the cause, which
+carries the line and column, on a second line. `doctor` renders the same
+issue through `SchemaIssueRenderer.render`, on stdout as part of its
+report.[^cli-doctor]
+
+Both renderers deduplicate a union's repeated branch lines, so one wrong
+key in a three-member union prints one `unknown key` line, not three. That
+dedupe is the kit's behaviour. No test in this repository pins it any
+more, and a regression would surface upstream in `@effected/cli`, not
+here.[^effected-cli]
 
 ## Exit codes
 
-Every command that finds nothing wrong exits 0. A command sets
-`process.exitCode = 1` explicitly rather than throwing, for: a config that
-fails to discover or decode, an unknown `--only`/`--skip` phase name, a
-dangling reference, an undeclared credential label, an org-only violation,
-a `sync` whose partitions produced at least one error (or, with
-`--fail-on-drift`, at least one drifted resource), an ambiguous or missing
-`history show` prefix, and a `nuke` refused for lacking `--force` in a
-non-interactive shell. A failure that escapes the command effect entirely
-is caught by `Effect.catch(reportAndExit)` at the entrypoint and reported
-through the CLI logger before the process exits non-zero — see
-[`failures-are-caught-inside-the-effect`](../decisions/failures-are-caught-inside-the-effect.md).
+| Code | Meaning | When |
+| :--- | :--- | :--- |
+| 0 | Nothing wrong | Every command that finds nothing to report. Also an explicit `--help` or `--version`, and a bare command group. |
+| 1 | A finding | A handler that succeeded calls `CliExit.set(1)`. This covers a dangling reference, an undeclared credential label, an org-only violation, no config found (including `list`), a config with no groups, and a `sync` whose partitions produced at least one error. It also covers `sync` with `--fail-on-drift`, and so every `drift`, that found at least one drifted resource. Finally, it covers a `nuke` that could not remove a target and an `init` that could not write a file or the `.gitignore`. |
+| 1 | An escaped failure | A config that fails to read or decode, or any other failure a command does not handle. `CliRuntime.main` renders it and exits with its fallback code. |
+| 64 | A usage mistake (`EX_USAGE`) | A parse error, an unknown subcommand or flag, an unknown `--only`/`--skip` phase, or an unknown `--group`. Also `history show` with no match or an ambiguous prefix, `nuke` refused in a non-interactive shell without `--force`, every `credentials create` refusal, and `credentials delete` of a missing profile. |
+
+`doctor` always exits 0, even when its report says schema validation
+failed or a token was rejected. It is a report, and `validate` is the gate:
+a CI job that wants a non-zero exit on a broken config runs `validate`.
+This was a deliberate ruling, not an omission.[^cli-doctor]
+
+A usage mistake fails with `CliError.UserError` or a core parse error.
+`Command.runWith` prints the message once on stderr, and any help printed
+with it goes to stderr too (`helpOnUsageError: "stderr"`), so a usage
+mistake writes nothing to stdout.[^cli-index] A finding is not a failure:
+the command ran correctly and reports what it found, which is why it exits
+through `CliExit` rather than by failing. No file under `package/src` sets
+`process.exitCode`. `package/__test__/cli/bin.e2e.test.ts` runs the built
+dev bin and pins these codes and which stream each message lands
+on.[^bin-e2e] The reasoning is in
+[`cli-runtime-via-effected-cli`](../decisions/cli-runtime-via-effected-cli.md).
 
 [^cli-index]: `package/src/cli/index.ts`
 [^cli-flags]: `package/src/cli/flags.ts`
-[^cli-logger]: `package/src/cli/logger.ts`
 [^cli-sync]: `package/src/cli/commands/sync.ts`
 [^cli-drift]: `package/src/cli/commands/drift.ts`
 [^cli-validate]: `package/src/cli/commands/validate.ts`
@@ -282,4 +344,8 @@ through the CLI logger before the process exits non-zero — see
 [^cli-credentials]: `package/src/cli/commands/credentials.ts`
 [^sync-logger]: `package/src/services/SyncLogger.ts`
 [^commands-doc]: `docs/02-commands.md`
+[^effected-cli]: npm:@effected/cli@0.9.0
+[^invocation]: `package/src/services/Invocation.ts`
+[^core-command]: `.repos/effect/packages/effect/src/unstable/cli/Command.ts`
+[^bin-e2e]: `package/__test__/cli/bin.e2e.test.ts`
 </content>

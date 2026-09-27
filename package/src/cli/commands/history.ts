@@ -1,5 +1,5 @@
-import { Effect } from "effect";
-import { Command, Flag } from "effect/unstable/cli";
+import { Console, Effect } from "effect";
+import { CliError, Command, Flag } from "effect/unstable/cli";
 import type { ChangeAction, ChangeRecord, RunSummary } from "../../store/SyncJournal.js";
 import { SyncJournal } from "../../store/SyncJournal.js";
 
@@ -56,7 +56,7 @@ const pad = (value: string, width: number): string => value.padEnd(width);
  *
  * @remarks
  * Computed rather than fixed because group names and repository names are
- * user-supplied and unbounded. The `CliLogger` emits each line verbatim, so
+ * user-supplied and unbounded. Each line is written verbatim to stdout, so
  * alignment computed here survives to the terminal.
  */
 const renderRows = (summaries: ReadonlyArray<RunSummary>): ReadonlyArray<string> => {
@@ -126,7 +126,7 @@ export const historyHandler = (input: { readonly limit: number; readonly repo: s
 		});
 
 		if (summaries.length === 0) {
-			yield* Effect.log(
+			yield* Console.log(
 				input.repo === undefined
 					? "No runs recorded yet. The journal fills in as you sync."
 					: `No recorded run has touched ${input.repo}.`,
@@ -135,12 +135,13 @@ export const historyHandler = (input: { readonly limit: number; readonly repo: s
 		}
 
 		for (const line of renderRows(summaries)) {
-			yield* Effect.log(line);
+			yield* Console.log(line);
 		}
 
-		// Only worth saying when the limit is what stopped the list.
+		// Only worth saying when the limit is what stopped the list. Narration
+		// about the table rather than part of it, so it goes to stderr and a
+		// piped table stays a table.
 		if (summaries.length === input.limit) {
-			yield* Effect.log("");
 			yield* Effect.log(`Showing the most recent ${input.limit}. Pass --limit for more.`);
 		}
 	});
@@ -166,51 +167,48 @@ const wouldForm = (action: ChangeAction): string =>
  * The id may be given in full or as a unique prefix, because nobody is going to
  * retype a UUID from a table.
  */
-export const showHandler = (prefix: string): Effect.Effect<void, never, SyncJournal> =>
+export const showHandler = (prefix: string): Effect.Effect<void, CliError.UserError, SyncJournal> =>
 	Effect.gen(function* () {
 		const journal = yield* SyncJournal;
 
 		const runs = yield* journal.history({ limit: 1000 }).pipe(Effect.orElseSucceed(() => []));
 		const matches = runs.filter((run) => run.id.startsWith(prefix));
 
+		// Both refusals are usage errors — the user named a run that is not
+		// there, or not uniquely — so they fail with `UserError` and exit 64.
+		// `Command.runWith` prints the message once, on stderr.
 		if (matches.length === 0) {
-			yield* Effect.logError(`No run matches '${prefix}'.`);
-			yield* Effect.sync(() => {
-				process.exitCode = 1;
-			});
-			return;
+			return yield* Effect.fail(new CliError.UserError({ cause: `No run matches '${prefix}'.` }));
 		}
 		if (matches.length > 1) {
 			// Refusing beats guessing: showing the wrong run's changes is worse
 			// than asking for another character.
-			yield* Effect.logError(`'${prefix}' matches ${matches.length} runs. Use more of the id:`);
-			for (const run of matches.slice(0, 5)) {
-				yield* Effect.logError(`  ${run.id}  ${formatWhen(run.startedAt)}`);
-			}
-			yield* Effect.sync(() => {
-				process.exitCode = 1;
-			});
-			return;
+			const candidates = matches.slice(0, 5).map((run) => `  ${run.id}  ${formatWhen(run.startedAt)}`);
+			return yield* Effect.fail(
+				new CliError.UserError({
+					cause: [`'${prefix}' matches ${matches.length} runs. Use more of the id:`, ...candidates].join("\n"),
+				}),
+			);
 		}
 
 		const run = matches[0] as RunSummary;
 		const changes = yield* journal.changesFor(run.id).pipe(Effect.orElseSucceed(() => []));
 
-		yield* Effect.log(`run ${run.id}`);
-		yield* Effect.log(
+		yield* Console.log(`run ${run.id}`);
+		yield* Console.log(
 			`  ${formatWhen(run.startedAt)} · ${run.dryRun === 1 ? "dry-run" : "applied"} · ${run.outcome ?? "unfinished"} · ${formatDuration(run)}`,
 		);
-		yield* Effect.log("");
+		yield* Console.log("");
 
 		// Before the changes, because on a failed run this is the answer someone
 		// came for.
 		if (run.error !== null && run.error !== "") {
-			yield* Effect.log(`  error: ${run.error}`);
-			yield* Effect.log("");
+			yield* Console.log(`  error: ${run.error}`);
+			yield* Console.log("");
 		}
 
 		if (changes.length === 0) {
-			yield* Effect.log(
+			yield* Console.log(
 				run.error !== null && run.error !== "" ? "  No resources changed." : "  No resources changed (nothing to do).",
 			);
 			return;
@@ -226,7 +224,7 @@ export const showHandler = (prefix: string): Effect.Effect<void, never, SyncJour
 		}
 
 		for (const [repo, records] of byRepo) {
-			yield* Effect.log(`  ${repo}`);
+			yield* Console.log(`  ${repo}`);
 			for (const record of records) {
 				const detail = record.detail === undefined || record.detail === null ? "" : ` — ${record.detail}`;
 				// The settings phase is one resource whose kind and name are both
@@ -237,7 +235,7 @@ export const showHandler = (prefix: string): Effect.Effect<void, never, SyncJour
 				// them unqualified states work that never happened — the run header
 				// says `dry-run`, but a reader scanning resource lines is past it.
 				const action = run.dryRun === 1 ? `would ${wouldForm(record.action)}` : record.action;
-				yield* Effect.log(`    ${action.padEnd(18)} ${what}${detail}`);
+				yield* Console.log(`    ${action.padEnd(18)} ${what}${detail}`);
 			}
 		}
 	});
@@ -256,20 +254,20 @@ export const pruneHandler = (keep: number): Effect.Effect<void, never, SyncJourn
 	Effect.gen(function* () {
 		const journal = yield* SyncJournal;
 		const removed = yield* journal.prune(keep).pipe(Effect.orElseSucceed(() => 0));
-		yield* Effect.log(
+		yield* Console.log(
 			removed === 0
 				? `Nothing to prune; ${keep} or fewer runs are recorded.`
 				: `Pruned ${removed} run${removed === 1 ? "" : "s"}, keeping the newest ${keep}.`,
 		);
-		yield* Effect.log("Applied state and the cache are untouched — drift detection still works.");
+		yield* Console.log("Applied state and the cache are untouched — drift detection still works.");
 	});
 
 export const clearHandler = (): Effect.Effect<void, never, SyncJournal> =>
 	Effect.gen(function* () {
 		const journal = yield* SyncJournal;
 		const removed = yield* journal.clear().pipe(Effect.orElseSucceed(() => 0));
-		yield* Effect.log(`Cleared ${removed} run${removed === 1 ? "" : "s"} from the journal.`);
-		yield* Effect.log("Applied state and the cache are untouched — drift detection still works.");
+		yield* Console.log(`Cleared ${removed} run${removed === 1 ? "" : "s"} from the journal.`);
+		yield* Console.log("Applied state and the cache are untouched — drift detection still works.");
 	});
 
 /**

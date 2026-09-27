@@ -1,7 +1,7 @@
 import { mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { Effect, Exit, Layer, Redacted } from "effect";
+import { ConfigProvider, Effect, Exit, Layer, Redacted } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import type { CredentialProfile } from "../../src/schemas/credentials.js";
 import { CredentialResolver, CredentialResolverLive } from "../../src/services/CredentialResolver.js";
@@ -26,15 +26,37 @@ afterEach(() => {
 	rmSync(tempDir, { recursive: true, force: true });
 });
 
-const layerWith = (opStubs: Readonly<Record<string, string>> = {}): Layer.Layer<CredentialResolver> =>
-	Layer.provide(CredentialResolverLive, OnePasswordClient.layerTest(opStubs));
+/**
+ * The resolver over a stubbed 1Password client and an explicit environment.
+ *
+ * @remarks
+ * The environment is a plain record provided as the ambient `ConfigProvider`,
+ * the seam the resolver reads it through — so no test sets or deletes a
+ * `process.env` key, and an env-source test cannot leak a variable into its
+ * neighbours. An empty record is the "variable unset" case; without it the
+ * default provider would answer from the developer's own shell.
+ */
+const layerWith = (
+	opStubs: Readonly<Record<string, string>> = {},
+	env: Readonly<Record<string, string>> = {},
+): Layer.Layer<CredentialResolver> =>
+	// `provideMerge`, not `provide`: the resolver reads `Config` when a method
+	// RUNS, in the caller's fiber, so the provider must reach the caller — a
+	// provider hidden inside the layer would be invisible to it, and the reads
+	// would fall back to the real process environment.
+	Layer.provide(CredentialResolverLive, OnePasswordClient.layerTest(opStubs)).pipe(
+		Layer.provideMerge(ConfigProvider.layer(ConfigProvider.fromEnv({ env: { ...env } }))),
+	);
 
 const resolveAll = (
 	profile: CredentialProfile,
 	opStubs: Readonly<Record<string, string>> = {},
+	env: Readonly<Record<string, string>> = {},
 ): Promise<Exit.Exit<ReadonlyMap<string, Redacted.Redacted<string>>, unknown>> =>
 	Effect.runPromiseExit(
-		Effect.flatMap(CredentialResolver, (r) => r.resolveAll(profile, tempDir)).pipe(Effect.provide(layerWith(opStubs))),
+		Effect.flatMap(CredentialResolver, (r) => r.resolveAll(profile, tempDir)).pipe(
+			Effect.provide(layerWith(opStubs, env)),
+		),
 	);
 
 /** Read a resolved label's plaintext, failing the test if it is absent. */
@@ -90,42 +112,37 @@ describe("resolveAll", () => {
 		// a list and only a case that exercises the whole list can catch the next
 		// one.
 		writeFileSync(join(tempDir, "cert.pem"), "CERTBYTES");
-		process.env.REPOSETS_TEST_ALL = "envvalue";
-		try {
-			const exit = await resolveAll(
-				{
-					username: "tester",
-					github_token: { env: "GH" },
-					resolve: {
-						op: { A: "op://vault/item/field" },
-						env: { B: "REPOSETS_TEST_ALL" },
-						file: { C: "./cert.pem" },
-						value: { D: "inline" },
-					},
+		const exit = await resolveAll(
+			{
+				username: "tester",
+				github_token: { env: "GH" },
+				resolve: {
+					op: { A: "op://vault/item/field" },
+					env: { B: "REPOSETS_TEST_ALL" },
+					file: { C: "./cert.pem" },
+					value: { D: "inline" },
 				},
-				{ "op://vault/item/field": "opvalue" },
-			);
-			expect(plaintext(exit, "A")).toBe("opvalue");
-			expect(plaintext(exit, "B")).toBe("envvalue");
-			expect(plaintext(exit, "C")).toBe("CERTBYTES");
-			expect(plaintext(exit, "D")).toBe("inline");
-		} finally {
-			delete process.env.REPOSETS_TEST_ALL;
-		}
+			},
+			{ "op://vault/item/field": "opvalue" },
+			{ REPOSETS_TEST_ALL: "envvalue" },
+		);
+		expect(plaintext(exit, "A")).toBe("opvalue");
+		expect(plaintext(exit, "B")).toBe("envvalue");
+		expect(plaintext(exit, "C")).toBe("CERTBYTES");
+		expect(plaintext(exit, "D")).toBe("inline");
 	});
 
 	it("resolves env entries", async () => {
-		process.env.REPOSETS_TEST_ENV_LABEL = "from-environment";
-		try {
-			const exit = await resolveAll({
+		const exit = await resolveAll(
+			{
 				username: "tester",
 				github_token: { env: "GH" },
 				resolve: { env: { BOT_NAME: "REPOSETS_TEST_ENV_LABEL" } },
-			});
-			expect(plaintext(exit, "BOT_NAME")).toBe("from-environment");
-		} finally {
-			delete process.env.REPOSETS_TEST_ENV_LABEL;
-		}
+			},
+			{},
+			{ REPOSETS_TEST_ENV_LABEL: "from-environment" },
+		);
+		expect(plaintext(exit, "BOT_NAME")).toBe("from-environment");
 	});
 
 	it("resolves file entries relative to the base path", async () => {
@@ -150,26 +167,22 @@ describe("resolveAll", () => {
 
 	it("merges all three sub-groups", async () => {
 		writeFileSync(join(tempDir, "cert.pem"), "cert-data");
-		process.env.REPOSETS_TEST_MERGE = "env-data";
-		try {
-			const exit = await resolveAll(
-				{
-					username: "tester",
-					github_token: { op: "op://vault/gh/token" },
-					resolve: {
-						op: { APP_ID: "op://vault/app/id" },
-						env: { NAME: "REPOSETS_TEST_MERGE" },
-						file: { CERT: "./cert.pem" },
-					},
+		const exit = await resolveAll(
+			{
+				username: "tester",
+				github_token: { op: "op://vault/gh/token" },
+				resolve: {
+					op: { APP_ID: "op://vault/app/id" },
+					env: { NAME: "REPOSETS_TEST_MERGE" },
+					file: { CERT: "./cert.pem" },
 				},
-				{ "op://vault/app/id": "999" },
-			);
-			expect(plaintext(exit, "APP_ID")).toBe("999");
-			expect(plaintext(exit, "NAME")).toBe("env-data");
-			expect(plaintext(exit, "CERT")).toBe("cert-data");
-		} finally {
-			delete process.env.REPOSETS_TEST_MERGE;
-		}
+			},
+			{ "op://vault/app/id": "999" },
+			{ REPOSETS_TEST_MERGE: "env-data" },
+		);
+		expect(plaintext(exit, "APP_ID")).toBe("999");
+		expect(plaintext(exit, "NAME")).toBe("env-data");
+		expect(plaintext(exit, "CERT")).toBe("cert-data");
 	});
 
 	it("returns an empty map when there is no resolve section", async () => {
@@ -209,9 +222,12 @@ describe("resolveGitHubToken", () => {
 	const token = (
 		profile: CredentialProfile,
 		opStubs: Readonly<Record<string, string>> = {},
+		env: Readonly<Record<string, string>> = {},
 	): Promise<Exit.Exit<Redacted.Redacted<string>, unknown>> =>
 		Effect.runPromiseExit(
-			Effect.flatMap(CredentialResolver, (r) => r.resolveGitHubToken(profile)).pipe(Effect.provide(layerWith(opStubs))),
+			Effect.flatMap(CredentialResolver, (r) => r.resolveGitHubToken(profile)).pipe(
+				Effect.provide(layerWith(opStubs, env)),
+			),
 		);
 
 	it("resolves an op reference", async () => {
@@ -224,14 +240,26 @@ describe("resolveGitHubToken", () => {
 	});
 
 	it("resolves an env reference", async () => {
-		process.env.REPOSETS_TEST_GH = "ghp_from_env";
-		try {
-			const exit = await token({ username: "tester", github_token: { env: "REPOSETS_TEST_GH" } });
-			if (!Exit.isSuccess(exit)) throw new Error("expected success");
-			expect(Redacted.value(exit.value)).toBe("ghp_from_env");
-		} finally {
-			delete process.env.REPOSETS_TEST_GH;
-		}
+		const exit = await token(
+			{ username: "tester", github_token: { env: "REPOSETS_TEST_GH" } },
+			{},
+			{ REPOSETS_TEST_GH: "ghp_from_env" },
+		);
+		if (!Exit.isSuccess(exit)) throw new Error("expected success");
+		expect(Redacted.value(exit.value)).toBe("ghp_from_env");
+	});
+
+	it("treats an empty variable as unset, rather than resolving an empty token", async () => {
+		// The environment is read through `Config`, whose provider maps "" to
+		// absent. An empty token would only fail later, against GitHub, with a
+		// message that no longer names the variable.
+		const exit = await token(
+			{ username: "tester", github_token: { env: "REPOSETS_TEST_EMPTY" } },
+			{},
+			{ REPOSETS_TEST_EMPTY: "" },
+		);
+		expect(Exit.isFailure(exit)).toBe(true);
+		expect(JSON.stringify(exit)).toContain("REPOSETS_TEST_EMPTY is not set");
 	});
 
 	it("fails, naming the variable, when the env reference is unset", async () => {
@@ -274,18 +302,17 @@ describe("does not leak resolved values", () => {
 	});
 
 	it("keeps env values out of every rendering of a success", async () => {
-		process.env.REPOSETS_TEST_LEAK = SECRET;
-		try {
-			const exit = await resolveAll({
+		const exit = await resolveAll(
+			{
 				username: "tester",
 				github_token: { env: "GH" },
 				resolve: { env: { TOKEN: "REPOSETS_TEST_LEAK" } },
-			});
-			expect(JSON.stringify(exit)).not.toContain(SECRET);
-			expect(plaintext(exit, "TOKEN")).toBe(SECRET);
-		} finally {
-			delete process.env.REPOSETS_TEST_LEAK;
-		}
+			},
+			{},
+			{ REPOSETS_TEST_LEAK: SECRET },
+		);
+		expect(JSON.stringify(exit)).not.toContain(SECRET);
+		expect(plaintext(exit, "TOKEN")).toBe(SECRET);
 	});
 
 	it("keeps the value out of a failure that happens after a successful resolve", async () => {

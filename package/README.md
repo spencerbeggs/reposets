@@ -99,7 +99,7 @@ The owner is not in the config. It belongs to the credential profile, which decl
 | `reposets nuke` | Delete every local reposets file. Nothing on GitHub is touched |
 | `reposets credentials` | Manage credential profiles: `create`, `list`, `delete` |
 
-Every command accepts `--config` and the `--log-level` filter Effect core provides. `--log-level error` is quiet on success and loud on failure; `--log-level none` is the CI form.
+Every command accepts `--config`. Command output goes to stdout and diagnostics and errors to stderr, so `reposets sync > /dev/null` is quiet on success and loud on failure. Usage errors exit `64`; findings exit `1`.
 
 ## Configuration
 

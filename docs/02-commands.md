@@ -2,7 +2,9 @@
 
 Every command accepts the global `--config` flag, which takes a path to `reposets.config.toml` or to a directory containing it. Effect core contributes `--help`, `--version`, `--wizard`, `--completions` and `--log-level` to every command.
 
-`--log-level` takes `all|trace|debug|info|warn|warning|error|fatal|none` and sets the minimum severity of log records. It is the way to quieten a run: `--log-level error` prints errors only and leaves the exit code intact, and `--log-level none` prints nothing at all. There is no `log_level` config key and no verbosity tiers — see [Migrating to 1.0](01-migrating-to-1.0.md#3-log_level-and-the-verbosity-tiers-are-gone).
+Command output — a report, a table, a summary — goes to stdout. Diagnostics, progress and errors go to stderr. `--log-level` takes `all|trace|debug|info|warn|warning|error|fatal|none` and sets the minimum severity of those stderr diagnostics only; it never silences command output. To quieten a run, redirect stdout: `reposets sync > /dev/null` is quiet on success and still prints errors. There is no `log_level` config key and no verbosity tiers — see [Migrating to 1.0](01-migrating-to-1.0.md#3-log_level-and-the-verbosity-tiers-are-gone).
+
+Exit codes: `0` success, `1` a finding (invalid config, sync errors, drift, a file `init` or `nuke` could not write or remove), `64` a usage error (an unknown flag, subcommand, phase or group, or a refused `nuke`).
 
 Global flags are accepted on either side of the subcommand name, so `reposets --config ./cfg validate` and `reposets validate --config ./cfg` both parse.
 
@@ -87,7 +89,7 @@ reposets sync
 # 0 repo(s), 0 change(s), 0 drifted, 1 error(s)
 ```
 
-Errors are written to stderr, so `reposets sync > log.txt` still shows failures on the terminal.
+The report is written to stdout and errors to stderr, so `reposets sync > log.txt` captures the report while failures still show on the terminal.
 
 ## drift
 

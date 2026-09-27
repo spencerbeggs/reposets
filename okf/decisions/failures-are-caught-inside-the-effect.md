@@ -2,7 +2,7 @@
 type: Decision
 title: Failures are caught inside the effect
 description: The entrypoint wraps the whole command effect in Effect.catch(reportAndExit) rather than letting an unhandled failure reach NodeRuntime.runMain's own reporting path.
-status: stable
+status: deprecated
 tags: [effect, dx]
 generated:
   by: okfit/claude-code
@@ -12,7 +12,7 @@ sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
   - id: cli-logger
-    resource: ../../package/src/cli/logger.ts
+    resource: https://github.com/spencerbeggs/reposets/blob/44aea126785aa7eb2168e9ce3adee93e1288c724/package/src/cli/logger.ts
   - id: effect-runtime
     resource: ../../.repos/effect/packages/effect/src/Runtime.ts
 verified:
