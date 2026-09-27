@@ -1,20 +1,19 @@
-import { Effect, Logger } from "effect";
+import { CliLogger } from "@effected/cli";
+import { Console, Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { SyncLoggerShape } from "../../src/services/SyncLogger.js";
 import { SyncLogger, SyncLoggerLive } from "../../src/services/SyncLogger.js";
+import { capturingConsole } from "../utils/capture.js";
 
 /**
- * Capture what a run actually prints.
+ * Capture what a run actually prints, and where.
  *
  * @remarks
- * v3 tested this by handing the logger a `Ref<string[]>` to write into instead
- * of stdout. That seam is gone: the service now emits with `Effect.log`, and a
- * test that bypassed it would assert the formatting while proving nothing about
- * the path the CLI uses.
- *
- * So this installs a real `Logger` and reads what Effect hands it. Same
- * assertions as v3, one layer lower. `Logger.layer` replaces the default logger
- * rather than merging, so nothing reaches the console during a test run.
+ * The report lines are written with `Console.log` and failures with
+ * `Effect.logError`, so a `Logger` collector alone would see only the failures.
+ * This installs the shipped `CliLogger` over a recording `Console` instead —
+ * the same routing the bin uses — so every line is captured with the stream it
+ * lands on.
  *
  * The trap worth naming: a capture wired to the wrong sink returns `[]` forever,
  * and almost every assertion here is a `toContain` or a `toHaveLength(0)` that
@@ -22,50 +21,26 @@ import { SyncLogger, SyncLoggerLive } from "../../src/services/SyncLogger.js";
  * all")` below is the canary — if the wiring breaks, that test fails first and
  * unambiguously.
  */
+const captureStreams = async (
+	config: { dryRun: boolean; debug: boolean },
+	program: Effect.Effect<void, never, SyncLogger>,
+): Promise<ReadonlyArray<{ readonly stream: "stdout" | "stderr"; readonly line: string }>> => {
+	const { console: double, lines } = capturingConsole();
+	await Effect.runPromise(
+		program.pipe(
+			Effect.provide(SyncLoggerLive(config)),
+			Effect.provide(CliLogger.layer()),
+			Effect.provideService(Console.Console, double),
+		),
+	);
+	return lines.map((entry) => ({ stream: entry.stream, line: entry.text }));
+};
+
+/** {@link captureStreams}, keeping only the text. */
 const capture = async (
 	config: { dryRun: boolean; debug: boolean },
 	program: Effect.Effect<void, never, SyncLogger>,
-): Promise<ReadonlyArray<string>> => {
-	const lines: string[] = [];
-	const collector = Logger.make<unknown, void>((options) => {
-		lines.push(Array.isArray(options.message) ? options.message.join(" ") : String(options.message));
-	});
-
-	await Effect.runPromise(
-		program.pipe(Effect.provide(SyncLoggerLive(config)), Effect.provide(Logger.layer([collector]))),
-	);
-
-	return lines;
-};
-
-/**
- * Capture lines with the level each was emitted at.
- *
- * @remarks
- * The plain {@link capture} discards `logLevel`, so it cannot see which stream a
- * line lands on — the CLI entrypoint routes by level, sending `Error` to stderr
- * and everything else to stdout. Changing `Effect.log` to `Effect.logError`
- * leaves every message-only assertion green while changing what a user piping
- * stdout actually sees, so the routing needs its own assertions.
- */
-const captureLevels = async (
-	config: { dryRun: boolean; debug: boolean },
-	program: Effect.Effect<void, never, SyncLogger>,
-): Promise<ReadonlyArray<{ readonly level: string; readonly line: string }>> => {
-	const entries: Array<{ level: string; line: string }> = [];
-	const collector = Logger.make<unknown, void>((options) => {
-		entries.push({
-			level: String(options.logLevel),
-			line: Array.isArray(options.message) ? options.message.join(" ") : String(options.message),
-		});
-	});
-
-	await Effect.runPromise(
-		program.pipe(Effect.provide(SyncLoggerLive(config)), Effect.provide(Logger.layer([collector]))),
-	);
-
-	return entries;
-};
+): Promise<ReadonlyArray<string>> => (await captureStreams(config, program)).map((entry) => entry.line);
 
 /**
  * Run one logger call.
@@ -395,45 +370,51 @@ describe("error handling", () => {
 });
 
 describe("stream routing", () => {
-	// The CLI entrypoint routes by log level: Error to stderr, everything else to
-	// stdout. These assertions exist because every message-only test above stays
-	// green when a line moves between streams — invisible to `toContain`, and
-	// very visible to anyone running `reposets sync > log.txt`.
+	// The report is the product and goes to stdout; failures are diagnostics and
+	// go to stderr. These assertions exist because every message-only test above
+	// stays green when a line moves between streams — invisible to `toContain`,
+	// and very visible to anyone running `reposets sync > log.txt`.
 
-	it("emits failures at Error level", async () => {
-		const entries = await captureLevels(
+	it("puts failures on stderr", async () => {
+		const entries = await captureStreams(
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.syncError("settings", "403 Forbidden")),
 		);
 
 		expect(entries).toHaveLength(1);
-		expect(entries[0]?.level).toBe("Error");
+		expect(entries[0]?.stream).toBe("stderr");
 	});
 
-	it("emits ordinary progress below Error", async () => {
-		const entries = await captureLevels(
+	it("puts the report on stdout", async () => {
+		const entries = await captureStreams(
 			{ dryRun: false, debug: false },
-			withLogger((l) => l.groupStart("personal", 2, 2)),
+			withLogger((l) =>
+				Effect.gen(function* () {
+					yield* l.groupStart("personal", 2, 2);
+					yield* l.repoStart("owner", "repo");
+					yield* l.syncOperation("sync", "secret", "API_KEY");
+				}),
+			),
 		);
 
-		expect(entries.length).toBeGreaterThan(0);
+		expect(entries.length).toBe(3);
 		for (const entry of entries) {
-			expect(entry.level).not.toBe("Error");
+			expect(entry.stream).toBe("stdout");
 		}
 	});
 
-	it("keeps a clean finish out of the error stream", async () => {
-		const entries = await captureLevels(
+	it("keeps a clean finish on stdout", async () => {
+		const entries = await captureStreams(
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.finish()),
 		);
 
 		expect(entries.length).toBeGreaterThan(0);
-		expect(entries.every((e) => e.level !== "Error")).toBe(true);
+		expect(entries.every((e) => e.stream === "stdout")).toBe(true);
 	});
 
-	it("puts the whole failing finish block on the error stream", async () => {
-		const entries = await captureLevels(
+	it("puts the whole failing finish block on stderr", async () => {
+		const entries = await captureStreams(
 			{ dryRun: false, debug: false },
 			withLogger((l) =>
 				Effect.gen(function* () {
@@ -447,7 +428,7 @@ describe("stream routing", () => {
 		const block = entries.filter((e) => e.line.includes("Sync complete with") || e.line.includes("403"));
 		expect(block.length).toBeGreaterThan(1);
 		// Header and the list it introduces must not straddle two streams.
-		expect(block.every((e) => e.level === "Error")).toBe(true);
+		expect(block.every((e) => e.stream === "stderr")).toBe(true);
 	});
 });
 

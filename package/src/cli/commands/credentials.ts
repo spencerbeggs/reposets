@@ -1,6 +1,6 @@
 import { AppDirs } from "@effected/xdg";
-import { Effect, Option } from "effect";
-import { Command, Flag } from "effect/unstable/cli";
+import { Console, Effect, Option } from "effect";
+import { CliError, Command, Flag } from "effect/unstable/cli";
 import type { CredentialProfile, CredentialSource, Credentials } from "../../schemas/credentials.js";
 import { profileOwner } from "../../schemas/credentials.js";
 import { ReposetsCredentialsFile } from "../../services/ConfigFiles.js";
@@ -75,6 +75,18 @@ const saveWhereRead = (
 		return existing.path;
 	});
 
+/**
+ * Refuse an invocation the user got wrong.
+ *
+ * @remarks
+ * Every refusal in this module is a usage error — the flags asked for
+ * something invalid — so it fails with `CliError.UserError` and exits 64.
+ * `Command.runWith` prints the message once, on stderr. The messages never
+ * echo a supplied value, for the reason given in {@link createHandler}.
+ */
+const refuse = (message: string): Effect.Effect<never, CliError.UserError> =>
+	Effect.fail(new CliError.UserError({ cause: message }));
+
 /** How a profile's `github_token` is sourced, for display. Never a value. */
 const describeSource = (source: CredentialSource): string => ("op" in source ? `op ${source.op}` : `env ${source.env}`);
 
@@ -109,14 +121,12 @@ export const createHandler = (input: {
 		const credentialsFile = yield* ReposetsCredentialsFile;
 
 		if (op !== undefined && env !== undefined) {
-			yield* Effect.logError("Provide exactly one of --op or --env, not both.");
-			return;
+			return yield* refuse("Provide exactly one of --op or --env, not both.");
 		}
 		if (op === undefined && env === undefined) {
-			yield* Effect.logError(
+			return yield* refuse(
 				'Provide a reference: --op "op://Vault/item/field" or --env REPOSETS_GITHUB_TOKEN. A token value is never accepted.',
 			);
-			return;
 		}
 		// Nothing supplied to this command is echoed back. A user who
 		// mistakenly pastes a real token into --op or --env has already put it
@@ -124,36 +134,31 @@ export const createHandler = (input: {
 		// whatever the log is piped to — is the one thing this command can
 		// still do to make that worse.
 		if (op !== undefined && !op.startsWith("op://")) {
-			yield* Effect.logError('--op must be a 1Password reference starting with "op://". Value not echoed.');
-			return;
+			return yield* refuse('--op must be a 1Password reference starting with "op://". Value not echoed.');
 		}
 		if (looksLikeSecret(op ?? env ?? "")) {
-			yield* Effect.logError(
+			return yield* refuse(
 				"That looks like a credential value, not a reference. This command stores references only — " +
 					'pass --op "op://Vault/item/field" or --env VAR_NAME. Value not echoed.',
 			);
-			return;
 		}
 
 		// Exactly one, checked here rather than left to the schema, so the
 		// message names the flags the user typed instead of describing a union
 		// they never see.
 		if (username !== undefined && org !== undefined) {
-			yield* Effect.logError("Provide exactly one of --username or --org, not both.");
-			return;
+			return yield* refuse("Provide exactly one of --username or --org, not both.");
 		}
 		if (username === undefined && org === undefined) {
-			yield* Effect.logError(
+			return yield* refuse(
 				"Provide --username <you> for a personal account or --org <name> for an organization. " +
 					"It is what the profile acts as, and it decides which settings are even valid.",
 			);
-			return;
 		}
 
 		const existing = yield* credentialsFile.loadOrDefault(EMPTY);
 		if (existing.profiles[profile] !== undefined) {
-			yield* Effect.logError(`Profile '${profile}' already exists. Delete it first.`);
-			return;
+			return yield* refuse(`Profile '${profile}' already exists. Delete it first.`);
 		}
 
 		const github_token = op !== undefined ? { op } : { env: env as string };
@@ -164,7 +169,7 @@ export const createHandler = (input: {
 			profiles: { ...existing.profiles, [profile]: actsAs },
 		});
 
-		yield* Effect.log(
+		yield* Console.log(
 			`Created profile '${profile}' (${username !== undefined ? `username: ${username}` : `org: ${org as string}`}, ` +
 				`github_token: ${describeSource(github_token)}) in ${path}.`,
 		);
@@ -199,23 +204,23 @@ export const listHandler = Effect.gen(function* () {
 
 	const names = Object.keys(credentials.profiles);
 	if (names.length === 0) {
-		yield* Effect.log("No credential profiles configured.");
+		yield* Console.log("No credential profiles configured.");
 		return;
 	}
 
 	for (const [name, profile] of Object.entries(credentials.profiles)) {
 		const { owner, ownerType } = profileOwner(profile);
-		yield* Effect.log(`[${name}]`);
-		yield* Effect.log(`  acts as: ${owner} (${ownerType === "User" ? "user" : "organization"})`);
-		yield* Effect.log(`  github_token: ${describeSource(profile.github_token)}`);
+		yield* Console.log(`[${name}]`);
+		yield* Console.log(`  acts as: ${owner} (${ownerType === "User" ? "user" : "organization"})`);
+		yield* Console.log(`  github_token: ${describeSource(profile.github_token)}`);
 		for (const kind of ["op", "env", "file"] as const) {
 			const entries = profile.resolve?.[kind];
 			if (entries === undefined) continue;
 			for (const [label, reference] of Object.entries(entries)) {
-				yield* Effect.log(`  resolve.${kind}.${label}: ${reference}`);
+				yield* Console.log(`  resolve.${kind}.${label}: ${reference}`);
 			}
 		}
-		yield* Effect.log("");
+		yield* Console.log("");
 	}
 });
 
@@ -237,14 +242,13 @@ export const deleteHandler = (profile: string) =>
 		const credentials = yield* credentialsFile.loadOrDefault(EMPTY);
 
 		if (credentials.profiles[profile] === undefined) {
-			yield* Effect.logError(`Profile '${profile}' not found.`);
-			return;
+			return yield* refuse(`Profile '${profile}' not found.`);
 		}
 
 		const { [profile]: _removed, ...remaining } = credentials.profiles;
 		const path = yield* saveWhereRead(credentialsFile, { profiles: remaining });
 
-		yield* Effect.log(`Deleted profile '${profile}' from ${path}.`);
+		yield* Console.log(`Deleted profile '${profile}' from ${path}.`);
 	});
 
 const deleteCommand = Command.make("delete", { profile: profileFlag }, ({ profile }) => deleteHandler(profile)).pipe(

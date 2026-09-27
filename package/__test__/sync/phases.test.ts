@@ -2,6 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { App } from "@effected/app";
+import { CliLogger } from "@effected/cli";
 import {
 	CodeScanning,
 	DeploymentEnvironment,
@@ -15,7 +16,7 @@ import {
 	Ruleset,
 	WorkflowDispatch,
 } from "@effected/github";
-import { Effect, Layer, Logger, Redacted } from "effect";
+import { Console, Effect, Layer, Redacted } from "effect";
 import { describe, expect, it } from "vitest";
 import { fingerprint } from "../../src/lib/fingerprint.js";
 import type { Config } from "../../src/schemas/config.js";
@@ -33,6 +34,7 @@ import { secretsPhase } from "../../src/sync/phases/secrets.js";
 import { securityPhase } from "../../src/sync/phases/security.js";
 import { settingsPhase } from "../../src/sync/phases/settings.js";
 import { variablesPhase } from "../../src/sync/phases/variables.js";
+import { capturingConsole } from "../utils/capture.js";
 import { recorder } from "../utils/harness.js";
 
 /**
@@ -166,10 +168,10 @@ const runPhase = async <R>(
 	} = {},
 ): Promise<Outcome> => {
 	const rec = recorder({ ...WRITES_ACCEPTED, ...options.responses });
-	const lines: string[] = [];
-	const collector = Logger.make<unknown, void>((o) => {
-		lines.push(Array.isArray(o.message) ? o.message.join(" ") : String(o.message));
-	});
+	// Both streams: the report goes out through `Console.log`, failures through
+	// `Effect.logError`, and a "never prints the secret" assertion is only worth
+	// anything if it watches both.
+	const { console: double, lines: captured } = capturingConsole();
 
 	const services = Layer.mergeAll(
 		GitHubRepository.layer,
@@ -199,12 +201,17 @@ const runPhase = async <R>(
 	});
 
 	const { result, recorded } = await Effect.runPromise(
-		program.pipe(Effect.provide(services), Effect.provide(Logger.layer([collector]))) as Effect.Effect<{
+		program.pipe(
+			Effect.provide(services),
+			Effect.provide(CliLogger.layer()),
+			Effect.provideService(Console.Console, double),
+		) as Effect.Effect<{
 			result: PhaseResult;
 			recorded: ReadonlyMap<string, AppliedRecord>;
 		}>,
 	);
 
+	const lines = captured.map((line) => line.text);
 	return { result, routes: rec.routes(), lines, recorded, requests: rec.calls };
 };
 

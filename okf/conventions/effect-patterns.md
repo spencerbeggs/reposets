@@ -1,19 +1,22 @@
 ---
 type: Convention
 title: Effect patterns
-description: How Effect v4 idioms are used consistently across this codebase — services, errors, logging, credentials, layers.
+description: How Effect v4 idioms are used consistently across this codebase — services, errors, output and logging, process confinement, credentials, layers.
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 285c5c60729d7d66eef5b67d69313c836f1191e47de16f702b61d9416fbb1bbe
+  at: 2026-09-27T17:39:49Z
+  body_sha256: 554e9cb0397375a4dfeb665a9f9d1d1de5df309404d2cab687fd9faf40314f31
 tags: [effect, architecture]
 ---
 
 # Effect patterns
 
 Build on **`effect/unstable/cli`, from core**. `@effect/cli` does not exist on
-the Effect v4 line — do not reach for it.
+the Effect v4 line — do not reach for it. `@effected/cli` is a different
+package: the kit's boundary layer over core's CLI (`CliRuntime`, `CliLogger`,
+`CliExit`, `CliColor`, `CliTest`), and the entrypoint runs under its
+`CliRuntime.main`.
 
 Define a service as a `Context.Service` class, never a bare `Context.Tag`.
 `package/src/services/OnePasswordClient.ts`, `CredentialResolver.ts`, and
@@ -31,20 +34,56 @@ plain `Error` subclass or a bare string tag. `ResolveError`
 override `get message()` so the class renders a useful string rather than a
 bare `Tag:` prefix with the payload never reaching the log line.
 
-In CLI commands, log through `Effect.log`/`Effect.logError`, never
-`Console.log`/`console.log` directly. `CliLoggerLive`
-(`package/src/cli/logger.ts`) replaces Effect's default logger for the whole
-process and routes `Error`/`Fatal` severity to stderr, everything else to
-stdout — a direct console write bypasses that routing entirely, which is the
-one thing `reposets sync > log.txt` depends on to keep failures visible on
-the terminal while a redirected log only captures progress.
+In CLI commands, write the command's output with `Console.log` and its
+diagnostics with `Effect.log*`, never the other way round. The output is
+what a caller redirects or parses: a report, a listing, a `Valid:` line.
+`CliLogger.layer()`, installed by `CliRuntime.main` in
+`package/src/cli/index.ts`, sends every `Effect.log*` level to stderr. So
+`Console.log` is the only route to stdout, and `Effect.log` is never a
+substitute for it. Never call `console.log` or `process.stdout.write`
+directly: `CliLogger` and `CliTest` both read the `Console` off the fiber,
+and a direct write bypasses the routing a test captures. A message that
+explains a failure, such as `No config found` or a dangling reference, is a
+diagnostic and goes through `Effect.logError`.
+
+End a command by what went wrong, not by setting a code. Fail with
+`CliError.UserError` when the invocation was wrong (exit 64), and call
+`CliExit.set(1)` and return when the command ran and found a problem
+(exit 1). Let a config read or decode failure propagate so `main` renders
+it. Never write `process.exitCode`. See
+[`decisions/cli-runtime-via-effected-cli.md`](../decisions/cli-runtime-via-effected-cli.md).
+
+Read `process` only in `package/src/cli/index.ts`, and there only for the
+working directory and the build-time version. Everything below the
+entrypoint gets those two from the `Invocation` service
+(`package/src/services/Invocation.ts`), and asks core's `Stdio` whether
+stdin is a terminal. Do not import `node:process` in a command or service.
+Tests hand a command a different directory through `Invocation.layer(...)`
+instead of calling `process.chdir`. The one exception today is config
+discovery, where `@effected/config-file`'s `ConfigResolver.upwardWalk`
+reads the process cwd itself. That is why
+`package/__test__/cli/commands.test.ts` still calls `process.chdir`, and it
+is a known follow-up.
+
+Read an environment variable through `Config`, as
+`Config.option(Config.String(name))`, never through `process.env`.
+`OnePasswordClient` reads `OP_SERVICE_ACCOUNT_TOKEN` this way,
+`CredentialResolver` reads `{ env = "VAR" }` references this way, and so
+does `doctor`'s service-account line. In a test, provide the environment as
+`ConfigProvider.layer(ConfigProvider.fromEnv({ env }))` with
+`Layer.provideMerge`, not `Layer.provide`. `Config` is read when a method
+runs, in the caller's fiber, so a provider hidden inside the layer never
+reaches it, and the reads fall back to the real process environment. See
+[`gotchas/config-provider-hidden-by-provide.md`](../gotchas/config-provider-hidden-by-provide.md).
 
 Route every line the sync pipeline emits through `SyncLogger`
 (`package/src/services/SyncLogger.ts`), never through `Effect.log` calls
 scattered across phases. `SyncEngine` and every phase describe *what*
 happened; `SyncLogger` decides how to say it, and that split is what let the
 four verbosity tiers collapse to one output plus a `debug` flag without
-touching a single phase.
+touching a single phase. `SyncLogger` follows the same split as a command:
+its report lines are `Console.log` on stdout, and its failures are
+`Effect.logError` on stderr.
 
 Keep a resolved credential as `Redacted.Redacted<string>` end to end, and
 unwrap it with `Redacted.value` only where a value must physically leave the
@@ -62,8 +101,8 @@ place a secret is permitted to exist unwrapped, which is the property
 `Redacted` exists to make checkable.
 
 Wrap I/O in `Effect.try`/`Effect.tryPromise`, never a bare `try`/`catch` or an
-un-lifted Promise. `CredentialResolver.ts:90` uses `Effect.try` for a
-synchronous file read; `OnePasswordClient.ts:91` uses `Effect.tryPromise` for
+un-lifted Promise. `CredentialResolver.ts:94` uses `Effect.try` for a
+synchronous file read; `OnePasswordClient.ts:96` uses `Effect.tryPromise` for
 the SDK call. Each `catch` maps to the tagged error the surrounding service
 already defines, never to a raw `Error` re-thrown.
 

@@ -1,4 +1,4 @@
-import { Context, Effect, Layer, Ref } from "effect";
+import { Console, Context, Effect, Layer, Ref } from "effect";
 import type { Decision } from "../sync/decide.js";
 
 /** A drift decision, the only variant this service reports specially. */
@@ -124,9 +124,14 @@ function pluralize(resource: string, count: number): string {
  * out-of-band edit happens to match the config. The tool has no work to do; the
  * human still changed something, and staying quiet would hide it.
  *
- * Lines are emitted with `Effect.log`, never `Console.log`: the CLI entrypoint
- * installs a logger that routes Effect's output, and a direct console write
- * would bypass both it and the filtering above.
+ * **The report is the product; failures are diagnostics.** What a run did —
+ * group and repository headers, every operation, every drift line, the closing
+ * "Sync complete!" — is the output of `sync` and `drift`, so it is written with
+ * `Console.log` to stdout, where `reposets drift > report.txt` captures it.
+ * Failures are emitted with `Effect.logError`, which the CLI logger
+ * (`CliLogger.layer()`) routes to stderr, so they stay on the terminal when
+ * stdout is redirected. A consequence worth knowing: `--log-level` filters
+ * diagnostics only — it no longer silences the report.
  *
  * @public
  */
@@ -151,7 +156,7 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 			const errors = yield* Ref.make<SyncErrorRecord[]>([]);
 			const currentRepo = yield* Ref.make<string>("");
 
-			const emit = (line: string): Effect.Effect<void> => Effect.log(line);
+			const emit = (line: string): Effect.Effect<void> => Console.log(line);
 
 			/**
 			 * Failures, on the error channel.

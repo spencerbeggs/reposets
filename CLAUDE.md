@@ -17,6 +17,7 @@ A first-turn shortlist:
 - `okf/gotchas/test-run-rewrites-schemas.md` — why `pnpm run lint` fails right after `pnpm run test`
 - `okf/gotchas/pnpm-exec-runs-the-dev-build.md` — why a source change looks invisible until rebuilt
 - `okf/gotchas/nul-bytes-hide-from-grep.md` — why a plain `grep` can silently miss a match in the store
+- `okf/gotchas/log-level-none-still-prints-reports.md` — why `--log-level none` does not silence a report
 
 ## Commands
 
@@ -43,19 +44,19 @@ pnpm --filter reposets schema:check   # CI gate: 0 clean, 1 drift/stale/gate fai
 pnpm workspace monorepo orchestrated by Turbo. One package: `package/` (workspace name `reposets`).
 
 ```text
-package/src/cli/          # entrypoint, the --config global flag, CliLogger
+package/src/cli/          # entrypoint (CliRuntime.main from @effected/cli), the --config global flag
 package/src/cli/commands/ # one file per subcommand
-package/src/services/     # ConfigFiles, CredentialResolver, OnePasswordClient, SyncLogger
+package/src/services/     # ConfigFiles, CredentialResolver, Invocation, OnePasswordClient, SyncLogger
 package/src/store/        # AppliedState, SyncJournal, RepoCache, migrations (SQLite via @effected/app)
 package/src/sync/         # SyncEngine, the Phase contract, decide(); phases/ holds one module per phase
 package/src/schemas/      # Effect Schema: config, credentials, common, environment, ruleset, annotations
-package/src/lib/          # config-refs, org-only, credential-labels, fingerprint, schema-issues
+package/src/lib/          # config-refs, org-only, credential-labels, fingerprint
 package/lib/configs/      # schemastore.config.ts
 package/__test__/         # tests mirroring src/
 lib/configs/              # commitlint, lint-staged, markdownlint
 ```
 
-There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github` — read that package rather than looking for a wrapper here.
+There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github` — read that package rather than looking for a wrapper here. Likewise the CLI logger, exit-code handling and schema-issue rendering are upstream in `@effected/cli`; `package/src/cli/index.ts` is the only file that reads `process` (see `okf/conventions/effect-patterns.md`).
 
 ## Build system
 

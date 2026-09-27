@@ -1,6 +1,8 @@
 # Gotcha
 
 * ["unchanged" means the file already matches, not that the schema did not change](schemastore-unchanged-means-file-matches.md) - schemastore build/check report unchanged by content comparison, which is easy to misread as a no-op schema edit.
+* [--log-level none still prints the report](log-level-none-still-prints-reports.md) - --log-level none looks like the switch that silences a run, but it filters only Effect.log diagnostics; every report, summary and listing is Console.log on stdout and prints regardless.
+* [A ConfigProvider passed with Layer.provide reads the real environment](config-provider-hidden-by-provide.md) - A test that wires ConfigProvider.fromEnv under a service with Layer.provide looks isolated, but Config is read in the caller's fiber, so the reads silently fall back to the developer's own process environment.
 * [A Layer memoizes per provide, not by const identity](layer-memoizes-per-provide.md) - Two separate Effect.provide calls over the same layer value are two separate builds — for App.layerTest, two separate in-memory databases.
 * [A prepared-but-unrun fixture request still reads as sent](layer-fixture-records-on-invocation.md) - GitHubClient.layerFixture records a call when the request function is invoked, not when the effect it returns is run — a built-but-unexecuted delete looks like it happened.
 * [An unrecognised settings field reports as applied](unknown-settings-fields-report-as-applied.md) - A misspelled or unsupported settings field decodes cleanly, gets PATCHed, is silently ignored by GitHub, and the run still reports it as applied.

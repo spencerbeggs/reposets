@@ -7,8 +7,8 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: d7a036c763a8874b9ed65ffaa108eb07c57c6921d8c46e480f46c2a13f956233
+  at: 2026-09-27T17:39:49Z
+  body_sha256: dd61385f4121df96e39404cadfcbc1004c894ac4c7d75b59d17212f8b4aa5aab
 tags: [architecture, effect, github]
 ---
 
@@ -22,13 +22,17 @@ opens the two SQLite databases the store services need, and provides
 command — subcommand requirements bubble up into the root command's `R`
 through `Command.withSubcommands`, so one `Command.provide` per service covers
 every subcommand rather than each wiring its own copy
-(`package/src/cli/index.ts:45-62`).
+(`package/src/cli/index.ts:72-88`). The tree runs under `@effected/cli`'s
+`CliRuntime.main`, which installs the CLI logger, provides the platform layer
+inside failure reporting, and turns a usage error, a finding recorded with
+`CliExit`, or an escaped failure into the exit code — see
+[cli-runtime-via-effected-cli](../decisions/cli-runtime-via-effected-cli.md).
 
 `reposets sync` (`package/src/cli/commands/sync.ts`) loads the config and
 credentials files, checks for dangling section references and unknown
 `--only`/`--skip` phase names before touching anything, then partitions
 `config.groups` by the credential profile each group names
-(`partitionByProfile`, `package/src/cli/commands/sync.ts:69-81`). One
+(`partitionByProfile`, `package/src/cli/commands/sync.ts:70-82`). One
 partition is one identity: a `GitHubClient` fixes its token at construction,
 so two profiles genuinely are two service graphs, never one graph swapped
 mid-run. For each partition the handler resolves that profile's token, builds
@@ -42,13 +46,16 @@ walks `PHASE_NAMES` order once per repository, in the group loop it owns.
 The layer graph is assembled at three levels, and the split between them is
 load-bearing rather than a style choice:
 
-1. **Root entrypoint** (`package/src/cli/index.ts`) — `App.layer`,
-   `ConfigLive`, `CredentialsFilesLive`, `SyncJournalLive`, and
-   `CliLoggerLive`, provided once for the whole process. `AppLive` is bound at
+1. **Root entrypoint** (`package/src/cli/index.ts`) — `PlatformLive`
+   (`App.layer`, `CliColor.formatterLayer()` and the `Invocation` layer over
+   `NodeServices.layer`) handed to `CliRuntime.main`, which adds
+   `CliLogger.layer()` outermost, plus `ConfigLive`, `CredentialsFilesLive`
+   and `SyncJournalLive` on the root command, all provided once for the
+   whole process. `AppLive` is bound at
    module scope specifically because `App.layer` opens both SQLite databases;
    a second call would open a second pair with a split event stream, so this
    layer is built exactly once no matter how many commands or partitions run.
-2. **Per sync invocation** (`syncHandler` in `package/src/cli/commands/sync.ts:206-214`)
+2. **Per sync invocation** (`syncHandler` in `package/src/cli/commands/sync.ts:178-186`)
    — `SyncJournalLive`, `AppliedStateLive`, `RepoCacheLive`, the
    `CredentialResolver` layer, and `SyncLoggerLive` are merged into one
    `sharedLayer` and provided around the *whole* partition loop, not inside
@@ -57,7 +64,7 @@ load-bearing rather than a style choice:
    error tally, so `finish()` would report only the last partition's errors
    and call it the run — plus a separate journal and cache connection per
    profile that never see each other's writes.
-3. **Per partition** (`package/src/cli/commands/sync.ts:279-293`) — the eight
+3. **Per partition** (`package/src/cli/commands/sync.ts:251-265`) — the eight
    GitHub resource-service layers over `GitHubClient.layerFromToken({ token })`,
    merged with `SyncEngineLive(allPhases)`. This layer is genuinely
    per-partition, because it is the one thing that must differ between
@@ -86,12 +93,36 @@ standing up the engine (`package/__test__/sync/phases.test.ts` builds
 
 ## Where services live
 
-Four local services live in `package/src/services`: `ConfigFiles`,
-`CredentialResolver`, `OnePasswordClient`, and `SyncLogger`. Three store
+Five local services live in `package/src/services`: `ConfigFiles`,
+`CredentialResolver`, `Invocation`, `OnePasswordClient`, and `SyncLogger`. Three store
 services — `AppliedState`, `SyncJournal`, `RepoCache` — live in
 `package/src/store` and are wired by `App.layer`. Everything that speaks to
 GitHub — the eight resource services and the libsodium sealed-box encryption
 secrets need before they can be written — is upstream in `@effected/github`.
+Everything at the CLI boundary — the runtime wrapper, the logger, the exit
+code cell, colour, and the schema-issue renderers (`SchemaIssueRenderer`,
+`ConfigIssueRenderer`) that turn a decode failure into `unknown key at …`
+lines — is upstream in `@effected/cli`. There is no `src/cli/logger.ts` and
+no `src/lib/schema-issues.ts`.
+
+### Invocation (`package/src/services/Invocation.ts`)
+
+One immutable value, `{ cwd, version }`, built only in
+`package/src/cli/index.ts` from `process.cwd()` and the bundler-substituted
+version. That makes `index.ts` the only file under `package/src` that reads
+`process`. `nuke`, `init` and `doctor` read from it, so a test hands them a
+different directory with `Invocation.layer(...)`. The environment is not
+here: every environment variable is read through Effect's `Config` from the
+ambient `ConfigProvider`, which is the process environment in the shipped
+bin. Whether stdin is a terminal is not here either: `nuke` asks core's
+`Stdio.stdinIsTerminal`. The version has to be
+threaded down from `index.ts` because the bundler substitutes only the
+literal `process.env.__PACKAGE_VERSION__` spelling, not a destructured
+`env.__PACKAGE_VERSION__`. Config discovery is the one place the process
+cwd still leaks in, through `@effected/config-file`'s
+`ConfigResolver.upwardWalk`, which is why
+`package/__test__/cli/commands.test.ts` still calls `process.chdir` — a
+known follow-up.
 
 ### ConfigFiles (`package/src/services/ConfigFiles.ts`)
 
@@ -118,7 +149,7 @@ ordinary probe would.
 ### OnePasswordClient (`package/src/services/OnePasswordClient.ts`)
 
 Resolves one `op://` reference at a time through the `@1password/sdk`,
-reading `OP_SERVICE_ACCOUNT_TOKEN` from the environment lazily, at call time
+reading `OP_SERVICE_ACCOUNT_TOKEN` through `Config` lazily, at call time
 — never taken as a parameter and never stored beside the references it
 unlocks, so a config with no `op` entries never needs it. It builds a fresh
 SDK client per reference resolved, which is v3's behavior ported unchanged
@@ -138,7 +169,13 @@ variable group's own `value` kind behaves, since a label feeding one of those
 must arrive in the same shape. `resolveAll`'s `basePath` parameter is the
 **config** file's directory, not the credentials file's — a `[resolve].file`
 path resolves beside `reposets.config.toml`, and `SyncEngine` is what passes
-that directory through.
+that directory through. `env` references are read through
+`Config.option(Config.String(variable))` when a method runs, so
+`CredentialResolverLive` requires only `OnePasswordClient`, and a variable
+that is set but empty fails as not set. A test supplies the environment
+with `ConfigProvider.layer(ConfigProvider.fromEnv({ env }))` through
+`Layer.provideMerge` — see
+[config-provider-hidden-by-provide](../gotchas/config-provider-hidden-by-provide.md).
 
 ### SyncLogger (`package/src/services/SyncLogger.ts`)
 
@@ -160,20 +197,28 @@ reported at the same rank as the ordinary summary lines rather than folded
 into the verbose detail, and it is worded as an observation about a person
 ("changed outside reposets") rather than as an action by the tool — it is
 emitted even when nothing was written, since the tool having no work to do
-does not mean the human's out-of-band edit should stay unreported.
+does not mean the human's out-of-band edit should stay unreported. The report
+is the command's output, so every line is `Console.log` on stdout; failures
+are `Effect.logError` on stderr. `--log-level` therefore filters the
+failures and never the report — see
+[log-level-none-still-prints-reports](../gotchas/log-level-none-still-prints-reports.md).
 
-### CliLogger (`package/src/cli/logger.ts`)
+### CLI runtime (`@effected/cli`)
 
-Replaces Effect's default logger for the whole process so a command's plain
-output does not carry a timestamp, level, and fiber id in front of it. Its
-callback is synchronous, so it cannot yield an `Effect` and therefore cannot
-reach `Stdio`'s sinks directly; instead it reads the `Console` off the fiber
-via `fiber.getRef(Console.Console)` — the same route core's own loggers take
-— and routes `Error`/`Fatal` severity to `console.error` (stderr) while
-everything below goes to `console.log` (stdout). This is the contract
-`SyncLogger` is written against: it emits failures with `Effect.logError`
-specifically so `reposets sync > log.txt` still shows failures on the
-terminal while the redirected log only captures progress.
+`CliRuntime.main` owns the process edge. Its default logger,
+`CliLogger.layer()`, drops Effect's timestamp, level and fiber id and sends
+every `Effect.log*` level to stderr, so a command's output reaches stdout
+only through `Console.log`. `CliExit.set(1)` records a finding from a handler
+that succeeds, a `CliError.UserError` exits 64, and anything that escapes is
+rendered by the entrypoint's `render` callback and exits 1. The stream
+split and exit codes are specified in
+[`interfaces/cli.md`](../interfaces/cli.md). The testing side,
+`CliTest.sandbox` and `CliTest.run` from `@effected/cli/testing`, drives the
+built dev bin in `package/__test__/cli/bin.e2e.test.ts` and asserts exit
+codes and stream placement. `@effect/vitest` is a devDependency for that
+suite, and `package/__test__/utils/capture.ts` provides a capturing `Console`
+so unit tests assert which stream a line landed on through the same
+`CliLogger` routing the bin uses.
 
 ## Phase-by-phase decisions
 

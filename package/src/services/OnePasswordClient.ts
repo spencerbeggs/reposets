@@ -1,5 +1,4 @@
-import { env } from "node:process";
-import { Context, Data, Effect, Layer, Redacted } from "effect";
+import { Config, Context, Data, Effect, Layer, Option, Redacted } from "effect";
 
 /**
  * The environment variable the 1Password SDK is authenticated from.
@@ -45,19 +44,33 @@ export interface OnePasswordClientShape {
 	readonly resolve: (reference: string) => Effect.Effect<Redacted.Redacted<string>, OnePasswordError>;
 }
 
-/** Read the service account token, failing in terms of the reference that needed it. */
+/**
+ * Read the service account token, failing in terms of the reference that needed it.
+ *
+ * @remarks
+ * Read through `Config`, so it comes from the ambient `ConfigProvider` — the
+ * process environment in the shipped bin, an explicit record in a test — and
+ * never from `process` directly. The provider treats an empty variable as
+ * absent, which is the answer wanted here too: an empty token authenticates
+ * nothing. A provider that fails outright is reported the same way, naming the
+ * variable, rather than escaping as a `ConfigError` this service never declared.
+ */
 const serviceAccountToken = (reference: string): Effect.Effect<string, OnePasswordError> =>
-	Effect.suspend(() => {
-		const token = env[OP_SERVICE_ACCOUNT_TOKEN];
-		return token === undefined || token === ""
-			? Effect.fail(
-					new OnePasswordError({
-						reference,
-						reason: `${OP_SERVICE_ACCOUNT_TOKEN} is not set in the environment`,
-					}),
-				)
-			: Effect.succeed(token);
-	});
+	Config.option(Config.String(OP_SERVICE_ACCOUNT_TOKEN)).pipe(
+		Effect.mapError(
+			(error) =>
+				new OnePasswordError({ reference, reason: `could not read ${OP_SERVICE_ACCOUNT_TOKEN}: ${error.message}` }),
+		),
+		Effect.flatMap(
+			Option.match({
+				onNone: () =>
+					Effect.fail(
+						new OnePasswordError({ reference, reason: `${OP_SERVICE_ACCOUNT_TOKEN} is not set in the environment` }),
+					),
+				onSome: Effect.succeed,
+			}),
+		),
+	);
 
 /**
  * Resolves `op://` references through the 1Password SDK.
@@ -82,7 +95,7 @@ const serviceAccountToken = (reference: string): Effect.Effect<string, OnePasswo
 export class OnePasswordClient extends Context.Service<OnePasswordClient, OnePasswordClientShape>()(
 	"reposets/OnePasswordClient",
 	{
-		make: Effect.succeed({
+		make: Effect.succeed<OnePasswordClientShape>({
 			resolve: (reference: string) =>
 				Effect.gen(function* () {
 					const token = yield* serviceAccountToken(reference);
@@ -106,7 +119,7 @@ export class OnePasswordClient extends Context.Service<OnePasswordClient, OnePas
 					});
 					return Redacted.make(value, { label: reference });
 				}),
-		} satisfies OnePasswordClientShape),
+		}),
 	},
 ) {
 	/**

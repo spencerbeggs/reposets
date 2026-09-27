@@ -102,20 +102,20 @@ The field selects the profile's **token** as well as its `[resolve]` values, so 
 
 Delete `log_level` from `reposets.config.toml`. The four tiers (`silent`, `info`, `verbose`, `debug`) no longer exist and `sync` has no `--log-level` of its own. Output is one level.
 
-To quieten a run, use the `--log-level` flag Effect core contributes to every command:
+Command output goes to stdout and diagnostics and errors go to stderr, so a run is quietened with a redirect:
 
 ```bash
-reposets sync --log-level error
+reposets sync > /dev/null
 # errors only; the exit code is unchanged
 ```
 
-| Flag | Output | Errors shown | Exit code |
+| Invocation | Report (stdout) | Errors (stderr) | Exit code |
 | :--- | :----- | :----------- | :-------- |
-| (none) | everything | yes | correct |
-| `--log-level error` | errors only | yes | correct |
-| `--log-level none` | nothing | no | correct |
+| `reposets sync` | shown | shown | correct |
+| `reposets sync > /dev/null` | hidden | shown | correct |
+| `reposets sync > /dev/null 2>&1` | hidden | hidden | correct |
 
-`--log-level error` is what the old `silent` tier should have been: quiet on success, loud on failure. `--log-level none` is the CI form where only the exit code matters. The old `silent` suppressed errors too, so a failing run printed nothing at all.
+`> /dev/null` is what the old `silent` tier should have been: quiet on success, loud on failure. The old `silent` suppressed errors too, so a failing run printed nothing at all. Core's `--log-level` flag filters the stderr diagnostics by severity; it does not silence the report.
 
 For diagnostics, `sync` and `drift` take `--debug`, which annotates lines that print either way with where a resolved value came from and with the fingerprints behind a drift report.
 
