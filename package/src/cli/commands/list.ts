@@ -1,6 +1,6 @@
 import { CliExit } from "@effected/cli";
 import { Console, Effect } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import type { Config } from "../../schemas/config.js";
 import { profileOwner } from "../../schemas/credentials.js";
 import { ReposetsConfigFile, ReposetsCredentialsFile } from "../../services/ConfigFiles.js";

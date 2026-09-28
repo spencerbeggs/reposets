@@ -1,7 +1,7 @@
 import { Store } from "@effected/store";
 import { Context, Crypto, DateTime, Effect, Layer } from "effect";
 import type { PlatformError } from "effect/PlatformError";
-import type { SqlError } from "effect/unstable/sql";
+import type { SqlError } from "effect/sql";
 
 /**
  * What a run did to one resource.

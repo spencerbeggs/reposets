@@ -4,7 +4,7 @@ import { App } from "@effected/app";
 import { CliColor, CliRuntime, ConfigIssueRenderer } from "@effected/cli";
 import type { ConfigValidationError } from "@effected/config-file";
 import { Effect, Layer } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { CredentialsFilesLive } from "../services/ConfigFiles.js";
 import { Invocation } from "../services/Invocation.js";
 import { migrations } from "../store/migrations.js";

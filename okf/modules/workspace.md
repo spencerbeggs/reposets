@@ -7,8 +7,8 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: a6fcc0756eaa90c38b9b928ef9b700ce485bdb8956442c18f9cde7e0241c7429
+  at: 2026-09-28T22:03:48Z
+  body_sha256: bf853cea14598b66d04b78b72390278e0863ee367d53d80307af4b40c3e59f8f
 tags: [architecture, dx, deps]
 ---
 
@@ -67,10 +67,11 @@ TypeScript 7's native compiler, invoked as plain `tsc` (`types:check`'s
 script). There are no project references: the root `tsconfig.json` extends
 `@savvy-web/silk/tsconfig/node/root.json`, and `package/tsconfig.json`
 extends `@savvy-web/bundler/tsconfig/ecma.json`. `effect` is pinned to
-`4.0.0-rc.115` (`pnpm-lock.yaml`), and the root `tsconfig.json`'s
-`skipLibCheck: true` exists solely to route around a broken declaration
-file shipped in that beta; it is meant to come out once a fixed prerelease
-of `effect` ships, not as a general escape hatch.
+`4.0.0-rc.118` (`pnpm-lock.yaml`), and the root `tsconfig.json`'s
+`skipLibCheck: true` exists solely to route around declaration files in
+that prerelease that reference DOM-only types (`TextDecoderOptions`,
+`Transferable`) a Node-only `lib` lacks; it is meant to come out once a
+fixed prerelease of `effect` ships, not as a general escape hatch.
 
 ## Lint and test
 

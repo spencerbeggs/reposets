@@ -1,6 +1,6 @@
 import { CliExit, CliLogger } from "@effected/cli";
 import { Cause, Console, Effect, Exit, MutableRef } from "effect";
-import { CliError } from "effect/unstable/cli";
+import { CliError } from "effect/cli";
 
 /** One line a program wrote, and the stream it landed on. */
 export interface Line {

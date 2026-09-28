@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { Effect, Option } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { describe, expect, it } from "vitest";
 import { driftCommand } from "../../src/cli/commands/drift.js";
 import { historyCommand } from "../../src/cli/commands/history.js";

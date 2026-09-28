@@ -5,14 +5,14 @@ description: How Effect v4 idioms are used consistently across this codebase —
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-09-27T17:39:49Z
-  body_sha256: 554e9cb0397375a4dfeb665a9f9d1d1de5df309404d2cab687fd9faf40314f31
+  at: 2026-09-28T22:03:48Z
+  body_sha256: dc0a5f72b9c7aa1fdbcdc503c2ea89c1d24c438241b2f83088a70c2ae44b361c
 tags: [effect, architecture]
 ---
 
 # Effect patterns
 
-Build on **`effect/unstable/cli`, from core**. `@effect/cli` does not exist on
+Build on **`effect/cli`, from core**. `@effect/cli` does not exist on
 the Effect v4 line — do not reach for it. `@effected/cli` is a different
 package: the kit's boundary layer over core's CLI (`CliRuntime`, `CliLogger`,
 `CliExit`, `CliColor`, `CliTest`), and the entrypoint runs under its

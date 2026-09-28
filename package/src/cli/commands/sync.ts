@@ -14,7 +14,7 @@ import {
 import type { Cache, Store } from "@effected/store";
 import type { Crypto } from "effect";
 import { Console, Effect, Layer, Option } from "effect";
-import { CliError, Command, Flag } from "effect/unstable/cli";
+import { CliError, Command, Flag } from "effect/cli";
 import { danglingReferences } from "../../lib/config-refs.js";
 import { ReposetsConfigFile, ReposetsCredentialsFile } from "../../services/ConfigFiles.js";
 import { CredentialResolver, CredentialResolverLive } from "../../services/CredentialResolver.js";

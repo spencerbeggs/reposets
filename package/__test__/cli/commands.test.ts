@@ -24,7 +24,7 @@ import { on, run, runOutcome, text } from "../utils/capture.js";
 
 /**
  * These drive the command **handlers**, not the argv parser — the parser is
- * `effect/unstable/cli`'s and is not this repo's to test. What is worth testing
+ * `effect/cli`'s and is not this repo's to test. What is worth testing
  * is what each handler reads, writes and prints.
  *
  * Output is captured through the shipped `CliLogger` over a recording
@@ -96,7 +96,7 @@ const layers = (
  *
  * @remarks
  * The handlers are exported separately from the `Command`s they back, because
- * `effect/unstable/cli`'s `Command` does not expose its handler — there is no
+ * `effect/cli`'s `Command` does not expose its handler — there is no
  * `command.handler`, and `subcommands` yields `{ group, commands }` groupings
  * rather than anything invocable. Testing a handler through the argv parser
  * would test the parser; exporting the handler tests the command.

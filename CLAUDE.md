@@ -64,15 +64,15 @@ There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. E
 
 ## TypeScript
 
-TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround for a broken declaration in `effect@4.0.0-beta.107` — remove it once a fixed beta ships.
+TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround: `effect@4.0.0-rc.118`'s declarations still reference DOM-only types (`TextDecoderOptions` in `Channel.d.ts`, `Transferable` in `rpc/RpcClient.d.ts`) that a Node-only `lib` lacks — remove it once a prerelease ships without them.
 
 ## reposets CLI
 
-CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos. Built on **`effect/unstable/cli`, from core** — see the three warnings below and `okf/interfaces/cli.md` for the full command tree, flags and exit codes; `okf/interfaces/config-file.md` and `okf/interfaces/credentials-file.md` for the two TOML files' shapes; `okf/interfaces/json-schemas.md` for how `package/schemas/*.json` is built; `okf/interfaces/token-permissions.md` for the required fine-grained PAT scopes.
+CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos. Built on **`effect/cli`, from core** — see the three warnings below and `okf/interfaces/cli.md` for the full command tree, flags and exit codes; `okf/interfaces/config-file.md` and `okf/interfaces/credentials-file.md` for the two TOML files' shapes; `okf/interfaces/json-schemas.md` for how `package/schemas/*.json` is built; `okf/interfaces/token-permissions.md` for the required fine-grained PAT scopes.
 
 ## Three early traps
 
-- **`@effect/cli` does not exist on the Effect v4 line.** Use `effect/unstable/cli` instead.
+- **`@effect/cli` does not exist on the Effect v4 line.** Use `effect/cli` instead.
 - **There is no `package/src/services/github/`.** Every GitHub resource service lives upstream in `@effected/github` — read that package.
 - **`blakejs` is CommonJS.** Default-import then destructure: `import { blake2bHex } from "blakejs"` builds cleanly and throws at runtime.
 

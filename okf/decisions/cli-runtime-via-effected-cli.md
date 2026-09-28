@@ -7,8 +7,8 @@ supersedes: failures-are-caught-inside-the-effect.md
 tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
-  at: 2026-09-27T17:39:49Z
-  body_sha256: f72bcd714404f4129a39c4e84cfe4a236d7a7827d0ec3c43b43ad0aa1817c2ff
+  at: 2026-09-28T22:03:48Z
+  body_sha256: 71e725cd00ba384d7e4f17ec942e33da57b657aca25d041439d2fc122bf6b2ab
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -27,7 +27,7 @@ sources:
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
   - id: core-command
-    resource: ../../.repos/effect/packages/effect/src/unstable/cli/Command.ts
+    resource: ../../.repos/effect/packages/effect/src/cli/Command.ts
   - id: bin-e2e
     resource: ../../package/__test__/cli/bin.e2e.test.ts
 verified:
@@ -153,5 +153,5 @@ rule above by exit code and by which stream carries which text.[^bin-e2e]
 [^cli-init]: `package/src/cli/commands/init.ts`
 [^cli-doctor]: `package/src/cli/commands/doctor.ts`
 [^sync-logger]: `package/src/services/SyncLogger.ts`
-[^core-command]: `.repos/effect/packages/effect/src/unstable/cli/Command.ts`
+[^core-command]: `.repos/effect/packages/effect/src/cli/Command.ts`
 [^bin-e2e]: `package/__test__/cli/bin.e2e.test.ts`

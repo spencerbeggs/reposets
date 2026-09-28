@@ -6,13 +6,13 @@ status: deprecated
 tags: [dx, observability]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 27dff11a51e4d2428da6a1f6560fa588c672bb180547796e37ce3d3fc6989699
+  at: 2026-09-28T22:03:48Z
+  body_sha256: c276463e41edf50357bf7316770493c0066f2b7142255a387fbd801da8bb8e5f
 sources:
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
   - id: cli-flags
-    resource: ../../.repos/effect/packages/effect/src/unstable/cli/GlobalFlag.ts
+    resource: ../../.repos/effect/packages/effect/src/cli/GlobalFlag.ts
   - id: cli-sync
     resource: ../../package/src/cli/commands/sync.ts
 verified:
@@ -67,6 +67,6 @@ nothing but its exit code.
   existing lines instead of gating whether a line exists at all.
 
 [^sync-logger]: `package/src/services/SyncLogger.ts`
-[^cli-flags]: `.repos/effect/packages/effect/src/unstable/cli/GlobalFlag.ts`
+[^cli-flags]: `.repos/effect/packages/effect/src/cli/GlobalFlag.ts`
 [^cli-sync]: `package/src/cli/commands/sync.ts`
 </content>
