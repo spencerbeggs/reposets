@@ -1,6 +1,6 @@
 import { AppDirs } from "@effected/xdg";
 import { Console, Effect, Option } from "effect";
-import { CliError, Command, Flag } from "effect/unstable/cli";
+import { CliError, Command, Flag } from "effect/cli";
 import type { CredentialProfile, CredentialSource, Credentials } from "../../schemas/credentials.js";
 import { profileOwner } from "../../schemas/credentials.js";
 import { ReposetsCredentialsFile } from "../../services/ConfigFiles.js";

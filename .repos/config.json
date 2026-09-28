@@ -2,7 +2,7 @@
 	"repos": {
 		"effect": {
 			"url": "https://github.com/Effect-TS/effect",
-			"ref": "effect@4.0.0-rc.115",
+			"ref": "effect@4.0.0-rc.118",
 			"purpose": "Effect v4 core pinned to the exact prerelease this repo runs (4.0.0-rc.115); the authority for v4 APIs including effect/unstable/cli, which replaces the dead @effect/cli line",
 			"sparse": [
 				"packages/effect/src",

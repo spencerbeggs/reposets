@@ -1,7 +1,7 @@
 import { CliExit } from "@effected/cli";
 import { AppDirs } from "@effected/xdg";
 import { Console, Effect, FileSystem, Path, Stdio } from "effect";
-import { CliError, Command, Flag, Prompt } from "effect/unstable/cli";
+import { CliError, Command, Flag, Prompt } from "effect/cli";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
 import { Invocation } from "../../services/Invocation.js";
 

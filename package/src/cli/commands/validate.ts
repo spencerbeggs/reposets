@@ -1,6 +1,6 @@
 import { CliExit } from "@effected/cli";
 import { Console, Effect } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { danglingReferences } from "../../lib/config-refs.js";
 import { undefinedCredentialLabels } from "../../lib/credential-labels.js";
 import { orgOnlyViolations } from "../../lib/org-only.js";

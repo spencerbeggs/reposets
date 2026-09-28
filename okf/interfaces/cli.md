@@ -7,8 +7,8 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-09-27T17:39:49Z
-  body_sha256: 972b5c61e5ef5aeeb214591c206ebaad307986802c5f9896da97c3947a16ccce
+  at: 2026-09-28T22:03:48Z
+  body_sha256: de66c9375cfb80967db932257e6cf11156d5515d9d040b6222e8a707b2dbf74c
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -19,7 +19,7 @@ sources:
   - id: invocation
     resource: ../../package/src/services/Invocation.ts
   - id: core-command
-    resource: ../../.repos/effect/packages/effect/src/unstable/cli/Command.ts
+    resource: ../../.repos/effect/packages/effect/src/cli/Command.ts
   - id: bin-e2e
     resource: ../../package/__test__/cli/bin.e2e.test.ts
   - id: cli-sync
@@ -46,7 +46,7 @@ sources:
 
 # The reposets command line
 
-`reposets` is built on `effect/unstable/cli` — Effect core's own CLI framework
+`reposets` is built on `effect/cli` — Effect core's own CLI framework
 on the v4 line, where the old `@effect/cli` package does not exist. One
 subcommand file lives under `package/src/cli/commands/`, and
 [`package/src/cli/index.ts`](../../package/src/cli/index.ts) registers them
@@ -346,6 +346,6 @@ on.[^bin-e2e] The reasoning is in
 [^commands-doc]: `docs/02-commands.md`
 [^effected-cli]: npm:@effected/cli@0.9.0
 [^invocation]: `package/src/services/Invocation.ts`
-[^core-command]: `.repos/effect/packages/effect/src/unstable/cli/Command.ts`
+[^core-command]: `.repos/effect/packages/effect/src/cli/Command.ts`
 [^bin-e2e]: `package/__test__/cli/bin.e2e.test.ts`
 </content>

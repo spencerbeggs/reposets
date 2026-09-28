@@ -7,15 +7,15 @@ supersedes: no-verbosity-tiers.md
 tags: [dx, observability]
 generated:
   by: okfit/claude-code
-  at: 2026-09-27T17:39:49Z
-  body_sha256: 80d79e38d6284cf618e6c420325a9b6ca56dc4ae77e913b96dd42a4a30ad0b65
+  at: 2026-09-28T22:03:48Z
+  body_sha256: 6f71c1b47f554e618059bccce1b75fcf402fde0e4a1f28a56cdcc31516a3afa9
 sources:
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
   - id: cli-sync
     resource: ../../package/src/cli/commands/sync.ts
   - id: core-command
-    resource: ../../.repos/effect/packages/effect/src/unstable/cli/Command.ts
+    resource: ../../.repos/effect/packages/effect/src/cli/Command.ts
 verified:
   - by: human:spencer
     at: 2026-09-27T17:38:40Z
@@ -83,4 +83,4 @@ its exit code.
 
 [^sync-logger]: `package/src/services/SyncLogger.ts`
 [^cli-sync]: `package/src/cli/commands/sync.ts`
-[^core-command]: `.repos/effect/packages/effect/src/unstable/cli/Command.ts`
+[^core-command]: `.repos/effect/packages/effect/src/cli/Command.ts`

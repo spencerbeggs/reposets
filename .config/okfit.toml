@@ -9,4 +9,4 @@ agent = "okfit/claude-code"
 humans = ["human:spencer"]
 
 [tags.effect]
-description = "Concerns an Effect v4 idiom: layers, services, error channels, schemas, or the effect/unstable/cli framework."
+description = "Concerns an Effect v4 idiom: layers, services, error channels, schemas, or the effect/cli framework."

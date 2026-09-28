@@ -3,7 +3,7 @@ import { GitHubClient } from "@effected/github";
 import { Toml } from "@effected/toml";
 import { AppDirs } from "@effected/xdg";
 import { Config, Console, Effect, FileSystem, Layer, Option, Path, Result } from "effect";
-import { Command } from "effect/unstable/cli";
+import { Command } from "effect/cli";
 import { SettingsGroupSchema } from "../../schemas/config.js";
 import type { CredentialProfile } from "../../schemas/credentials.js";
 import { profileOwner } from "../../schemas/credentials.js";

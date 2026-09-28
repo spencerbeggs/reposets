@@ -8,15 +8,15 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, ci, observability, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-09-27T17:39:49Z
-  body_sha256: a6fa55f9e62ca15a40b87c1144d6e687af3dbfa3c0a14f4aaa190c6e1120a064
+  at: 2026-09-28T22:03:48Z
+  body_sha256: dd5a35550457ec367a15f5f61d9e3b7af05e36c51b0f0babd57a1517087404e1
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
   - id: core-command
-    resource: ../../.repos/effect/packages/effect/src/unstable/cli/Command.ts
+    resource: ../../.repos/effect/packages/effect/src/cli/Command.ts
   - id: effected-cli
     resource: npm:@effected/cli@0.9.0
 ---
@@ -53,5 +53,5 @@ code intact. To keep only the exit code, redirect both streams. Use
 
 [^cli-index]: `package/src/cli/index.ts`
 [^sync-logger]: `package/src/services/SyncLogger.ts`
-[^core-command]: `.repos/effect/packages/effect/src/unstable/cli/Command.ts`
+[^core-command]: `.repos/effect/packages/effect/src/cli/Command.ts`
 [^effected-cli]: npm:@effected/cli@0.9.0

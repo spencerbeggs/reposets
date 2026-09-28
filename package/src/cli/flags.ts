@@ -1,5 +1,5 @@
 import { Effect, Layer, Option } from "effect";
-import { Flag, GlobalFlag } from "effect/unstable/cli";
+import { Flag, GlobalFlag } from "effect/cli";
 import { makeConfigFilesLive } from "../services/ConfigFiles.js";
 
 /**
