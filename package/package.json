@@ -65,7 +65,7 @@
 		"@effect/vitest": "catalog:effect",
 		"@effected/schemastore": "catalog:effected",
 		"@effected/schemastore-cli": "catalog:effected",
-		"@savvy-web/bundler": "^2.4.16",
+		"@savvy-web/bundler": "^2.4.17",
 		"@types/node": "catalog:build",
 		"typescript": "catalog:build"
 	},
