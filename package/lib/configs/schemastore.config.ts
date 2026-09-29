@@ -16,6 +16,12 @@
  * Both TOML files decode strictly, so the published schema must reject unknown
  * keys too; 0.12 closes generated objects by default, so nothing needs pinning.
  *
+ * `name` is this config's catalog slice: both catalog entries land in
+ * `schemas/catalogs/reposets.json`, and the CLI merges every slice in that
+ * directory into `schemas/catalog.json` — the same merged file, at the same
+ * path, the old single-catalog layout wrote. The slice name appears in no
+ * `$id` or catalog URL, so it moves nothing a consumer pins.
+ *
  * A schema absent from this record fails nothing. The build stays green, and
  * the only symptom is an editor that silently stops completing one of the two
  * files someone edits by hand.
@@ -25,6 +31,7 @@ import { ConfigSchema } from "../../src/schemas/config.js";
 import { CredentialsSchema } from "../../src/schemas/credentials.js";
 
 export default defineConfig({
+	name: "reposets",
 	outputDir: "../../schemas",
 	baseUrl: "https://raw.githubusercontent.com/spencerbeggs/reposets/main/package/schemas",
 	drift: "allow",

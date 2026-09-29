@@ -7,8 +7,8 @@ stale_after: 2027-03-16T00:00:00Z
 tags: [testing, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 520ad49e6f4be4e4a8b41d78280a635d105e05206091073fcd4e41e69a3c1ec1
+  at: 2026-09-29T02:40:00Z
+  body_sha256: 4e261f98433f360f91c10f8aea8efd90258ce0aa0eb5c7660aba3788ef53827b
 sources:
   - id: vitest-setup
     resource: ../../vitest.setup.ts
@@ -22,8 +22,8 @@ sources:
 
 `pnpm run test` finishes green, and then `pnpm run lint` immediately after
 fails on formatting in `package/schemas/reposets.config.schema.json`,
-`package/schemas/reposets.credentials.schema.json` and
-`package/schemas/catalog.json` — files nobody touched in the diff being
+`package/schemas/reposets.credentials.schema.json`,
+`package/schemas/catalog.json` and `package/schemas/catalogs/reposets.json` — files nobody touched in the diff being
 worked on. It reads like the test run itself broke something, or like a
 stray formatter ran against tracked files it should have left alone.
 
@@ -34,7 +34,7 @@ before any test executes[^vitest-setup]. `build:dev` depends on
 `schema:build`[^turbo-json], which regenerates
 `package/schemas/*.json` from the current `ConfigSchema` and
 `CredentialsSchema` — so every `pnpm run test` invocation rewrites those
-three tracked files as a side effect, not a bug. `schemastore build`
+four tracked files as a side effect, not a bug. `schemastore build`
 writes them unformatted, and Biome's formatting rules apply to `*.json`,
 so the freshly-written files fail `pnpm run lint` until `pnpm run
 lint:fix` folds them back into the repository's format.

@@ -7,8 +7,8 @@ resource: ../../package/lib/configs/schemastore.config.ts
 tags: [docs, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 01e4ae66fb0f0ea1c9d128001726bc5d34b3a49c913ee8a4d61562ebb6bb576d
+  at: 2026-09-29T02:40:00Z
+  body_sha256: 2116cc54b1be1a3229749eebe9d5b66aa401db8e44386f62e050a27a7a096ddd
 sources:
   - id: schemastore-config
     resource: ../../package/lib/configs/schemastore.config.ts
@@ -18,6 +18,8 @@ sources:
     resource: ../../package/turbo.json
   - id: catalog-json
     resource: ../../package/schemas/catalog.json
+  - id: catalog-slice
+    resource: ../../package/schemas/catalogs/reposets.json
 ---
 
 # Published JSON schemas for reposets.config.toml and reposets.credentials.toml
@@ -28,7 +30,14 @@ Editor TOML language servers (Taplo, Tombi) and the SchemaStore catalog
 consume two published JSON Schema documents under `package/schemas/`:
 `reposets.config.schema.json` and `reposets.credentials.schema.json`,
 built from the entries named in `schemastore.config.ts`[^schemastore-config],
-alongside a generated `catalog.json` listing both[^catalog-json]. Their
+alongside a generated `catalog.json` listing both[^catalog-json]. Since
+`@effected/schemastore` 0.17 the catalog is built from per-config slices:
+the config's required top-level `name: "reposets"` names its slice,
+`package/schemas/catalogs/reposets.json` (both entries), and the CLI merges
+every slice in `package/schemas/catalogs/` into the merged
+`package/schemas/catalog.json` — the same path and the same content the
+earlier single-catalog layout wrote. The slice name appears in no `$id` or
+catalog URL, so it changes nothing a consumer pins. Their
 `$id`s sit at
 `https://raw.githubusercontent.com/spencerbeggs/reposets/main/package/schemas/<name>.schema.json`,
 matching the URLs the SchemaStore catalog already pins for this project —
@@ -40,14 +49,14 @@ itself.
 ## Build and check
 
 - `pnpm --filter reposets schema:build` (`schemastore build
-  lib/configs/schemastore.config.ts`) writes both schema files and
-  `catalog.json`. Turbo caches this task on `src/schemas/**` plus the
+  lib/configs/schemastore.config.ts`) writes both schema files, the
+  `catalogs/reposets.json` slice and the merged `catalog.json`. Turbo caches this task on `src/schemas/**` plus the
   config file, and both `build:dev` and `build:prod` depend on
   it[^turbo-json].
 - `pnpm --filter reposets schema:check` (`schemastore check
   lib/configs/schemastore.config.ts`) is the CI gate: uncached, it reports
   what a build would do and writes nothing[^turbo-json]. Its exit codes,
-  read from the installed `@effected/schemastore-cli@0.12.0`: `0` when
+  read from the installed `@effected/schemastore-cli@0.17.0`: `0` when
   every document already matches what a build would write; `1` when a
   schema fails the lint/validation gate, a published schema drifted under
   `onDrift: "error"`, or (under `check` specifically) a committed document
