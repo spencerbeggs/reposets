@@ -6,8 +6,8 @@ status: stable
 tags: [dx, deps, docs]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 2bde962023c59088a6163e256db2bc64bba8e2e850ed6144915a2094a0ddb7ff
+  at: 2026-09-29T02:40:00Z
+  body_sha256: 55c6c5241cd14f20f0b9846aaa24359e7c38e15d09720ac0f9d4d9ae1c844f65
 sources:
   - id: schemastore-config
     resource: ../../package/lib/configs/schemastore.config.ts
@@ -61,8 +61,10 @@ Several values in the config are load-bearing:
   depend on these files. Revisit this pairing if the schemas ever adopt
   `versions`.
 - **`catalog: { description, fileMatch }`** on each entry produces the
-  committed `package/schemas/catalog.json`, whose `name` and `url` fields
-  derive from the entry key[^schemastore-config].
+  committed `package/schemas/catalogs/reposets.json` slice (named by the
+  config's top-level `name`, required since 0.17) and the merged
+  `package/schemas/catalog.json`, whose `name` and `url` fields derive from
+  the entry key[^schemastore-config].
 - **No `jsonSchema: { onExcessProperty: "error" }` pin.** 0.12 closes
   generated objects by default. Both TOML files decode strictly against
   their Effect Schemas, so the published JSON Schema must reject unknown
