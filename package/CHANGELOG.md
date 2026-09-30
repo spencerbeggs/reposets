@@ -1,5 +1,21 @@
 # reposets
 
+## 2.0.3
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/xdg | dependency | updated | ^0.8.1 | ^0.8.2 |
+
+[#187][#187]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contributions!
+
+[#187]: https://github.com/spencerbeggs/reposets/pull/187
+
 ## 2.0.2
 
 ### Dependencies
