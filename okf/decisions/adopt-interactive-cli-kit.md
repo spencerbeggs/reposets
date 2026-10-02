@@ -2,7 +2,7 @@
 type: Decision
 title: Adopt @effected/cli's interactive kit
 description: Output is presented for its audience, a missing input is asked for only when a person can answer it, sync and drift draw a hosted live view, and findings are failure lines no log level silences.
-status: draft
+status: stable
 tags: [dx, effect, ci, observability]
 generated:
   by: okfit/claude-code
@@ -25,6 +25,9 @@ sources:
     resource: ../../package/src/cli/views/sync-progress-model.ts
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
+verified:
+  - by: human:spencer
+    at: 2026-10-02T17:14:23Z
 ---
 
 # Adopt @effected/cli's interactive kit

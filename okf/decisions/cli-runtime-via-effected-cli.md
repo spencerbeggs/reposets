@@ -33,6 +33,8 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-27T17:38:39Z
+  - by: human:spencer
+    at: 2026-10-02T17:14:06Z
 ---
 
 # The CLI runs under @effected/cli's CliRuntime.main
