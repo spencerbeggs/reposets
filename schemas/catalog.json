@@ -1,6 +1,6 @@
 [
 	{
-		"name": "config",
+		"name": "reposets.config.toml",
 		"description": "Configuration for the reposets CLI tool for syncing GitHub repository settings",
 		"fileMatch": ["reposets.config.toml", "reposets.config.json"],
 		"url": "https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/config.json",
@@ -9,7 +9,7 @@
 		}
 	},
 	{
-		"name": "credentials",
+		"name": "reposets.credentials.toml",
 		"description": "Authentication profiles for the reposets CLI tool",
 		"fileMatch": ["reposets.credentials.toml", "reposets.credentials.json"],
 		"url": "https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/credentials.json",

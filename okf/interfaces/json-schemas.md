@@ -7,8 +7,8 @@ resource: ../../package/src/schemas/hosted.ts
 tags: [docs, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T17:48:12Z
-  body_sha256: 1bc33422b35794f20e800e851ec9822c897a24508258f67ad4d526430ff20789
+  at: 2026-10-02T19:01:24Z
+  body_sha256: 8e38f07c83a69aeda326723bf0f3c3483a5fe8a15bd18535b2d98f4eee4deea1
 sources:
   - id: hosted
     resource: ../../package/src/schemas/hosted.ts
@@ -57,7 +57,12 @@ and the old file stays frozen on disk at its URL. Annotation-only edits
 The config's `name: "reposets"` names its catalog slice,
 `schemas/catalogs/reposets.json`[^catalog-slice]; the CLI merges every
 slice in `schemas/catalogs/` into `schemas/catalog.json`[^catalog-json],
-whose entries carry each schema's `url` and a `versions` map. An editor
+whose entries carry each schema's `url` and a `versions` map. Each entry
+is named for the file it matches — `reposets.config.toml` and
+`reposets.credentials.toml` — through the config's `catalog.name`
+(`@effected/schemastore` 0.20), not for the key `config`/`credentials`, which
+still names the document file and every URL; the display name moves no
+URL.[^schemastore-config] An editor
 using SchemaStore matches `reposets.config.toml` and
 `reposets.credentials.toml` by file name once SchemaStore's own catalog
 points at these URLs; a file carrying the `#:schema` directive needs no

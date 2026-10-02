@@ -28,6 +28,13 @@
  * Both TOML files decode strictly, so the published schema must reject unknown
  * keys too; generated objects are closed by default, so nothing needs pinning.
  *
+ * Each catalog entry is named for the file an editor matches it against
+ * (`catalog.name`, `@effected/schemastore` 0.20): the key names the document
+ * — `config.json` under its version directory — and is too generic to read
+ * as an entry in an editor's schema list or the SchemaStore catalog, where
+ * `reposets.config.toml` says what the schema is for. The display name moves
+ * no URL; only the entry's `name` field changes.
+ *
  * `name` is this config's catalog slice: both catalog entries land in
  * `schemas/catalogs/reposets.json`, and the CLI merges every slice in that
  * directory into `schemas/catalog.json`.
@@ -50,6 +57,7 @@ export default defineConfig({
 			hosted: configSchemaHost,
 			published: true,
 			catalog: {
+				name: "reposets.config.toml",
 				description: "Configuration for the reposets CLI tool for syncing GitHub repository settings",
 				fileMatch: ["reposets.config.toml", "reposets.config.json"],
 			},
@@ -59,6 +67,7 @@ export default defineConfig({
 			hosted: credentialsSchemaHost,
 			published: true,
 			catalog: {
+				name: "reposets.credentials.toml",
 				description: "Authentication profiles for the reposets CLI tool",
 				fileMatch: ["reposets.credentials.toml", "reposets.credentials.json"],
 			},
