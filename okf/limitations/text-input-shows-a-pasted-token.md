@@ -7,8 +7,8 @@ bounds: ../interfaces/cli.md
 tags: [security, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:49:51Z
-  body_sha256: 27193bfe1f0368aebfcebf6387df63c88972f0bdb15847507c17bab9a59ff2ac
+  at: 2026-10-02T16:06:57Z
+  body_sha256: b0bc30899ec48e2b25ba57d3edbf6e856b6cfb6d56103734c48bde5d11d74235
 sources:
   - id: cli-credentials
     resource: ../../package/src/cli/commands/credentials.ts
@@ -46,7 +46,9 @@ persisted or echoed. A person watching over the shoulder can still read it
 for as long as it sits in the field.
 
 **What a fix would take.** A masked mode on the kit's `TextInput`, upstream
-in `@effected/cli`. Masking the name fields would cost a person the
+in `@effected/cli`, requested as
+[spencerbeggs/effected#916](https://github.com/spencerbeggs/effected/issues/916).
+Masking the name fields would cost a person the
 ability to see their own typo, so a fix would mask only the reference
 field.
 

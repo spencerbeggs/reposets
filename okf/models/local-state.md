@@ -9,8 +9,8 @@ tags:
   - observability
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 523805e7a816fdd8b1b025b360c458e1395491edd2eda72580cfecde17913bb5
+  at: 2026-10-02T16:06:57Z
+  body_sha256: 602c021e9990f74ccdeda4e63f54f04a9df051fb6ad891560ff7c16357988d44
 sources:
   - id: applied-state
     resource: "../../package/src/store/AppliedState.ts"
@@ -24,8 +24,11 @@ sources:
 
 # Local state
 
-Three stores live under the XDG data directory and are wired once, by
-`App.layer`, around a whole sync run. Each backs a different question a
+Three stores live in two SQLite files — `AppliedState` and `SyncJournal`
+in `store.db` under the XDG state directory, `RepoCache` in `cache.db`
+under the XDG cache directory. The files are opened by `AppStore.layer` and
+`AppCache.layer`, only for the commands that use them (`sync`, `drift`,
+`history`), and the stores are wired once around a whole sync run. Each backs a different question a
 maintainer asks after the fact, and each breaks in a different way when
 an entry is wrong.
 

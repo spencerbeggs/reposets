@@ -44,3 +44,8 @@ If you parse output, match on exit codes rather than message text, or pass `--ag
 ## Bug Fixes
 
 * Findings that cause exit 1 ("No config found", "No groups configured", dangling references, `✗ Invalid:`) are no longer hidden by `--log-level`; they always reach stderr. Per-resource sync errors are still filtered by the log level.
+* `nuke` now removes everything reposets wrote: the state database together with its `-wal`/`-shm` files, the cache database, the `.gitignore` that `init` writes in the XDG config directory (only when it holds nothing else), and the `reposets` directories left empty. It previously deleted the state database while holding it open, left orphaned WAL files behind, ignored the cache, and could never report "Nothing to remove".
+* Only `sync`, `drift` and `history` open the local databases. Other commands (`init`, `list`, `validate`, `doctor`, `credentials`, `nuke`) no longer create `store.db` or `cache.db` as a side effect.
+* `history` shows each run id as the shortest prefix unique across the journal (at least 8 characters). Runs started within about a minute of each other used to share the same 8-character id, which `history show --run` then rejected as ambiguous.
+* `--config <directory>` now fails when the directory has no `reposets.config.toml`, instead of silently loading the config from the XDG directory.
+* `validate` with no config anywhere now says "No config found. Run 'reposets init' to create one." and exits 1, like `sync` and `list`, instead of printing a raw `ConfigFileNotFoundError`.

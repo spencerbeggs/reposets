@@ -7,8 +7,8 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:49:51Z
-  body_sha256: ff1d1c390892077e68569ff0ea835a2092678f304d9f015ec5f6d6a99ec29ef4
+  at: 2026-10-02T16:06:57Z
+  body_sha256: cd6fbc82a7fd6e418a0458f712ba3732f0187634fb16afe0239bd0268aefacdf
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -34,6 +34,8 @@ sources:
     resource: ../../package/src/cli/commands/doctor.ts
   - id: cli-history
     resource: ../../package/src/cli/commands/history.ts
+  - id: config-files
+    resource: ../../package/src/services/ConfigFiles.ts
   - id: cli-init
     resource: ../../package/src/cli/commands/init.ts
   - id: cli-nuke
@@ -99,7 +101,13 @@ or a directory containing it. It is declared with `GlobalFlag.Setting`
 rather than a plain parent flag specifically so it parses on either side of
 the subcommand name — `reposets --config x validate` and
 `reposets validate --config x` both work, where a plain parent flag rejects
-the trailing form.[^cli-flags] Core contributes `--help`, `--version`,
+the trailing form.[^cli-flags] An explicit `--config` never falls through to
+the XDG config: a path that does not exist fails with `ConfigFlagNotFound`,
+and a directory with no `reposets.config.toml` in it fails with
+`ConfigFlagMissingConfig`, whose message names the directory and the file it
+looked for. Both are typed failures, so exit 1. Only the file's existence is
+checked; a config that is present but invalid is still loaded, so `doctor`
+can diagnose it.[^config-files] Core contributes `--help`, `--version`,
 `--completions` and `--log-level` on top of it, plus `--wizard` on an
 interactive run only: when nobody can answer a prompt, the kit's
 `CliPrompt.gateWizard` drops it, and passing it is then an unrecognized
@@ -124,12 +132,18 @@ The audience is resolved once, in this order: an audience flag, then
 `REPOSETS_AUDIENCE`, then agent detection, then CI detection, then
 `human`.[^cli-index][^effected-env]
 
-`Command.provide(ConfigLive)`, `Command.provide(CredentialsFilesLive)` and
-`Command.provide(SyncJournalLive)` all sit on the root command rather than
-on each subcommand — subcommand requirements bubble into the parent's `R`
-through `withSubcommands`, so one `provide` covers every subcommand.[^cli-index]
-The platform layer handed to `CliRuntime.main` supplies Node's services,
-`App.layer` and the `Invocation` service. `main`'s `env` option builds the
+`Command.provide(ConfigLive)` and `Command.provide(CredentialsFilesLive)`
+sit on the root command rather than on each subcommand — subcommand
+requirements bubble into the parent's `R` through `withSubcommands`, so one
+`provide` covers every subcommand.[^cli-index] The databases are the
+exception: `sync` and `drift` are each given `store.db` and `cache.db`, and
+`history` is given `SyncJournalLive` over `store.db` alone, by a
+per-command `Command.provide`. History's provide wraps its own
+`withSubcommands`, so it covers `show`, `prune` and `clear`. No other
+command opens, and so creates, either file. The platform layer handed to
+`CliRuntime.main` supplies Node's services, the directories (`Xdg` and
+`AppDirs`, built as `App.layer` builds them, without its databases) and
+the `Invocation` service. `main`'s `env` option builds the
 rest: the audience, the terminal facts (stdin and stdout from core's
 `Stdio`, stderr from `process.stderr.isTTY`), the theme, `CliInteractive`
 and the colour-aware help formatter. `Invocation` carries the working
@@ -158,7 +172,7 @@ a pipe, an agent or CI gets instead.
 
 | Command | Asked when | Interactive | Non-interactive |
 | :--- | :--- | :--- | :--- |
-| `nuke` | `--force` is absent | "Delete which files?" checklist, every target pre-selected, in sections Project files, User files and State; then "Delete N files?", default No | Refused, exit 64, naming `--force` |
+| `nuke` | `--force` is absent | "Delete which files?" checklist, every target pre-selected, in sections Project files, User files, State and Cache; then "Delete N files?", default No | Refused, exit 64, naming `--force` |
 | `credentials create` | `--profile` is absent | "Profile name" text field | Refused, exit 64: `Provide --profile <name>: …` |
 | `credentials create` | neither `--username` nor `--org` | "Who does this profile act as?" (a personal account or an organization), then the name | Refused, exit 64, naming both flags |
 | `credentials create` | neither `--op` nor `--env` | "Where is the GitHub token?" (1Password or an environment variable), then the reference | Refused, exit 64, naming both flags |
@@ -341,8 +355,9 @@ are status, not an exit code. See [Exit codes](#exit-codes).
 
 ## `history`, `show`, `prune`, `clear`
 
-`history` lists past runs newest first as a table: `RUN` (the first eight
-characters of the id), `WHEN` (UTC), `OUTCOME` with its glyph, `MODE`,
+`history` lists past runs newest first as a table: `RUN` (the id cut to the
+shortest prefix no other run in the journal shares, never fewer than eight
+characters, the way git abbreviates a hash), `WHEN` (UTC), `OUTCOME` with its glyph, `MODE`,
 `GROUP`, `CHANGES` and `TOOK`. An empty journal is an info line and exit
 0.[^cli-history] `show --run <prefix>` accepts
 any unique prefix of a run id rather than the full id: an ambiguous prefix
@@ -355,7 +370,12 @@ script's exit code never depends on whether any run is recorded. Only an
 interactive run looks at the journal: it offers a picker over the newest 50
 runs, each labelled `id · when · outcome · group` with `mode · N changes ·
 took` as detail, or says `No runs recorded yet.` and exits 0 when there is
-nothing to pick.[^cli-history]
+nothing to pick.[^cli-history] The picker's labels use the same
+abbreviation as the table. Run ids are UUIDv7, whose leading digits are a
+millisecond timestamp, so the first eight change only about every 65
+seconds; a fixed eight-character id would print the same handle for runs a
+minute apart, and `show --run` would refuse it as ambiguous. Uniqueness is
+computed across every run in the journal, not just the rows printed.
 `prune --keep <n>` and `clear` both state, in their own output, that
 applied state and the cache are left untouched — the journal is history,
 the applied state is the drift baseline, and conflating the two would make
@@ -368,7 +388,9 @@ GitHub.[^cli-nuke] Three properties are load-bearing:
 
 - It lists **only paths that exist**, assembled by looking rather than
   assuming, because a prompt that overstates is a prompt people learn to
-  skim.
+  skim. With nothing found it prints `Nothing to remove — no reposets
+  files found on this machine.` and exits 0. That line is reachable only
+  because `nuke` itself opens no database.
 - It names what each loss costs, per target, and says of the state
   database specifically that the drift baselines cannot be reconstructed —
   the one irreversible consequence in the set. Config files can be
@@ -379,9 +401,18 @@ GitHub.[^cli-nuke] Three properties are load-bearing:
   against. The check is `CliInteractive`, the same answer every prompt
   uses. The refusal is a `CliError.UserError` and exits 64.
 
+The targets are: project config and credentials (upward walk), user config
+and credentials, the user config directory's `.gitignore` only when every
+non-blank line is the credentials filename `init` writes, the state
+database and the cache database. A database is one target that covers its
+SQLite companions (`-wal`, `-shm`, `-journal`) when present. It is found
+when any of those files exists, so companions orphaned by an older version
+are cleaned up too. A project directory's `.gitignore` is never a
+target.[^cli-nuke]
+
 It always prints what it found first, as a document: each path with
-`what — loses <cost>`, a warning callout when the state database is
-included, and `Nothing on GitHub is touched…`. A `--force` run then
+`what — <cost>`, a warning callout when the state database is included,
+and `Nothing on GitHub is touched…`. A `--force` run then
 deletes without a screen. An interactive run without `--force` asks
 through the checklist and confirmation in [Prompts](#prompts); deselecting
 everything or answering No deletes nothing and exits 0.[^cli-nuke]
@@ -390,7 +421,12 @@ Once confirmed, `nuke` attempts every chosen target even when one fails.
 Each removal prints `✓ removed <path>`, and a clean run ends `✓ Done. N
 files removed.` A target it could not remove is logged to stderr as
 `could not remove <path>`, a `✗ Removed N of M` line follows, and the run
-exits 1 through `CliExit` after the rest were tried.
+exits 1 through `CliExit` after the rest were tried. A database's
+companions each get their own `removed` line but count with it as one.
+After a confirmed or forced run, the `reposets` directories under the XDG
+config, state, cache and data homes are removed when empty (`✓ removed
+empty directory <path>`). They are never listed as targets, and a
+non-empty one is kept.
 
 ## `init` and `credentials`
 
@@ -495,6 +531,7 @@ on.[^bin-e2e] The reasoning is in
 [^cli-validate]: `package/src/cli/commands/validate.ts`
 [^cli-doctor]: `package/src/cli/commands/doctor.ts`
 [^cli-history]: `package/src/cli/commands/history.ts`
+[^config-files]: `package/src/services/ConfigFiles.ts`
 [^cli-init]: `package/src/cli/commands/init.ts`
 [^cli-nuke]: `package/src/cli/commands/nuke.ts`
 [^cli-credentials]: `package/src/cli/commands/credentials.ts`

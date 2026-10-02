@@ -1,6 +1,6 @@
 # Commands reference
 
-Every command accepts the global `--config` flag, which takes a path to `reposets.config.toml` or to a directory containing it. Effect core contributes `--help`, `--version`, `--completions` and `--log-level` to every command (and `--wizard` when a person is at a terminal: it is not accepted in a pipe, CI, or with `--agent`), and every command also takes the audience flags `--audience`, `--human`, `--agent` and `--ci` described [below](#interactive-use-and-output).
+Every command accepts the global `--config` flag, which takes a path to `reposets.config.toml` or to a directory containing it. An explicit `--config` is never quietly replaced by another config: a path that does not exist, or a directory with no `reposets.config.toml` in it, fails and exits `1` rather than falling back to the XDG config (`✗ --config directory has no reposets.config.toml: ./empty-dir`). Effect core contributes `--help`, `--version`, `--completions` and `--log-level` to every command (and `--wizard` when a person is at a terminal: it is not accepted in a pipe, CI, or with `--agent`), and every command also takes the audience flags `--audience`, `--human`, `--agent` and `--ci` described [below](#interactive-use-and-output).
 
 Command output — a report, a table, a summary — goes to stdout. Diagnostics, progress and errors go to stderr. `--log-level` takes `all|trace|debug|info|warn|warning|error|fatal|none` and sets the minimum severity of the logged stderr diagnostics only. It never silences command output, and it never silences a finding: the `✗` line that explains an exit code of `1` is printed whatever the level. To quieten a run, redirect stdout: `reposets sync > /dev/null` is quiet on success and still prints errors. There is no `log_level` config key and no verbosity tiers — see [Migrating to 1.0](01-migrating-to-1.0.md#3-log_level-and-the-verbosity-tiers-are-gone).
 
@@ -417,7 +417,7 @@ reposets history
 # 1c4d5e6f  2026-08-11 09:02  ⚠ partial  applied  (all)           0  1.2s
 ```
 
-The `RUN` column is the start of the id every subcommand takes. Timestamps are UTC, unconverted, which the header says. The outcome carries a status glyph. A run that never reached its finish is shown as `interrupted` rather than folded into `failed`, and a run that failed shows its error.
+The `RUN` column is the start of the id every subcommand takes: the shortest prefix no other run in the journal shares, and never fewer than eight characters, the way git abbreviates a commit hash. Runs started within about a minute of each other share their first eight characters, so their ids print longer — `0199a1b2-c3d4` rather than `0199a1b2` — and every id the table prints works as `history show --run`. Timestamps are UTC, unconverted, which the header says. The outcome carries a status glyph. A run that never reached its finish is shown as `interrupted` rather than folded into `failed`, and a run that failed shows its error.
 
 Unlike `sync --repo`, this flag takes the full `owner/name`. It filters to runs that *touched* the repository, joining through the recorded changes rather than through group membership, so a run configured for a repository that changed nothing in it does not appear.
 
@@ -463,7 +463,7 @@ Each line is the action, then the resource kind and name. The settings phase rep
 
 The id may be a unique prefix, because nobody retypes a UUID from a table. An ambiguous prefix lists the candidates and refuses (exit `64`) rather than picking one. A dry run's resources are shown in the "would" form, since the journal records the decision rather than the write.
 
-Without `--run`, a person at a terminal picks from the newest 50 runs. The "Which run?" list labels each run the way the table does — short id, when, outcome and group — with its mode, change count and duration as detail. With nothing recorded yet it says so and exits `0`. A non-interactive run without `--run` is always refused, whether or not the journal holds anything:
+Without `--run`, a person at a terminal picks from the newest 50 runs. The "Which run?" list labels each run the way the table does — its abbreviated id, when, outcome and group — with its mode, change count and duration as detail. With nothing recorded yet it says so and exits `0`. A non-interactive run without `--run` is always refused, whether or not the journal holds anything:
 
 ```bash
 reposets history show < /dev/null
@@ -552,19 +552,27 @@ reposets nuke
 #   user config — loses your groups and settings
 # - /path/to/config/reposets/reposets.credentials.toml
 #   user credentials — loses token references, not tokens
+# - /path/to/config/reposets/.gitignore
+#   user .gitignore — written by init
 # - /path/to/state/reposets/store.db
 #   state database — loses run history AND the drift baselines — drift detection restarts from nothing
+# - /path/to/cache/reposets/cache.db
+#   cache database — loses cached GitHub reads — rebuilt on the next sync
 # WARNING: Deleting the state database cannot be undone: the drift baselines it holds cannot be rebuilt.
 # Nothing on GitHub is touched. Everything reposets applied stays applied.
 ```
 
-The list is assembled by looking rather than assuming, so it names only paths that exist. The search for project config walks up from the working directory the same way the config resolver does, because the file you are thinking of is the one the CLI would load.
+The list is assembled by looking rather than assuming, so it names only paths that exist; when nothing does, it prints `Nothing to remove — no reposets files found on this machine.` and exits `0`. The search for project config walks up from the working directory the same way the config resolver does, because the file you are thinking of is the one the CLI would load.
+
+Each database is listed once but removed with its SQLite companion files (`-wal`, `-shm`, `-journal`) when they exist, and is found even if only the companions are left. The `.gitignore` in the user config directory is listed only when it holds nothing but the line `init` writes (`reposets.credentials.toml`); one with any other line is yours and is kept. A `.gitignore` in a project directory is never touched.
+
+`nuke` never opens a database itself — only `sync`, `drift` and `history` do — so running it, or `init`, `list`, `validate`, `doctor` or `credentials`, does not create `store.db` or `cache.db`.
 
 Losing the state database is the only irreversible consequence in the set, which is why it gets its own warning. Config files can be restored from a backup or rewritten; the drift fingerprints cannot, and without them the next run reports a first sync where a real out-of-band edit happened.
 
 What happens next depends on `--force` and on whether anyone can answer:
 
-- **On a terminal, without `--force`**, a "Delete which files?" checklist follows, grouped into Project files, User files and State, with every file selected. Rows are shown as `what: ./path` for project files and `what: ~/path` under your home directory, with the absolute path as detail. Deselect the files you want to keep — the state database, say — then confirm "Delete N files?", which defaults to **no**. Deselecting everything, or answering no, prints `Nothing was deleted.` and exits `0`.
+- **On a terminal, without `--force`**, a "Delete which files?" checklist follows, grouped into Project files, User files, State and Cache, with every file selected. Rows are shown as `what: ./path` for project files and `what: ~/path` under your home directory, with the absolute path as detail. Deselect the files you want to keep — the state database, say — then confirm "Delete N files?", which defaults to **no**. Deselecting everything, or answering no, prints `Nothing was deleted.` and exits `0`.
 - **With `--force`**, the files are deleted without a prompt.
 - **Without `--force`, anywhere else**, the command refuses rather than assuming an answer:
 
@@ -584,11 +592,15 @@ reposets nuke --force
 # ...
 # ✓ removed /path/to/config/reposets/reposets.config.toml
 # ✓ removed /path/to/config/reposets/reposets.credentials.toml
+# ✓ removed /path/to/config/reposets/.gitignore
 # ✓ removed /path/to/state/reposets/store.db
-# ✓ Done. 3 files removed.
+# ✓ removed /path/to/state/reposets/store.db-wal
+# ✓ removed empty directory /path/to/config/reposets
+# ✓ removed empty directory /path/to/state/reposets
+# ✓ Done. 4 files removed.
 ```
 
-A file that cannot be removed is reported on stderr and the run exits `1`, after every other file has been tried.
+A file that cannot be removed is reported on stderr and the run exits `1`, after every other file has been tried. Once the removals are done, the `reposets` directories under the config, state, cache and data homes are removed if they are now empty; a directory with anything left in it — a file you kept, or one reposets did not write — stays.
 
 ## credentials
 

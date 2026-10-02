@@ -7,8 +7,8 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:49:51Z
-  body_sha256: c4cebb12c758ee590f83b9fcecd991f1f8549fff05c91fb4c030e2146de32dce
+  at: 2026-10-02T16:06:57Z
+  body_sha256: dd5334f057a8291a8cb68be947836dce7a4d029d9bd71d6e713d60f52e409d47
 tags: [architecture, effect, github]
 ---
 
@@ -16,13 +16,17 @@ tags: [architecture, effect, github]
 
 ## Service graph
 
-`package/src/cli/index.ts` bootstraps `App.layer` (`@effected/app`), which
-opens the two SQLite databases the store services need, and provides
-`ConfigLive`, `CredentialsFilesLive`, and `SyncJournalLive` once at the root
-command — subcommand requirements bubble up into the root command's `R`
-through `Command.withSubcommands`, so one `Command.provide` per service covers
-every subcommand rather than each wiring its own copy
-(`package/src/cli/index.ts:72-88`). The tree runs through `CliAudience.run` under `@effected/cli`'s
+`package/src/cli/index.ts` provides the XDG directories (`Xdg` and
+`AppDirs`, composed as `App.layer` composes them) in the platform layer, and
+`ConfigLive` and `CredentialsFilesLive` once at the root command — subcommand
+requirements bubble up into the root command's `R` through
+`Command.withSubcommands`, so one `Command.provide` per service covers every
+subcommand rather than each wiring its own copy. The two SQLite databases are
+not in the platform: `AppStore.layer` and `AppCache.layer` are bound once at
+module scope and attached with a per-command `Command.provide` to `sync` and
+`drift` (both databases) and `history` (`SyncJournalLive` over `store.db`
+only), so `init`, `list`, `validate`, `doctor`, `nuke` and `credentials`
+never open or create either file. The tree runs through `CliAudience.run` under `@effected/cli`'s
 `CliRuntime.main`, which installs the CLI logger, builds the audience,
 terminal, theme and `CliInteractive` environment, provides the platform
 layer inside failure reporting, and turns a usage error, a finding recorded
@@ -50,15 +54,20 @@ The layer graph is assembled at three levels, and the split between them is
 load-bearing rather than a style choice:
 
 1. **Root entrypoint** (`package/src/cli/index.ts`) — `PlatformLive`
-   (`App.layer` and the `Invocation` layer over `NodeServices.layer`)
-   handed to `CliRuntime.main`, which adds `CliLogger.layer()` outermost
-   and, from its `env` option, the audience, terminal, theme,
-   `CliInteractive` and the colour-aware help formatter, plus `ConfigLive`, `CredentialsFilesLive`
-   and `SyncJournalLive` on the root command, all provided once for the
-   whole process. `AppLive` is bound at
-   module scope specifically because `App.layer` opens both SQLite databases;
-   a second call would open a second pair with a split event stream, so this
-   layer is built exactly once no matter how many commands or partitions run.
+   (the `Xdg`/`AppDirs` directories and the `Invocation` layer over
+   `NodeServices.layer`) handed to `CliRuntime.main`, which adds
+   `CliLogger.layer()` outermost and, from its `env` option, the audience,
+   terminal, theme, `CliInteractive` and the colour-aware help formatter,
+   plus `ConfigLive` and `CredentialsFilesLive` on the root command, all
+   provided once for the whole process. The databases sit one level down,
+   per command: `StoreLive` (`AppStore.layer`) and the cache
+   (`AppCache.layer`) are bound at module scope because each call opens a
+   new connection, and are provided only to `sync`, `drift` and `history`.
+   Migrations therefore run on the first command that uses the state
+   database, not on every command. Before this split `App.layer` sat in
+   the platform, so every command created both files and `nuke` deleted
+   `store.db` while its own process held it open, orphaning the `-wal`
+   and `-shm` files.
 2. **Per sync invocation** (`syncHandler` in `package/src/cli/commands/sync.ts:178-186`)
    — `SyncJournalLive`, `AppliedStateLive`, `RepoCacheLive`, the
    `CredentialResolver` layer, and `SyncLoggerLive` (given the run's event
@@ -101,7 +110,8 @@ standing up the engine (`package/__test__/sync/phases.test.ts` builds
 Five local services live in `package/src/services`: `ConfigFiles`,
 `CredentialResolver`, `Invocation`, `OnePasswordClient`, and `SyncLogger`. Three store
 services — `AppliedState`, `SyncJournal`, `RepoCache` — live in
-`package/src/store` and are wired by `App.layer`. Everything that speaks to
+`package/src/store` and are wired over `AppStore.layer` / `AppCache.layer`
+by the commands that use them. Everything that speaks to
 GitHub — the eight resource services and the libsodium sealed-box encryption
 secrets need before they can be written — is upstream in `@effected/github`.
 Everything at the CLI boundary — the runtime wrapper, the logger, the exit

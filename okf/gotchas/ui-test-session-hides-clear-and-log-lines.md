@@ -7,8 +7,8 @@ stale_after: 2027-04-02T00:00:00Z
 tags: [testing, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:49:51Z
-  body_sha256: 856b0846462e66cf5527ea9fbde9cb5734022c10c9fb4bcfd90be62faf5a5189
+  at: 2026-10-02T16:06:57Z
+  body_sha256: fbac209f2c5a937d945d2559c42461b310f92bb3d1c913b58b6d54337bb118ac
 sources:
   - id: effected-cli
     resource: npm:@effected/cli@0.11.0
@@ -49,7 +49,10 @@ that the clearing itself is not observable.[^credentials-test] For lines
 above a live view, mount the handler's own view on
 `package/__test__/utils/terminal.ts`'s `capturedTerminal`. It is an
 in-memory terminal that keeps every byte written, with stderr on the same
-stream as stdout, as on a real terminal.[^terminal-util]
+stream as stdout, as on a real terminal.[^terminal-util] Both gaps are
+requested upstream as
+[spencerbeggs/effected#917](https://github.com/spencerbeggs/effected/issues/917);
+retire this gotcha and the helper once a session exposes a transcript.
 
 [^effected-cli]: npm:@effected/cli@0.11.0
 [^terminal-util]: `package/__test__/utils/terminal.ts`
