@@ -2,7 +2,7 @@
 type: Decision
 title: CliRuntime.main builds the audience environment over a directories-only platform
 description: The entrypoint runs CliAudience.run under CliRuntime.main with an env block, provides only the XDG directories at the platform and attaches the databases per command; streams split by purpose, usage exits 64, findings exit 1 through CliExit, a cancelled prompt exits 130, and doctor always exits 0.
-status: draft
+status: stable
 supersedes: cli-runtime-via-effected-cli.md
 tags: [effect, dx, architecture]
 generated:
@@ -32,6 +32,9 @@ sources:
     resource: ../../.repos/effect/packages/effect/src/cli/Command.ts
   - id: bin-e2e
     resource: ../../package/__test__/cli/bin.e2e.test.ts
+verified:
+  - by: human:spencer
+    at: 2026-10-02T19:04:46Z
 ---
 
 # CliRuntime.main builds the audience environment over a directories-only platform
