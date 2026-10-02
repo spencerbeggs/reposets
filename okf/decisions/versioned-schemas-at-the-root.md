@@ -2,7 +2,7 @@
 title: Versioned JSON schemas at the repository root
 description: Why the two published JSON schemas moved from flat, unversioned files under package/schemas/ to schemas/<version>/<name>.json at the root, with one HostedSchema identity shared by the build and init.
 type: Decision
-status: draft
+status: stable
 supersedes: schemastore-config-not-a-script.md
 tags: [dx, release, docs]
 generated:
@@ -22,6 +22,9 @@ sources:
     resource: conversation with the repository owner
     author: human:spencer
     last_modified: 2026-10-02T00:00:00Z
+verified:
+  - by: human:spencer
+    at: 2026-10-02T19:01:47Z
 ---
 
 # Versioned JSON schemas at the repository root
