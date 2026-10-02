@@ -2,13 +2,13 @@
 type: Decision
 title: The CLI runs under @effected/cli's CliRuntime.main
 description: The entrypoint assembles through CliRuntime.main, program output goes to stdout with Console.log and every Effect.log level to stderr, usage mistakes exit 64 and findings exit 1 through CliExit.
-status: stable
+status: deprecated
 supersedes: failures-are-caught-inside-the-effect.md
 tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
-  at: 2026-09-28T22:03:48Z
-  body_sha256: 71e725cd00ba384d7e4f17ec942e33da57b657aca25d041439d2fc122bf6b2ab
+  at: 2026-10-02T15:49:51Z
+  body_sha256: cf7ea47668c71d69e4860ac8fcf6299d702d4c9e9207c08dbdc330dc39651364
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -33,6 +33,8 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-27T17:38:39Z
+  - by: human:spencer
+    at: 2026-10-02T17:14:06Z
 ---
 
 # The CLI runs under @effected/cli's CliRuntime.main
@@ -121,6 +123,8 @@ failure. `CliRuntime` re-fails with core's `Runtime.errorExitCode` and
 the alternative worth reconsidering.[^effected-cli] The e2e suite runs the
 built dev bin through `CliTest.sandbox` and `CliTest.run`. It pins each
 rule above by exit code and by which stream carries which text.[^bin-e2e]
+How output is drawn inside this contract, the prompts and exit 130 are
+[adopt-interactive-cli-kit](adopt-interactive-cli-kit.md).
 
 ## Alternatives rejected
 

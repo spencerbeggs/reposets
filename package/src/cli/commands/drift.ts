@@ -26,6 +26,10 @@ import { syncHandler } from "./sync.js";
  *
  * Exits non-zero when drift is found, so it works as a CI gate without a flag.
  *
+ * Being the same handler, it shows progress the same way: a live footer for a
+ * person at a terminal, labelled as a dry run, and a static summary line for
+ * a pipe, an agent or CI.
+ *
  * @public
  */
 export const driftCommand = Command.make(

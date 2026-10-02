@@ -242,7 +242,22 @@ A reference is checked where it is used, not where a section is defined. An unre
 
 ## Editor support
 
-reposets publishes JSON schemas for both config files to [SchemaStore](https://www.schemastore.org/). Editors that support SchemaStore, including VS Code, IntelliJ and Neovim, detect `reposets.config.toml` and `reposets.credentials.toml` and provide validation, completion and inline documentation with no setup.
+reposets publishes a versioned JSON schema for each file:
+
+| File | Schema |
+| :--- | :--- |
+| `reposets.config.toml` | `https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/config.json` |
+| `reposets.credentials.toml` | `https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/credentials.json` |
+
+`reposets init` writes a `#:schema` directive as the first line of each file it creates, so Taplo and Tombi validate, complete and document the file against the schema version it was written for:
+
+```toml
+#:schema https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/config.json
+```
+
+For a file you wrote by hand, add the same line at the top. The directive is a TOML comment, so reposets itself ignores it.
+
+The schemas are also listed in the [SchemaStore](https://www.schemastore.org/) catalog, which editors including VS Code, IntelliJ and Neovim use to match `reposets.config.toml` and `reposets.credentials.toml` by file name with no setup. A file with a `#:schema` line does not depend on that catalog.
 
 The schemas also carry annotations for two TOML language servers:
 

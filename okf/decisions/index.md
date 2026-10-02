@@ -1,7 +1,9 @@
 # Decision
 
 * [--config replaces the upward walk](config-flag-replaces-the-upward-walk.md) - A --config flag swaps out the upward-walk resolver tier rather than being prepended to it, and fails loudly on a missing path.
+* [Adopt @effected/cli's interactive kit](adopt-interactive-cli-kit.md) - Output is presented for its audience, a missing input is asked for only when a person can answer it, sync and drift draw a hosted live view, and findings are failure lines no log level silences.
 * [An enabled cleanup scope with nothing declared deletes everything in that scope](enabled-cleanup-scope-deletes-everything-undeclared.md) - Why cleanup treats an empty declaration as "this repository should have none", not "leave alone".
+* [CliRuntime.main builds the audience environment over a directories-only platform](cli-runtime-main-builds-the-environment.md) - The entrypoint runs CliAudience.run under CliRuntime.main with an env block, provides only the XDG directories at the platform and attaches the databases per command; streams split by purpose, usage exits 64, findings exit 1 through CliExit, a cancelled prompt exits 130, and doctor always exits 0.
 * [Drift is reported and still converged](drift-is-reported-and-still-converged.md) - reposets always overwrites out-of-band changes to a resource it manages, but always reports them first, and \`drift\` reuses the sync handler rather than a second read-only pipeline
 * [Failures are caught inside the effect](failures-are-caught-inside-the-effect.md) - The entrypoint wraps the whole command effect in Effect.catch(reportAndExit) rather than letting an unhandled failure reach NodeRuntime.runMain's own reporting path.
 * [Five PATCH fields are deliberately not typed on settings groups](settings-fields-deliberately-not-typed.md) - name, private/visibility, archived, default\_branch and use\_squash\_pr\_title\_as\_default are left off SettingsGroupSchema because their blast radius exceeds a declarative sync.
@@ -16,3 +18,4 @@
 * [The run boundary belongs to the command, not the engine](run-boundary-belongs-to-the-command.md) - SyncEngine records into a runId it is given and never opens or closes one; sync owns exactly one journal run per invocation.
 * [There are no verbosity tiers](no-verbosity-tiers.md) - Output is one level, plus a --debug flag on sync and drift that adds two diagnostic suffixes, rather than a config-selected tier of output detail.
 * [Tokens are references, never values](tokens-are-references-never-values.md) - github\_token and op\_service\_account are addresses only; no field in the credentials file ever holds a plaintext secret.
+* [Versioned JSON schemas at the repository root](versioned-schemas-at-the-root.md) - Why the two published JSON schemas moved from flat, unversioned files under package/schemas/ to schemas/\<version\>/\<name\>.json at the root, with one HostedSchema identity shared by the build and init.

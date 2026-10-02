@@ -31,16 +31,16 @@ Scaffold the config files in the current directory:
 
 ```bash
 reposets init --project
-# Created: ./reposets.config.toml
-# Created: ./reposets.credentials.toml
-# Created .gitignore with reposets.credentials.toml
+# ✓ Created: ./reposets.config.toml
+# ✓ Created: ./reposets.credentials.toml
+# ✓ Created .gitignore with reposets.credentials.toml
 ```
 
 Add a credential profile. It records *where* your token lives, never the token itself:
 
 ```bash
 reposets credentials create --profile personal --username your-username --op "op://Private/github/token"
-# Created profile 'personal' (username: your-username, github_token: op op://Private/github/token) in ./reposets.credentials.toml.
+# ✓ Created profile 'personal' (username: your-username, github_token: op op://Private/github/token) in ./reposets.credentials.toml.
 ```
 
 Use `--env REPOSETS_GITHUB_TOKEN` in place of `--op` to read the token from the environment instead of 1Password. Resolving `op://` references needs `OP_SERVICE_ACCOUNT_TOKEN` in your environment.
@@ -62,7 +62,7 @@ Check it:
 
 ```bash
 reposets validate
-# Valid: ./reposets.config.toml
+# ✓ Valid: ./reposets.config.toml
 #   groups: 1
 ```
 
@@ -135,11 +135,13 @@ Secrets are sealed with libsodium's crypto box against the repository's public k
 | `reposets validate` | Validate the config with no API calls |
 | `reposets doctor` | Diagnose config, credentials and token, and print required permissions |
 | `reposets history` | Show past runs. Subcommands: `show`, `prune`, `clear` |
-| `reposets init` | Scaffold the config files. `--project` for the current directory |
+| `reposets init` | Scaffold the config files. `--project` for the current directory, `--no-project` for the XDG config directory; asked on a terminal when omitted |
 | `reposets nuke` | Delete every local reposets file. Nothing on GitHub is touched |
 | `reposets credentials` | Manage credential profiles: `create`, `list`, `delete` |
 
-Every command accepts `--config`. Command output goes to stdout and diagnostics and errors to stderr, so `reposets sync > /dev/null` is quiet on success and loud on failure. Usage errors exit `64`; findings exit `1`. See [Commands](docs/02-commands.md) for every flag.
+Every command accepts `--config`. Command output goes to stdout and diagnostics and errors to stderr, so `reposets sync > /dev/null` is quiet on success and loud on failure. Usage errors exit `64`; findings exit `1`; a cancelled prompt exits `130`.
+
+Output adapts to who is reading. On a terminal, a person gets colour, prompts for anything a command needs and was not given, and a live progress footer during `sync` and `drift`. A coding agent or CI job gets plain text and is never prompted — a missing answer is a usage error naming the flag that supplies it. Override the detection with `--human`, `--agent` or `--ci` (or `REPOSETS_AUDIENCE`). See [Commands](docs/02-commands.md) for every flag.
 
 ## Upgrading
 
@@ -171,9 +173,10 @@ package/               # the reposets CLI package
   src/cli/             # entrypoint and one file per command
   src/services/        # Effect services (config files, credentials, 1Password, logging)
   src/sync/            # the sync engine and its phases
-  src/schemas/         # Effect Schema definitions and JSON schema generation
+  src/schemas/         # Effect Schema definitions and the hosted JSON schema identities
   src/store/           # SQLite-backed journal, applied state and cache
   __test__/            # tests mirroring src/
+schemas/               # generated, versioned JSON schemas (schemas/<version>/<name>.json) and catalog
 lib/configs/           # shared dev config (commitlint, lint-staged, markdownlint)
 docs/                  # user documentation
 ```

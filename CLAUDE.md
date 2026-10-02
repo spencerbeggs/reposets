@@ -9,7 +9,8 @@ This repository's design knowledge — architecture, service boundaries, config 
 A first-turn shortlist:
 
 - `okf/modules/reposets.md` — the one workspace package: CLI, sync engine, phases, services
-- `okf/interfaces/cli.md` — the command tree, flags, and exit-code promises
+- `okf/interfaces/cli.md` — the command tree, flags, prompts, output channels, and exit-code promises
+- `okf/decisions/adopt-interactive-cli-kit.md` — audience-aware output, prompts with non-interactive answers, the sync live view
 - `okf/interfaces/config-file.md` — `reposets.config.toml`'s shape
 - `okf/interfaces/credentials-file.md` — `reposets.credentials.toml`'s shape
 - `okf/conventions/*` — imports, code style, Effect patterns, commits
@@ -18,6 +19,7 @@ A first-turn shortlist:
 - `okf/gotchas/pnpm-exec-runs-the-dev-build.md` — why a source change looks invisible until rebuilt
 - `okf/gotchas/nul-bytes-hide-from-grep.md` — why a plain `grep` can silently miss a match in the store
 - `okf/gotchas/log-level-none-still-prints-reports.md` — why `--log-level none` does not silence a report
+- `okf/gotchas/ui-test-session-hides-clear-and-log-lines.md` — why a prompt or live-view test cannot see `clear` or the lines above the frame
 
 ## Commands
 
@@ -33,11 +35,11 @@ pnpm run lint          # biome check
 pnpm run lint:fix
 pnpm run lint:md
 pnpm run lint:md:fix
-pnpm --filter reposets schema:build   # regenerate package/schemas/
+pnpm --filter reposets schema:build   # regenerate the root schemas/ (schemas/<version>/<name>.json + catalogs)
 pnpm --filter reposets schema:check   # CI gate: 0 clean, 1 drift/stale/gate failure, 2 config problem
 ```
 
-`pnpm run test` rewrites `package/schemas/*.json` unformatted, which then fails `pnpm run lint` until `lint:fix` runs — see `okf/gotchas/test-run-rewrites-schemas.md`.
+`pnpm run test` rewrites `schemas/**/*.json` unformatted, which then fails `pnpm run lint` until `lint:fix` runs — see `okf/gotchas/test-run-rewrites-schemas.md`.
 
 ## Repository layout
 
@@ -46,17 +48,19 @@ pnpm workspace monorepo orchestrated by Turbo. One package: `package/` (workspac
 ```text
 package/src/cli/          # entrypoint (CliRuntime.main from @effected/cli), the --config global flag
 package/src/cli/commands/ # one file per subcommand
+package/src/cli/views/    # the sync live view: a JSX-free model and the one .tsx module, loaded only when drawing
 package/src/services/     # ConfigFiles, CredentialResolver, Invocation, OnePasswordClient, SyncLogger
 package/src/store/        # AppliedState, SyncJournal, RepoCache, migrations (SQLite via @effected/app)
 package/src/sync/         # SyncEngine, the Phase contract, decide(); phases/ holds one module per phase
-package/src/schemas/      # Effect Schema: config, credentials, common, environment, ruleset, annotations
+package/src/schemas/      # Effect Schema: config, credentials, common, environment, ruleset, annotations, hosted (schema URLs)
 package/src/lib/          # config-refs, org-only, credential-labels, fingerprint
-package/lib/configs/      # schemastore.config.ts
+package/lib/configs/      # schemastore.config.ts (identities in src/schemas/hosted.ts)
 package/__test__/         # tests mirroring src/
+schemas/                  # generated versioned JSON schemas (<version>/<name>.json), catalog.json, catalogs/
 lib/configs/              # commitlint, lint-staged, markdownlint
 ```
 
-There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github` — read that package rather than looking for a wrapper here. Likewise the CLI logger, exit-code handling and schema-issue rendering are upstream in `@effected/cli`; `package/src/cli/index.ts` is the only file that reads `process` (see `okf/conventions/effect-patterns.md`).
+There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github` — read that package rather than looking for a wrapper here. Likewise the CLI logger, exit-code handling, audience-aware output, prompts, the live view and schema-issue rendering are upstream in `@effected/cli`; `package/src/cli/index.ts` is the only file that reads `process` (see `okf/conventions/effect-patterns.md`).
 
 ## Build system
 
@@ -64,11 +68,11 @@ There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. E
 
 ## TypeScript
 
-TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround: `effect@4.0.0-rc.118`'s declarations still reference DOM-only types (`TextDecoderOptions` in `Channel.d.ts`, `Transferable` in `rpc/RpcClient.d.ts`) that a Node-only `lib` lacks — remove it once a prerelease ships without them.
+TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround: `effect@4.0.0`'s declarations still reference DOM-only types (`TextDecoderOptions` in `Channel.d.ts`, `Transferable` in `rpc/RpcClient.d.ts`) that a Node-only `lib` lacks — remove it once an `effect` release ships without them.
 
 ## reposets CLI
 
-CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos. Built on **`effect/cli`, from core** — see the three warnings below and `okf/interfaces/cli.md` for the full command tree, flags and exit codes; `okf/interfaces/config-file.md` and `okf/interfaces/credentials-file.md` for the two TOML files' shapes; `okf/interfaces/json-schemas.md` for how `package/schemas/*.json` is built; `okf/interfaces/token-permissions.md` for the required fine-grained PAT scopes.
+CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos. Built on **`effect/cli`, from core** — see the three warnings below and `okf/interfaces/cli.md` for the full command tree, flags and exit codes; `okf/interfaces/config-file.md` and `okf/interfaces/credentials-file.md` for the two TOML files' shapes; `okf/interfaces/json-schemas.md` for how the versioned `schemas/<version>/*.json` at the repo root are built and how `init` stamps their `#:schema` URLs; `okf/interfaces/token-permissions.md` for the required fine-grained PAT scopes.
 
 ## Three early traps
 

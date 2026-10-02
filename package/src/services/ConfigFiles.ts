@@ -1,8 +1,7 @@
 import { AppConfig } from "@effected/app";
 import { ConfigFile, ConfigResolver, TomlCodec } from "@effected/config-file";
 import type { AppDirs, Xdg } from "@effected/xdg";
-import type { Path } from "effect";
-import { Data, Effect, FileSystem, Layer } from "effect";
+import { Data, Effect, FileSystem, Layer, Path } from "effect";
 import type { Config } from "../schemas/config.js";
 import { ConfigSchema } from "../schemas/config.js";
 import type { Credentials } from "../schemas/credentials.js";
@@ -57,14 +56,13 @@ export class ReposetsCredentialsFile extends ConfigFile.Service<ReposetsCredenti
  * are covered by a `StructWithRest` rest schema, so they are not excess;
  * verified here and pinned by a test upstream.
  *
- * **Applied to credentials only, for now.** The config file keeps lenient
- * decoding because `doctor` diagnoses unknown keys with nearest-match
- * suggestions — strictly better output than a decode failure — and it locates
- * the file through `discover`, which decodes. Making the load strict means
- * `discover` fails and `doctor` reports "no config found" for a file that is
- * present and one character wrong, losing the diagnosis exactly when it is
- * wanted. Turning it on for config needs `doctor` to locate the file without
- * decoding first.
+ * **Applied to both files.** Strict config decoding was once held back
+ * because `doctor` found the config through `discover`, which decodes: a
+ * strict load would have made a file that is present and one key wrong look
+ * absent, losing the diagnosis exactly when it is wanted. `doctor` now keeps
+ * `discover`'s failure as the structured issue it reports, and locates the
+ * file on its own (`locateConfig`) without decoding, so its nearest-match
+ * suggestions survive a strict load.
  */
 const STRICT_KEYS = {
 	onExcessProperty: "error",
@@ -128,18 +126,56 @@ export class ConfigFlagNotFound extends Data.TaggedError("ConfigFlagNotFound")<{
 }
 
 /**
+ * Raised when `--config` names a directory that holds no `reposets.config.toml`.
+ *
+ * @remarks
+ * The sibling of {@link ConfigFlagNotFound}, for the case it cannot see: the
+ * path exists, so the existence check passes, but the directory resolver then
+ * finds nothing and — being a probe with `never` in its error channel — falls
+ * through to `AppConfig`'s XDG tier. `reposets doctor --config ./empty-dir`
+ * would report on the user's XDG config, a different file from the one asked
+ * about, with nothing to say so. An explicit request fails loudly here for the
+ * same reason a missing path does.
+ *
+ * A separate tag rather than a widened `ConfigFlagNotFound`, because the two
+ * call for different fixes — a mistyped path, versus a right directory with
+ * the file missing or misnamed — and the message names both the directory and
+ * the filename it looked for. Both are paths the user typed or a fixed name;
+ * nothing secret reaches the message.
+ *
+ * @public
+ */
+export class ConfigFlagMissingConfig extends Data.TaggedError("ConfigFlagMissingConfig")<{
+	readonly dir: string;
+	readonly filename: string;
+}> {
+	/**
+	 * @remarks
+	 * As on {@link ConfigFlagNotFound}: without it the error renders as a bare
+	 * tag and the directory never reaches the log line.
+	 */
+	override get message(): string {
+		return `--config directory has no ${this.filename}: ${this.dir}`;
+	}
+}
+
+/**
  * Builds the resolver tiers that must win over `AppConfig`'s own XDG chain.
  *
  * @remarks
  * `AppConfig.layer` prepends these, in order, ahead of `XdgConfig.resolver` and
  * the native-directory probe, so only the higher-priority tiers appear here.
+ *
+ * A directory is checked for the config file by existence only, not decoded:
+ * a file that is present but invalid must still resolve, so `doctor` can
+ * diagnose it and a command can report its decode error against the right path.
  */
 const resolversFor = (
 	configFlag: string | undefined,
 ): Effect.Effect<
 	ReadonlyArray<ConfigResolver<FileSystem.FileSystem | Path.Path>>,
-	ConfigFlagNotFound,
-	FileSystem.FileSystem
+	ConfigFlagNotFound | ConfigFlagMissingConfig,
+	FileSystem.FileSystem | Path.Path
 > =>
 	Effect.gen(function* () {
 		if (configFlag === undefined) {
@@ -153,9 +189,17 @@ const resolversFor = (
 			return yield* new ConfigFlagNotFound({ path: configFlag });
 		}
 
-		return info.value.type === "Directory"
-			? [ConfigResolver.staticDir({ dir: configFlag, filename: CONFIG_FILENAME })]
-			: [ConfigResolver.explicitPath(configFlag)];
+		if (info.value.type !== "Directory") {
+			return [ConfigResolver.explicitPath(configFlag)];
+		}
+
+		const path = yield* Path.Path;
+		const hasConfig = yield* fs.exists(path.join(configFlag, CONFIG_FILENAME)).pipe(Effect.orElseSucceed(() => false));
+		if (!hasConfig) {
+			return yield* new ConfigFlagMissingConfig({ dir: configFlag, filename: CONFIG_FILENAME });
+		}
+
+		return [ConfigResolver.staticDir({ dir: configFlag, filename: CONFIG_FILENAME })];
 	});
 
 /**
@@ -169,7 +213,11 @@ const resolversFor = (
  */
 export const makeConfigFilesLive = (
 	configFlag: string | undefined,
-): Layer.Layer<ReposetsConfigFile, ConfigFlagNotFound, FileSystem.FileSystem | Path.Path | AppDirs | Xdg> =>
+): Layer.Layer<
+	ReposetsConfigFile,
+	ConfigFlagNotFound | ConfigFlagMissingConfig,
+	FileSystem.FileSystem | Path.Path | AppDirs | Xdg
+> =>
 	Layer.unwrap(
 		Effect.map(resolversFor(configFlag), (resolvers) =>
 			AppConfig.layer(ReposetsConfigFile, {

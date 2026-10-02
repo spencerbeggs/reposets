@@ -1,6 +1,6 @@
 {
 	"$schema": "http://json-schema.org/draft-07/schema#",
-	"$id": "https://raw.githubusercontent.com/spencerbeggs/reposets/main/package/schemas/reposets.config.schema.json",
+	"$id": "https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/config.json",
 	"$ref": "#/$defs/Config",
 	"$defs": {
 		"SecurityAndAnalysisStatus": {
@@ -2014,81 +2014,6 @@
 			"title": "Cleanup scope",
 			"description": "Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve."
 		},
-		"CleanupScope_1": {
-			"anyOf": [
-				{
-					"type": "boolean"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preserve": {
-							"type": "array",
-							"title": "Preserve list",
-							"description": "Resource names that should never be deleted during cleanup",
-							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-							"items": {
-								"type": "string"
-							}
-						}
-					},
-					"required": ["preserve"],
-					"additionalProperties": false
-				}
-			],
-			"title": "Cleanup scope",
-			"description": "Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve."
-		},
-		"CleanupScope_2": {
-			"anyOf": [
-				{
-					"type": "boolean"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preserve": {
-							"type": "array",
-							"title": "Preserve list",
-							"description": "Resource names that should never be deleted during cleanup",
-							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-							"items": {
-								"type": "string"
-							}
-						}
-					},
-					"required": ["preserve"],
-					"additionalProperties": false
-				}
-			],
-			"title": "Cleanup scope",
-			"description": "Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve."
-		},
-		"CleanupScope_3": {
-			"anyOf": [
-				{
-					"type": "boolean"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preserve": {
-							"type": "array",
-							"title": "Preserve list",
-							"description": "Resource names that should never be deleted during cleanup",
-							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-							"items": {
-								"type": "string"
-							}
-						}
-					},
-					"required": ["preserve"],
-					"additionalProperties": false
-				}
-			],
-			"title": "Cleanup scope",
-			"description": "Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve."
-		},
 		"CleanupSecrets": {
 			"type": "object",
 			"properties": {
@@ -2096,132 +2021,32 @@
 					"$ref": "#/$defs/CleanupScope"
 				},
 				"dependabot": {
-					"$ref": "#/$defs/CleanupScope_1"
+					"$ref": "#/$defs/CleanupScope"
 				},
 				"codespaces": {
-					"$ref": "#/$defs/CleanupScope_2"
+					"$ref": "#/$defs/CleanupScope"
 				},
 				"environments": {
-					"$ref": "#/$defs/CleanupScope_3"
+					"$ref": "#/$defs/CleanupScope"
 				}
 			},
 			"additionalProperties": false,
 			"title": "Secrets cleanup configuration",
 			"description": "Controls deletion of secrets by scope (Actions, Dependabot, Codespaces, environments)."
 		},
-		"CleanupScope_4": {
-			"anyOf": [
-				{
-					"type": "boolean"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preserve": {
-							"type": "array",
-							"title": "Preserve list",
-							"description": "Resource names that should never be deleted during cleanup",
-							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-							"items": {
-								"type": "string"
-							}
-						}
-					},
-					"required": ["preserve"],
-					"additionalProperties": false
-				}
-			],
-			"title": "Cleanup scope",
-			"description": "Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve."
-		},
-		"CleanupScope_5": {
-			"anyOf": [
-				{
-					"type": "boolean"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preserve": {
-							"type": "array",
-							"title": "Preserve list",
-							"description": "Resource names that should never be deleted during cleanup",
-							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-							"items": {
-								"type": "string"
-							}
-						}
-					},
-					"required": ["preserve"],
-					"additionalProperties": false
-				}
-			],
-			"title": "Cleanup scope",
-			"description": "Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve."
-		},
 		"CleanupVariables": {
 			"type": "object",
 			"properties": {
 				"actions": {
-					"$ref": "#/$defs/CleanupScope_4"
+					"$ref": "#/$defs/CleanupScope"
 				},
 				"environments": {
-					"$ref": "#/$defs/CleanupScope_5"
+					"$ref": "#/$defs/CleanupScope"
 				}
 			},
 			"additionalProperties": false,
 			"title": "Variables cleanup configuration",
 			"description": "Controls deletion of variables by scope (Actions, environments)."
-		},
-		"CleanupScope_6": {
-			"anyOf": [
-				{
-					"type": "boolean"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preserve": {
-							"type": "array",
-							"title": "Preserve list",
-							"description": "Resource names that should never be deleted during cleanup",
-							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-							"items": {
-								"type": "string"
-							}
-						}
-					},
-					"required": ["preserve"],
-					"additionalProperties": false
-				}
-			],
-			"title": "Cleanup scope",
-			"description": "Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve."
-		},
-		"CleanupScope_7": {
-			"anyOf": [
-				{
-					"type": "boolean"
-				},
-				{
-					"type": "object",
-					"properties": {
-						"preserve": {
-							"type": "array",
-							"title": "Preserve list",
-							"description": "Resource names that should never be deleted during cleanup",
-							"examples": [["LEGACY_TOKEN", "DEPLOY_KEY"]],
-							"items": {
-								"type": "string"
-							}
-						}
-					},
-					"required": ["preserve"],
-					"additionalProperties": false
-				}
-			],
-			"title": "Cleanup scope",
-			"description": "Controls cleanup for a single resource scope. false disables cleanup, true enables full cleanup, or specify names to preserve."
 		},
 		"Cleanup": {
 			"type": "object",
@@ -2233,10 +2058,10 @@
 					"$ref": "#/$defs/CleanupVariables"
 				},
 				"rulesets": {
-					"$ref": "#/$defs/CleanupScope_6"
+					"$ref": "#/$defs/CleanupScope"
 				},
 				"environments": {
-					"$ref": "#/$defs/CleanupScope_7"
+					"$ref": "#/$defs/CleanupScope"
 				}
 			},
 			"additionalProperties": false,

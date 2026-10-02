@@ -57,8 +57,10 @@ The declared type gates organization-only settings offline. Team-based ruleset a
 
 ```bash
 reposets validate
-# Invalid: /path/to/reposets.config.toml
-#   [my-repos] rulesets.protect.bypass_actors: a Team bypass actor requires an organization, but profile 'personal' is a personal account
+# ✗ Invalid: /path/to/reposets.config.toml
+# [my-repos]
+#
+# - ✗ rulesets.protect.bypass_actors: a Team bypass actor requires an organization, but profile 'personal' is a personal account
 ```
 
 The declaration is not proof. `sync` still reads the owner's type from GitHub before writing and fails the repository with a named error on a mismatch.
@@ -96,7 +98,7 @@ It is deliberately not stored in the credentials file. It unlocks everything the
 
 ```bash
 reposets doctor
-# OP_SERVICE_ACCOUNT_TOKEN: NOT SET — op:// references cannot be resolved
+# ⚠ OP_SERVICE_ACCOUNT_TOKEN: NOT SET — op:// references cannot be resolved
 ```
 
 A config with no `op` entries never needs it.
@@ -179,8 +181,10 @@ A label the profile does not declare is caught offline:
 
 ```bash
 reposets validate
-# Invalid: /path/to/reposets.config.toml
-#   [my-repos] app.APP_ID: credential label 'MY_APP_IDD' is not declared in profile 'personal'
+# ✗ Invalid: /path/to/reposets.config.toml
+# [my-repos]
+#
+# - ✗ app.APP_ID: credential label 'MY_APP_IDD' is not declared in profile 'personal'
 #
 # Add it to that profile's [resolve] section in reposets.credentials.toml, or correct the name.
 ```
@@ -238,22 +242,25 @@ See [Secrets and variables](05-secrets-and-variables.md) and [Rulesets](06-rules
 
 ```bash
 reposets credentials create --profile personal --username your-username --op "op://Private/github/token"
-# Created profile 'personal' (username: your-username, github_token: op op://Private/github/token) in /path/to/reposets.credentials.toml.
+# ✓ Created profile 'personal' (username: your-username, github_token: op op://Private/github/token) in /path/to/reposets.credentials.toml.
 ```
 
 ```bash
 reposets credentials list
 # [personal]
-#   acts as: your-username (user)
-#   github_token: op op://Private/github/token
+#
+# acts as: your-username (user)
+# github_token: op op://Private/github/token
 ```
 
 ```bash
 reposets credentials delete --profile old-profile
-# Deleted profile 'old-profile' from /path/to/reposets.credentials.toml.
+# ✓ Deleted profile 'old-profile' from /path/to/reposets.credentials.toml.
 ```
 
-`create` never accepts a token value. It requires exactly one of `--username` or `--org` and exactly one of `--op` or `--env`, rejects anything that looks like a credential and does not echo the value back. See [Commands](02-commands.md#credentials) for the full flag list.
+`create` never accepts a token value. A profile needs a name, exactly one of `--username` or `--org` and exactly one of `--op` or `--env`. Every value — each flag and each answer typed at a prompt — is checked, and anything that looks like a credential is refused without being echoed back, so it never becomes a profile name, an owner or a reference.
+
+On a terminal, both `create` and `delete` ask for what the flags leave out. `reposets credentials create` with no flags asks for the profile name, then who it acts as, then where the token is; `reposets credentials delete` with no `--profile` offers the existing profiles to pick from, showing each one's owner and token reference but never a value. In a script, CI or an agent session nothing is asked: a missing value is a usage error naming the flag (exit `64`). See [Commands](02-commands.md#credentials) for the full flag list and every refusal.
 
 `list` redacts nothing, because there is nothing to redact. It shows which vault items and environment variables reposets reads, never their contents.
 
@@ -263,7 +270,7 @@ Reading the file cannot tell a working setup from a revoked token, an `op://` pa
 
 ```bash
 reposets doctor
-# Token [personal]: resolved, authenticates as your-username — matches username
+# ✓ Token [personal]: resolved, authenticates as your-username — matches username
 ```
 
 For a `username` profile that is an exact check: a typo becomes a named error here instead of a 404 partway through a sync. For an `org` profile, `GET /user` returns the account that owns the token rather than the organization, so doctor reports both without claiming to have verified the pairing.
@@ -272,7 +279,7 @@ A failure names the cause rather than listing possibilities:
 
 ```bash
 reposets doctor
-# Token [personal]: could not resolve — ResolveError: Failed to resolve 'github_token' from env: environment variable REPOSETS_GITHUB_TOKEN is not set
+# ✗ Token [personal]: could not resolve — ResolveError: Failed to resolve 'github_token' from env: environment variable REPOSETS_GITHUB_TOKEN is not set
 ```
 
 ## Security notes

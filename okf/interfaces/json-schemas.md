@@ -1,25 +1,29 @@
 ---
 title: Published JSON schemas for reposets.config.toml and reposets.credentials.toml
-description: The SchemaStore-catalog JSON schemas editors and reposets init use, and how they are built and checked.
+description: The versioned JSON schemas under the root schemas/ directory that editors, the SchemaStore catalog and reposets init's "#:schema" line point at, and how they are built and checked.
 type: Interface
 kind: config
-resource: ../../package/lib/configs/schemastore.config.ts
+resource: ../../package/src/schemas/hosted.ts
 tags: [docs, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-09-29T02:40:00Z
-  body_sha256: 2116cc54b1be1a3229749eebe9d5b66aa401db8e44386f62e050a27a7a096ddd
+  at: 2026-10-02T19:01:24Z
+  body_sha256: 8e38f07c83a69aeda326723bf0f3c3483a5fe8a15bd18535b2d98f4eee4deea1
 sources:
+  - id: hosted
+    resource: ../../package/src/schemas/hosted.ts
   - id: schemastore-config
     resource: ../../package/lib/configs/schemastore.config.ts
+  - id: cli-init
+    resource: ../../package/src/cli/commands/init.ts
   - id: annotations
     resource: ../../package/src/schemas/annotations.ts
   - id: turbo-json
     resource: ../../package/turbo.json
   - id: catalog-json
-    resource: ../../package/schemas/catalog.json
+    resource: ../../schemas/catalog.json
   - id: catalog-slice
-    resource: ../../package/schemas/catalogs/reposets.json
+    resource: ../../schemas/catalogs/reposets.json
 ---
 
 # Published JSON schemas for reposets.config.toml and reposets.credentials.toml
@@ -27,43 +31,63 @@ sources:
 ## Contract
 
 Editor TOML language servers (Taplo, Tombi) and the SchemaStore catalog
-consume two published JSON Schema documents under `package/schemas/`:
-`reposets.config.schema.json` and `reposets.credentials.schema.json`,
-built from the entries named in `schemastore.config.ts`[^schemastore-config],
-alongside a generated `catalog.json` listing both[^catalog-json]. Since
-`@effected/schemastore` 0.17 the catalog is built from per-config slices:
-the config's required top-level `name: "reposets"` names its slice,
-`package/schemas/catalogs/reposets.json` (both entries), and the CLI merges
-every slice in `package/schemas/catalogs/` into the merged
-`package/schemas/catalog.json` — the same path and the same content the
-earlier single-catalog layout wrote. The slice name appears in no `$id` or
-catalog URL, so it changes nothing a consumer pins. Their
-`$id`s sit at
-`https://raw.githubusercontent.com/spencerbeggs/reposets/main/package/schemas/<name>.schema.json`,
-matching the URLs the SchemaStore catalog already pins for this project —
-an editor with SchemaStore support associates `reposets.config.toml` and
-`reposets.credentials.toml` with these schemas automatically, with no
-`# yaml-language-server` or `#:schema` comment required in the TOML file
-itself.
+consume two versioned JSON Schema documents at the repository root:
+
+| File | `$id` |
+| --- | --- |
+| `schemas/3.0/config.json` | `https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/config.json` |
+| `schemas/3.0/credentials.json` | `https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/credentials.json` |
+
+Each identity is defined once, as a `HostedSchema` in
+`package/src/schemas/hosted.ts` (`configSchemaHost`,
+`credentialsSchemaHost`)[^hosted]. The schema build keys its entries by
+`hosted.name` and passes the value as `hosted`[^schemastore-config], and
+`reposets init` writes `#:schema <hosted.$id>` plus a blank line as the
+first line of each file it scaffolds[^cli-init] — so the `$id` the build
+writes and the URL a fresh file points at cannot disagree. To every TOML
+parser the directive is a comment: `validate`, `doctor` and every other
+command decode a stamped file exactly as an unstamped one.
+
+The label `3.0` names the TOML contract, not the package version. Once a
+label is published its document is never edited in a way that changes the
+contract: a contract change appends a new label to the hosts' `versions`,
+and the old file stays frozen on disk at its URL. Annotation-only edits
+(descriptions, `x-taplo`, `x-tombi-*`) regenerate in place.
+
+The config's `name: "reposets"` names its catalog slice,
+`schemas/catalogs/reposets.json`[^catalog-slice]; the CLI merges every
+slice in `schemas/catalogs/` into `schemas/catalog.json`[^catalog-json],
+whose entries carry each schema's `url` and a `versions` map. Each entry
+is named for the file it matches — `reposets.config.toml` and
+`reposets.credentials.toml` — through the config's `catalog.name`
+(`@effected/schemastore` 0.20), not for the key `config`/`credentials`, which
+still names the document file and every URL; the display name moves no
+URL.[^schemastore-config] An editor
+using SchemaStore matches `reposets.config.toml` and
+`reposets.credentials.toml` by file name once SchemaStore's own catalog
+points at these URLs; a file carrying the `#:schema` directive needs no
+catalog at all.
+
+Nothing under `schemas/` ships in the npm tarball: the documents are
+served from GitHub raw on `main`.
 
 ## Build and check
 
 - `pnpm --filter reposets schema:build` (`schemastore build
-  lib/configs/schemastore.config.ts`) writes both schema files, the
-  `catalogs/reposets.json` slice and the merged `catalog.json`. Turbo caches this task on `src/schemas/**` plus the
-  config file, and both `build:dev` and `build:prod` depend on
+  lib/configs/schemastore.config.ts`) writes both documents, the slice and
+  the merged catalog. `outputDir: "../../../schemas"` resolves against the
+  config file's own directory, so a root-level and a filtered run write the
+  same files. Turbo caches the task on `src/schemas/**` plus the config
+  file and declares `$TURBO_ROOT$/schemas/**` as its output, so a cache hit
+  restores the root files; both `build:dev` and `build:prod` depend on
   it[^turbo-json].
-- `pnpm --filter reposets schema:check` (`schemastore check
-  lib/configs/schemastore.config.ts`) is the CI gate: uncached, it reports
-  what a build would do and writes nothing[^turbo-json]. Its exit codes,
-  read from the installed `@effected/schemastore-cli@0.17.0`: `0` when
+- `pnpm --filter reposets schema:check` is the CI gate: uncached, it
+  reports what a build would do and writes nothing[^turbo-json]. `0` when
   every document already matches what a build would write; `1` when a
   schema fails the lint/validation gate, a published schema drifted under
-  `onDrift: "error"`, or (under `check` specifically) a committed document
-  is stale against what the config would generate; `2` when the config
-  module itself cannot be found or fails to load; `64` for a usage error,
-  such as combining `--force` with an explicit `--drift` flag that is not
-  `allow`.
+  the default `semantic` policy, or a committed document is stale; `2`
+  when the config module cannot be found or fails to load; `64` for a
+  usage error.
 
 ## Annotation helpers
 
@@ -91,8 +115,7 @@ apart.
 
 Both helpers' results are spread at the **top level** of `.annotate({
 ...tombi({...}), ...taplo({...}), title: "..." })` — v4's `Schema.annotate`
-has no `jsonSchema` sub-annotation to nest non-standard keys under, unlike
-the prior generation of this mechanism.
+has no `jsonSchema` sub-annotation to nest non-standard keys under.
 
 ## The `Json` schema for arbitrary-JSON positions
 
@@ -105,15 +128,21 @@ position instead of an unknown-type `$id` or a rejection.
 
 ## What stays stable
 
-Both published schemas reject unknown top-level keys, because both
-`reposets.config.toml` and `reposets.credentials.toml` decode strictly
-against `ConfigSchema` and `CredentialsSchema` — a schema that tolerated
-an excess property an actual load would reject would validate configs
-that then fail to load. See
-[`schemastore-config-not-a-script`](../decisions/schemastore-config-not-a-script.md)
-for why the schema declares this rather than pinning it directly.
+- The `3.0` URLs, for as long as `main` serves them; a contract change gets
+  a new label, never an in-place edit.
+- Both schemas reject unknown keys, because both TOML files decode
+  strictly against `ConfigSchema` and `CredentialsSchema` — a schema that
+  tolerated an excess property an actual load would reject would validate
+  configs that then fail to load. Generated objects are closed by default,
+  so nothing pins this.
 
+See [versioned-schemas-at-the-root](../decisions/versioned-schemas-at-the-root.md)
+for why the schemas are versioned and live at the root.
+
+[^hosted]: `package/src/schemas/hosted.ts`
 [^schemastore-config]: `package/lib/configs/schemastore.config.ts`
+[^cli-init]: `package/src/cli/commands/init.ts`
 [^annotations]: `package/src/schemas/annotations.ts`
 [^turbo-json]: `package/turbo.json`
-[^catalog-json]: `` package/schemas/catalog.json ``
+[^catalog-json]: `schemas/catalog.json`
+[^catalog-slice]: `schemas/catalogs/reposets.json`

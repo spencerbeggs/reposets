@@ -1,4 +1,7 @@
-import { Console, Context, Effect, Layer, Ref } from "effect";
+import type { CoreStatusName } from "@effected/cli";
+import { CliTheme, Fmt, Status } from "@effected/cli";
+import { Audience } from "@effected/env";
+import { Console, Context, Effect, Layer, PubSub, Ref } from "effect";
 import type { Decision } from "../sync/decide.js";
 
 /** A drift decision, the only variant this service reports specially. */
@@ -12,12 +15,68 @@ interface SyncErrorRecord {
 }
 
 /**
+ * What a whole run amounted to, as the caller tallied it.
+ *
+ * @remarks
+ * The engine counts changes from the phases' results, not from the lines this
+ * service printed — a settings write is one line and several journal changes —
+ * so the closing numbers are handed in rather than re-derived here, and a live
+ * view's final frame agrees with the static summary to the digit.
+ *
+ * @public
+ */
+export interface SyncRunSummary {
+	readonly repos: number;
+	readonly changes: number;
+	readonly drifted: number;
+	readonly errors: number;
+}
+
+/**
+ * One thing a run reported, as data, for a view that redraws progress.
+ *
+ * @remarks
+ * Published by {@link SyncLoggerLive} beside — never instead of — the line each
+ * hook prints, so a live view and the streamed report cannot disagree about
+ * what happened: they are fed by the same call. `RunStarted` and `RunEnded`
+ * bracket a run, which is what a view keys its start and its committed final
+ * frame on.
+ *
+ * @public
+ */
+export type SyncEvent =
+	| { readonly _tag: "RunStarted"; readonly total: number; readonly dryRun: boolean }
+	| { readonly _tag: "GroupStarted"; readonly name: string; readonly selected: number; readonly declared: number }
+	| { readonly _tag: "RepoStarted"; readonly slug: string }
+	| {
+			readonly _tag: "Operation";
+			readonly verb: "sync" | "apply" | "delete" | "skip";
+			readonly resource: string;
+			/** How many resources the one line covers: a cleanup summary is one line for several deletions. */
+			readonly count: number;
+	  }
+	| { readonly _tag: "Drift"; readonly resource: string; readonly name: string; readonly needsApply: boolean }
+	| { readonly _tag: "Error"; readonly repo: string; readonly context: string; readonly message: string }
+	| ({ readonly _tag: "RunEnded" } & Partial<SyncRunSummary>);
+
+/**
  * Everything the sync pipeline can say.
  *
  * @public
  */
 export interface SyncLoggerShape {
-	/** Header for a group of repositories. */
+	/**
+	 * A run begins.
+	 *
+	 * @remarks
+	 * Prints nothing — the report has always started at the first group header —
+	 * and exists to publish `RunStarted` with the number of repositories the run
+	 * selected, which is what lets a progress view say `2/5` rather than `2`.
+	 *
+	 * @param total - repositories the run will act on, computed by the caller
+	 * with the same selection rule the engine applies.
+	 */
+	readonly runStart: (total: number) => Effect.Effect<void>;
 	/**
 	 * Header for one group.
 	 *
@@ -29,7 +88,6 @@ export interface SyncLoggerShape {
 	readonly groupStart: (name: string, selected: number, declared: number) => Effect.Effect<void>;
 	/** Header for one repository, and the repo errors are attributed to. */
 	readonly repoStart: (owner: string, repo: string) => Effect.Effect<void>;
-	/** The settings PATCH landed. */
 	/**
 	 * The settings write landed.
 	 *
@@ -41,7 +99,7 @@ export interface SyncLoggerShape {
 	readonly settingsApplied: (fields: ReadonlyArray<string>) => Effect.Effect<void>;
 	/** How many of one resource were removed, and which. */
 	readonly cleanupSummary: (resource: string, count: number, names: string[]) => Effect.Effect<void>;
-	/** One resource-level operation. Verbose and below. */
+	/** One resource-level operation. */
 	readonly syncOperation: (
 		verb: "sync" | "apply" | "delete" | "skip",
 		resource: string,
@@ -59,8 +117,14 @@ export interface SyncLoggerShape {
 	readonly driftDetected: (resource: string, name: string, drift: DriftDecision) => Effect.Effect<void>;
 	/** A failure, reported inline and again in the closing summary. */
 	readonly syncError: (context: string, message: string) => Effect.Effect<void>;
-	/** The closing line, listing every error the run accumulated. */
-	readonly finish: () => Effect.Effect<void>;
+	/**
+	 * The closing line, listing every error the run accumulated.
+	 *
+	 * @param summary - the run's totals, carried on `RunEnded` so a progress
+	 * view's committed final frame is the run's summary. Optional: without it
+	 * the view keeps the counts it folded along the way.
+	 */
+	readonly finish: (summary?: SyncRunSummary) => Effect.Effect<void>;
 }
 
 /**
@@ -81,6 +145,14 @@ export interface SyncLoggerConfig {
 	 * a level stored in the config file.
 	 */
 	readonly debug: boolean;
+	/**
+	 * Where to publish a {@link SyncEvent} for every hook, for a live view.
+	 *
+	 * @remarks
+	 * Optional because only an interactive run draws one; without it the hooks
+	 * print exactly as they always did and publish nothing.
+	 */
+	readonly events?: PubSub.PubSub<SyncEvent> | undefined;
 }
 
 /** Plural forms the naive `+ "s"` gets wrong. */
@@ -124,14 +196,28 @@ function pluralize(resource: string, count: number): string {
  * out-of-band edit happens to match the config. The tool has no work to do; the
  * human still changed something, and staying quiet would hide it.
  *
+ * **Every action line leads with a status glyph**, from the kit's core
+ * vocabulary: a change made is `success`, a dry run's `would …` is `info`, a
+ * deletion and a drift are `warning`, a failure is `failure`, a skip is `skip`.
+ * The glyph is painted for a person; an agent gets it unpainted and the text
+ * plain, exactly as `CliMessage` does it. A failure's glyph is never painted:
+ * it goes through the logger, which strips every escape a program logs. Headers
+ * (`group:`, `repo:`) take none — they are structure, not outcomes. The glyph
+ * sits after the indent and before the padded verb, so the verbs still line
+ * up with each other.
+ *
  * **The report is the product; failures are diagnostics.** What a run did —
  * group and repository headers, every operation, every drift line, the closing
  * "Sync complete!" — is the output of `sync` and `drift`, so it is written with
  * `Console.log` to stdout, where `reposets drift > report.txt` captures it.
- * Failures are emitted with `Effect.logError`, which the CLI logger
- * (`CliLogger.layer()`) routes to stderr, so they stay on the terminal when
- * stdout is redirected. A consequence worth knowing: `--log-level` filters
- * diagnostics only — it no longer silences the report.
+ * Failures are emitted with `Effect.logError`, which the CLI logger routes to
+ * stderr, so they stay on the terminal when stdout is redirected. A consequence
+ * worth knowing: `--log-level` filters diagnostics only — it does not silence
+ * the report.
+ *
+ * Both go through the fiber's `Console`, which is the seam a live progress view
+ * uses: providing its `logConsole` around the run puts every one of these lines
+ * above the redrawing frame without this service knowing a view exists.
  *
  * @public
  */
@@ -141,22 +227,58 @@ export class SyncLogger extends Context.Service<SyncLogger, SyncLoggerShape>()("
  * Build a live logger for one run.
  *
  * @remarks
- * A factory rather than a bare layer because both settings are per-invocation:
- * they come from the `--dry-run` and `--debug` flags, which are only known once
- * the command has parsed.
+ * A factory rather than a bare layer because its settings are per-invocation:
+ * they come from the `--dry-run` and `--debug` flags, and the event sink from
+ * whether this run draws a view — all known only once the command has parsed.
+ *
+ * Requires `CliTheme` and `Audience`, read once when the layer builds, to paint
+ * the status glyphs; under the bin both come from the environment
+ * `CliRuntime.main` builds.
  *
  * @public
  */
-export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger> {
-	const { dryRun, debug } = config;
+export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger, never, CliTheme | Audience> {
+	const { dryRun, debug, events } = config;
 
 	return Layer.effect(
 		SyncLogger,
 		Effect.gen(function* () {
+			const theme = yield* CliTheme;
+			const audience = yield* Audience;
 			const errors = yield* Ref.make<SyncErrorRecord[]>([]);
 			const currentRepo = yield* Ref.make<string>("");
 
-			const emit = (line: string): Effect.Effect<void> => Console.log(line);
+			const publish = (event: SyncEvent): Effect.Effect<void> =>
+				events === undefined ? Effect.void : PubSub.publish(events, event);
+
+			/**
+			 * A status glyph for a report line on stdout: painted for a person,
+			 * plain for an agent — who never gets an escape, whatever the terminal
+			 * could do.
+			 */
+			const mark = (status: CoreStatusName): string =>
+				audience.kind === "agent" ? Status.core.glyph(status, theme.glyphs) : theme.status(Status.core, status);
+
+			/**
+			 * A status glyph for a failure line, never painted.
+			 *
+			 * @remarks
+			 * Failures go through `Effect.logError`, and the kit's logger sanitises
+			 * every line a program logs — escapes included — so a painted glyph
+			 * would arrive as the bare glyph anyway. Painting it here would only be
+			 * a promise the logger does not keep. The glyph itself survives, and in
+			 * the ASCII set it is the word `[FAIL]`.
+			 */
+			const failureMark = Status.core.glyph("failure", theme.forStream("stderr").glyphs);
+
+			// Every line interpolates config and API text — repository names,
+			// resource names, a GitHub error message — so each is sanitised before
+			// it reaches the terminal: an escape in a value must not repaint it.
+			const emit = (line: string): Effect.Effect<void> => Console.log(Fmt.sanitize(line));
+
+			/** An action line: indent, glyph, then the padded verb and its content. */
+			const action = (status: CoreStatusName, body: string): Effect.Effect<void> =>
+				Console.log(`    ${mark(status)} ${Fmt.sanitize(body)}`);
 
 			/**
 			 * Failures, on the error channel.
@@ -179,7 +301,12 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 			const formatVerb = (pastTense: string, presentTense: string): string =>
 				dryRun ? `would ${presentTense}`.padEnd(14) : pastTense.padEnd(8);
 
+			/** A change made reads as done; the same change on a dry run, as information. */
+			const changeStatus: CoreStatusName = dryRun ? "info" : "success";
+
 			return {
+				runStart: (total) => publish({ _tag: "RunStarted", total, dryRun }),
+
 				groupStart: (name, selected, declared) => {
 					// Say both numbers when a filter narrowed the run, so the header and
 					// the summary agree about what happened. The noun agrees with the
@@ -188,39 +315,53 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 						selected === declared
 							? `${selected} ${selected === 1 ? "repo" : "repos"}`
 							: `${selected} of ${declared} ${declared === 1 ? "repo" : "repos"}`;
-					return emit(`group: ${name} (${scope})`);
+					return emit(`group: ${name} (${scope})`).pipe(
+						Effect.andThen(publish({ _tag: "GroupStarted", name, selected, declared })),
+					);
 				},
 
 				repoStart: (owner, repo) => {
 					const repoSlug = `${owner}/${repo}`;
 					// Tracked as well as printed: errors are attributed to whichever
 					// repository was current when they happened.
-					return Ref.set(currentRepo, repoSlug).pipe(Effect.andThen(emit(`  repo: ${repoSlug}`)));
+					return Ref.set(currentRepo, repoSlug).pipe(
+						Effect.andThen(emit(`  repo: ${repoSlug}`)),
+						Effect.andThen(publish({ _tag: "RepoStarted", slug: repoSlug })),
+					);
 				},
 
 				settingsApplied: (fields) => {
 					const named = [...fields].sort();
-					// Long groups get a count rather than a wrapped wall of keys; the
-					// a long list is summarised rather than wrapped across the terminal.
+					// A long list is summarised rather than wrapped across the terminal.
 					const detail =
 						named.length === 0
 							? ""
 							: named.length <= 6
 								? ` (${named.join(", ")})`
 								: ` (${named.length} fields: ${named.slice(0, 5).join(", ")}, …)`;
-					return emit(`    ${formatVerb("applied", "apply")}settings${detail}`);
+					return action(changeStatus, `${formatVerb("applied", "apply")}settings${detail}`).pipe(
+						Effect.andThen(publish({ _tag: "Operation", verb: "apply", resource: "settings", count: 1 })),
+					);
 				},
 
 				cleanupSummary: (resource, count, names) => {
 					const suffix = names.length > 0 ? ` (${names.join(", ")})` : "";
-					return emit(`    ${formatVerb("deleted", "delete")}${count} ${pluralize(resource, count)}${suffix}`);
+					// A deletion is a warning on a real run and a dry run alike: it is
+					// the one change that cannot be undone by running sync again.
+					return action(
+						"warning",
+						`${formatVerb("deleted", "delete")}${count} ${pluralize(resource, count)}${suffix}`,
+					).pipe(Effect.andThen(publish({ _tag: "Operation", verb: "delete", resource, count })));
 				},
 
 				syncOperation: (verb, resource, name, detail, source) => {
 					const nameStr = name ? ` ${name}` : "";
 					const suffix = detail ? ` ${detail}` : "";
 					const sourceSuffix = source && debug ? ` <- ${source}` : "";
-					return emit(`    ${formatVerb(verb, verb)}${resource}${nameStr}${suffix}${sourceSuffix}`);
+					const status: CoreStatusName = verb === "skip" ? "skip" : verb === "delete" ? "warning" : changeStatus;
+					return action(status, `${formatVerb(verb, verb)}${resource}${nameStr}${suffix}${sourceSuffix}`).pipe(
+						Effect.andThen(publish({ _tag: "Operation", verb, resource, count: 1 })),
+					);
 				},
 
 				driftDetected: (resource, name, drift) => {
@@ -233,41 +374,49 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 							? "would overwrite"
 							: "overwritten";
 					const fingerprints = debug ? ` <- applied ${drift.applied} live ${drift.live}` : "";
-					return emit(
-						`    ${"drift".padEnd(8)}${resource} ${name} changed outside reposets — ${consequence}${fingerprints}`,
-					);
+					return action(
+						"warning",
+						`${"drift".padEnd(8)}${resource} ${name} changed outside reposets — ${consequence}${fingerprints}`,
+					).pipe(Effect.andThen(publish({ _tag: "Drift", resource, name, needsApply: drift.needsApply })));
 				},
 
 				syncError: (context, message) =>
 					Effect.gen(function* () {
 						const repo = yield* Ref.get(currentRepo);
-						// Recorded even when silent, so `finish` can still account for
-						// them; only the inline line is suppressed.
+						// Recorded as well as printed, so `finish` can account for them.
 						yield* Ref.update(errors, (errs) => [...errs, { repo, context, message }]);
-						yield* emitError(`    error   ${context}: ${message}`);
+						yield* emitError(`    ${failureMark} ${Fmt.sanitize(`error   ${context}: ${message}`)}`);
+						yield* publish({ _tag: "Error", repo, context, message });
 					}),
 
-				finish: () =>
+				finish: (summary) =>
 					Effect.gen(function* () {
 						const errs = yield* Ref.get(errors);
 						if (errs.length === 0) {
-							yield* emit("Sync complete!");
-							return;
-						}
-						// The whole closing block follows the run's outcome to one
-						// stream: splitting the header from the list it introduces
-						// would interleave badly under any redirection.
-						yield* emitError(`Sync complete with ${errs.length} ${errs.length === 1 ? "error" : "errors"}:`);
-						for (const err of errs) {
-							// A run-level failure — an unmatched `--repo`, say — belongs to
-							// no repository, and prefixing it with an empty slug reads as a
-							// rendering bug rather than as a run-level error.
+							yield* Console.log(`${mark("success")} Sync complete!`);
+						} else {
+							// The whole closing block follows the run's outcome to one
+							// stream: splitting the header from the list it introduces
+							// would interleave badly under any redirection.
 							yield* emitError(
-								err.repo === ""
-									? `  ${err.context} — ${err.message}`
-									: `  ${err.repo}: ${err.context} — ${err.message}`,
+								`${failureMark} Sync complete with ${errs.length} ${errs.length === 1 ? "error" : "errors"}:`,
 							);
+							for (const err of errs) {
+								// A run-level failure — an unmatched `--repo`, say — belongs to
+								// no repository, and prefixing it with an empty slug reads as a
+								// rendering bug rather than as a run-level error.
+								yield* emitError(
+									Fmt.sanitize(
+										err.repo === ""
+											? `  ${err.context} — ${err.message}`
+											: `  ${err.repo}: ${err.context} — ${err.message}`,
+									),
+								);
+							}
 						}
+						// Last, after every line: a view commits its final frame on this,
+						// so nothing the run printed may land below it.
+						yield* publish({ _tag: "RunEnded", ...summary });
 					}),
 			} satisfies SyncLoggerShape;
 		}),

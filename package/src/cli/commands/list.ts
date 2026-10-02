@@ -1,5 +1,6 @@
-import { CliExit } from "@effected/cli";
-import { Console, Effect } from "effect";
+import type { Block } from "@effected/cli";
+import { CliExit, CliMessage, Doc } from "@effected/cli";
+import { Effect } from "effect";
 import { Command } from "effect/cli";
 import type { Config } from "../../schemas/config.js";
 import { profileOwner } from "../../schemas/credentials.js";
@@ -35,6 +36,11 @@ const scopeParts = (
  * entry, not a wall of blanks. The summary is the command's output, so it is
  * written to stdout.
  *
+ * The summary is a `Doc` — one section per group — printed with `Doc.print`,
+ * so the same report is plain text for an agent, painted for a person and a
+ * folded log under GitHub Actions. Every name in it is user-supplied, and the
+ * document sanitises it on the way out.
+ *
  * @public
  */
 export const listHandler = Effect.gen(function* () {
@@ -44,8 +50,10 @@ export const listHandler = Effect.gen(function* () {
 
 	if (sources.length === 0) {
 		// A finding about this machine, not a usage error: exit 1, like `sync`
-		// and `validate` do when there is no config to read.
-		yield* Effect.logError("No config file found. Run 'reposets init' to create one.");
+		// and `validate` do when there is no config to read. Written with
+		// `CliMessage.failure` rather than `Effect.logError` so no log level can
+		// hide the one line that explains the exit code.
+		yield* CliMessage.failure("No config found. Run 'reposets init' to create one.");
 		return yield* CliExit.set(1);
 	}
 
@@ -56,6 +64,7 @@ export const listHandler = Effect.gen(function* () {
 	// useful than refusing to print anything.
 	const credentials = yield* credentialsFile.loadOrDefault({ profiles: {} });
 
+	const sections: Array<Block> = [];
 	for (const [groupName, group] of Object.entries(config.groups)) {
 		const profile = credentials.profiles[group.credentials];
 		// The profile is named here because it is the identity these repositories
@@ -64,15 +73,21 @@ export const listHandler = Effect.gen(function* () {
 		// whether the run can do it at all.
 		const acts =
 			profile === undefined
-				? `credentials: ${group.credentials} — NOT FOUND`
-				: `owner: ${profileOwner(profile).owner}, credentials: ${group.credentials}`;
-		yield* Console.log(`[${groupName}] (${acts})`);
+				? Doc.text(`credentials: ${group.credentials} — NOT FOUND`, "failure")
+				: Doc.text(`owner: ${profileOwner(profile).owner}, credentials: ${group.credentials}`, "muted");
 		const owner = profile === undefined ? "(unknown)" : profileOwner(profile).owner;
 
-		for (const repo of group.repos) {
-			yield* Console.log(`  - ${owner}/${repo}`);
+		const children: Array<Block> = [];
+		if (group.repos.length > 0) {
+			children.push(
+				Doc.list(
+					group.repos.map((repo) => Doc.paragraph(`${owner}/${repo}`)),
+					{ compact: true },
+				),
+			);
 		}
 
+		const assignments: Array<string> = [];
 		for (const [label, names] of [
 			["settings", group.settings],
 			["environments", group.environments],
@@ -80,23 +95,20 @@ export const listHandler = Effect.gen(function* () {
 			["security", group.security],
 			["code_scanning", group.code_scanning],
 		] as const) {
-			if (names !== undefined && names.length > 0) {
-				yield* Console.log(`  ${label}: ${names.join(", ")}`);
-			}
+			if (names !== undefined && names.length > 0) assignments.push(`${label}: ${names.join(", ")}`);
 		}
-
 		const secrets = scopeParts(group.secrets);
-		if (secrets.length > 0) {
-			yield* Console.log(`  secrets: ${secrets.join(", ")}`);
-		}
-
+		if (secrets.length > 0) assignments.push(`secrets: ${secrets.join(", ")}`);
 		const variables = scopeParts(group.variables);
-		if (variables.length > 0) {
-			yield* Console.log(`  variables: ${variables.join(", ")}`);
-		}
+		if (variables.length > 0) assignments.push(`variables: ${variables.join(", ")}`);
+		if (assignments.length > 0) children.push(Doc.lines(assignments));
 
-		yield* Console.log("");
+		sections.push(Doc.section([`[${groupName}] (`, acts, ")"], children));
 	}
+
+	// One untitled section around the groups, because that is what puts a blank
+	// line between them; top-level blocks are joined without one.
+	yield* Doc.print([Doc.section(undefined, sections)]);
 });
 
 /**

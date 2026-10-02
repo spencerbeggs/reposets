@@ -703,7 +703,10 @@ describe("exit codes and streams", () => {
 		const outcome = await runOutcome(provided(validateHandler as never, configPath()));
 
 		expect(outcome.exitCode).toBe(0);
-		expect(on(outcome.lines, "stdout")[0]).toBe(`Valid: ${configPath()}`);
+		// Outcome first: a `CliMessage.success` line — the agent audience gets the
+		// glyph and plain text — before any detail.
+		expect(on(outcome.lines, "stdout")[0]).toBe(`✓ Valid: ${configPath()}`);
+		expect(on(outcome.lines, "stdout").join("\n")).toContain("groups: 1");
 		expect(on(outcome.lines, "stderr")).toEqual([]);
 	});
 
@@ -714,7 +717,12 @@ describe("exit codes and streams", () => {
 		const outcome = await runOutcome(provided(validateHandler as never, configPath()));
 
 		expect(outcome.exitCode).toBe(1);
-		expect(on(outcome.lines, "stderr").join("\n")).toContain("'deploy' does not exist");
+		const stderr = on(outcome.lines, "stderr");
+		expect(stderr[0]).toBe(`✗ Invalid: ${configPath()}`);
+		// Grouped under the group that references it, at the config path where
+		// the reference is used — which is where the fix goes.
+		expect(stderr.join("\n")).toContain("[my-projects]");
+		expect(stderr.join("\n")).toContain("groups.my-projects.secrets.actions: 'deploy' does not exist — none defined");
 		expect(on(outcome.lines, "stdout")).toEqual([]);
 	});
 
@@ -724,7 +732,8 @@ describe("exit codes and streams", () => {
 		const outcome = await runOutcome(provided(listHandler as never, configPath()));
 
 		expect(outcome.exitCode).toBe(0);
-		expect(on(outcome.lines, "stdout")).toContain("[my-projects] (owner: acme, credentials: default)");
+		// The summary is one `Doc.print`, so it is one write carrying every line.
+		expect(on(outcome.lines, "stdout").join("\n")).toContain("[my-projects] (owner: acme, credentials: default)");
 		expect(on(outcome.lines, "stderr")).toEqual([]);
 	});
 
@@ -732,7 +741,15 @@ describe("exit codes and streams", () => {
 		const outcome = await runOutcome(provided(listHandler as never));
 
 		expect(outcome.exitCode).toBe(1);
-		expect(on(outcome.lines, "stderr").join("\n")).toContain("No config file found");
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("No config found. Run 'reposets init'");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("validate with no config anywhere is a finding pointing at init: stderr, exit 1", async () => {
+		const outcome = await runOutcome(provided(validateHandler as never));
+
+		expect(outcome.exitCode).toBe(1);
+		expect(on(outcome.lines, "stderr")).toEqual(["✗ No config found. Run 'reposets init' to create one."]);
 		expect(on(outcome.lines, "stdout")).toEqual([]);
 	});
 
@@ -760,7 +777,32 @@ describe("exit codes and streams", () => {
 		const outcome = await runOutcome(provided(syncWith({}) as never, configPath()));
 
 		expect(outcome.exitCode).toBe(1);
-		expect(on(outcome.lines, "stderr").join("\n")).toContain("Nothing was synced");
+		const stderr = on(outcome.lines, "stderr");
+		// A failure line no log level silences, then the references as a list.
+		expect(stderr[0]).toBe("✗ Config references sections that do not exist:");
+		expect(stderr.join("\n")).toContain("'deploy' does not exist — none defined");
+		expect(stderr.join("\n")).toContain("Nothing was synced");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("sync with no config anywhere is a finding: a failure line on stderr, exit 1", async () => {
+		const outcome = await runOutcome(provided(syncWith({}) as never));
+
+		expect(outcome.exitCode).toBe(1);
+		expect(on(outcome.lines, "stderr")).toEqual(["✗ No config found. Run 'reposets init' to create one."]);
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("sync with no groups configured is a finding, not a usage error: exit 1", async () => {
+		writeFileSync(configPath(), "[settings.defaults]\nhas_issues = true\n");
+		writeFileSync(join(dir, "reposets.credentials.toml"), CREDS);
+		const outcome = await runOutcome(provided(syncWith({}) as never, configPath()));
+
+		expect(outcome.exitCode).toBe(1);
+		expect(on(outcome.lines, "stderr")).toEqual([
+			"✗ No groups configured. Add a [groups.<name>] section to sync anything.",
+		]);
+		expect(on(outcome.lines, "stdout")).toEqual([]);
 	});
 
 	it("credentials create refuses both --op and --env with exit 64", async () => {
