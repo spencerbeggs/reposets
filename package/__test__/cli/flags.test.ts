@@ -2,6 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { Effect, Option } from "effect";
 import { Command } from "effect/cli";
 import { describe, expect, it } from "vitest";
+import { credentialsCommand } from "../../src/cli/commands/credentials.js";
 import { driftCommand } from "../../src/cli/commands/drift.js";
 import { historyCommand } from "../../src/cli/commands/history.js";
 import { initCommand } from "../../src/cli/commands/init.js";
@@ -79,12 +80,34 @@ describe("flags omitted from argv", () => {
 		expect(await parse(driftCommand, [])).toEqual({ group: Option.none(), repo: Option.none(), debug: false });
 	});
 
-	it("init does not require --project", async () => {
-		expect(await parse(initCommand, [])).toEqual({ project: false });
+	it("init does not require --project, and can tell it was omitted", async () => {
+		// `none` is what lets an interactive run ask where to scaffold.
+		expect(await parse(initCommand, [])).toEqual({ project: Option.none() });
+	});
+
+	it("init reads --project, --no-project and --project=false", async () => {
+		expect(await parse(initCommand, ["--project"])).toEqual({ project: Option.some(true) });
+		expect(await parse(initCommand, ["--no-project"])).toEqual({ project: Option.some(false) });
+		expect(await parse(initCommand, ["--project=false"])).toEqual({ project: Option.some(false) });
 	});
 
 	it("nuke does not require --force", async () => {
 		expect(await parse(nukeCommand, [])).toEqual({ force: false });
+	});
+
+	it("credentials create and delete do not require --profile", async () => {
+		// Omitted, an interactive run asks; a non-interactive one is refused by
+		// the handler with a message naming the flag, not by the parser.
+		const create = credentialsCommand.subcommands.flatMap((group) => group.commands).find((c) => c.name === "create");
+		const remove = credentialsCommand.subcommands.flatMap((group) => group.commands).find((c) => c.name === "delete");
+		expect(await parse(create as never, [])).toEqual({
+			profile: Option.none(),
+			op: Option.none(),
+			env: Option.none(),
+			username: Option.none(),
+			org: Option.none(),
+		});
+		expect(await parse(remove as never, [])).toEqual({ profile: Option.none() });
 	});
 
 	it("history defaults its limit and leaves the repo filter empty", async () => {

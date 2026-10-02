@@ -60,11 +60,12 @@ const fixture = (sandbox: Sandbox, name: string, contents: string) =>
 const reposets = (
 	args: ReadonlyArray<string>,
 	setup?: (sandbox: Sandbox) => Effect.Effect<ReadonlyArray<string>, unknown, FileSystem.FileSystem | Path.Path>,
+	env?: Readonly<Record<string, string>>,
 ) =>
 	Effect.gen(function* () {
 		const sandbox = yield* CliTest.sandbox({ path: process.env.PATH ?? "" });
 		const extra = setup === undefined ? [] : yield* setup(sandbox);
-		return yield* CliTest.run(BIN, [...args, ...extra], { sandbox, execPath: process.execPath });
+		return yield* CliTest.run(BIN, [...args, ...extra], { sandbox, execPath: process.execPath, env });
 	});
 
 describe.skipIf(!BUILT)(`reposets bin (${BUILT ? "built" : `SKIPPED: ${BIN} not built — run pnpm run build`})`, () => {
@@ -147,7 +148,7 @@ describe.skipIf(!BUILT)(`reposets bin (${BUILT ? "built" : `SKIPPED: ${BIN} not 
 						}),
 					);
 					assert.strictEqual(result.exitCode, 0);
-					assert.match(result.stdout, /^Valid: .*valid\.toml\n {2}groups: 1\n$/);
+					assert.match(result.stdout, /^\S+ Valid: .*valid\.toml\n {2}groups: 1\n$/);
 					assert.strictEqual(result.stderr, "");
 				}).pipe(Effect.scoped),
 			30_000,
@@ -166,8 +167,65 @@ describe.skipIf(!BUILT)(`reposets bin (${BUILT ? "built" : `SKIPPED: ${BIN} not 
 					);
 					assert.strictEqual(result.exitCode, 0);
 					assert.include(result.stdout, "[g] (owner: acme, credentials: p)");
-					assert.include(result.stdout, "  - acme/r");
+					assert.match(result.stdout, /^- acme\/r$/m);
 					assert.strictEqual(result.stderr, "");
+				}).pipe(Effect.scoped),
+			30_000,
+		);
+		it.effect(
+			"two audience flags are a usage error: exit 64, nothing on stdout",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* reposets(["--agent", "--human", "list"]);
+					assert.strictEqual(result.exitCode, 64);
+					assert.strictEqual(result.stdout, "");
+					assert.include(result.stderr, "Give at most one of --audience, --human, --agent, --ci");
+				}).pipe(Effect.scoped),
+			30_000,
+		);
+
+		it.effect(
+			"an invalid REPOSETS_AUDIENCE warns once on stderr and is ignored",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* reposets(["--version"], undefined, { REPOSETS_AUDIENCE: "bogus" });
+					assert.strictEqual(result.exitCode, 0);
+					assert.include(result.stdout, "reposets");
+					assert.strictEqual(result.stderr.split("REPOSETS_AUDIENCE=bogus").length - 1, 1);
+				}).pipe(Effect.scoped),
+			30_000,
+		);
+
+		it.effect(
+			"--agent output carries no escape even when colour is forced",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* reposets(
+						["--agent", "validate"],
+						(sandbox) =>
+							Effect.gen(function* () {
+								yield* fixture(sandbox, "reposets.credentials.toml", CREDENTIALS);
+								const file = yield* fixture(sandbox, "valid.toml", VALID_CONFIG);
+								return ["--config", file];
+							}),
+						{ FORCE_COLOR: "3" },
+					);
+					assert.strictEqual(result.exitCode, 0);
+					assert.include(result.stdout, "Valid:");
+					assert.notInclude(result.stdout + result.stderr, "\u001b[");
+				}).pipe(Effect.scoped),
+			30_000,
+		);
+
+		it.effect(
+			"nuke without --force in a pipe refuses rather than prompting: exit 64",
+			() =>
+				Effect.gen(function* () {
+					const result = yield* reposets(["nuke"], (sandbox) =>
+						Effect.map(fixture(sandbox, "reposets.config.toml", VALID_CONFIG), () => []),
+					);
+					assert.strictEqual(result.exitCode, 64);
+					assert.include(result.stderr, "--force");
 				}).pipe(Effect.scoped),
 			30_000,
 		);

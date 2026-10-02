@@ -1,12 +1,14 @@
 import { NodeServices } from "@effect/platform-node";
 import { App } from "@effected/app";
-import { Effect, Layer } from "effect";
+import type { CliEnvTestOptions } from "@effected/cli";
+import { CliLogger } from "@effected/cli";
+import { Console, Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 import { clearHandler, historyHandler, pruneHandler, showHandler } from "../../src/cli/commands/history.js";
 import { migrations } from "../../src/store/migrations.js";
 import { SyncJournal, SyncJournalLive } from "../../src/store/SyncJournal.js";
-import type { Outcome } from "../utils/capture.js";
-import { on, runOutcome } from "../utils/capture.js";
+import type { Outcome, PresentationServices } from "../utils/capture.js";
+import { capturingConsole, on, presentation, runOutcome } from "../utils/capture.js";
 
 /**
  * `history` had no tests. It is the only way to read the journal, so a bug here
@@ -26,8 +28,10 @@ const AppTest = App.layerTest({ namespace: "reposets-history-test", store: { mig
 /** Run a handler against a real journal, seeding it first; capture both streams and the exit code. */
 const runFull = (
 	seed: (journal: SyncJournal["Service"]) => Effect.Effect<void, unknown, SyncJournal>,
-	// `historyHandler` carries SqlError; the subcommand handlers do not.
-	handler: Effect.Effect<void, unknown, SyncJournal>,
+	// `historyHandler` carries SqlError; the subcommand handlers do not. Every
+	// handler prints through `Doc.print` / `CliMessage`, so it also reads the
+	// presentation services `runOutcome` provides (an agent audience: plain).
+	handler: Effect.Effect<void, unknown, SyncJournal | PresentationServices>,
 ): Promise<Outcome> => {
 	const program = Effect.gen(function* () {
 		const journal = yield* SyncJournal;
@@ -39,14 +43,14 @@ const runFull = (
 		program.pipe(
 			// `Crypto` is required: run ids are UUIDv7.
 			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(AppTest, NodeServices.layer))),
-		) as Effect.Effect<void, unknown, never>,
+		) as Effect.Effect<void, unknown, PresentationServices>,
 	);
 };
 
 /** {@link runFull}, keeping only each line's text. */
 const run = async (
 	seed: (journal: SyncJournal["Service"]) => Effect.Effect<void, unknown, SyncJournal>,
-	handler: Effect.Effect<void, unknown, SyncJournal>,
+	handler: Effect.Effect<void, unknown, SyncJournal | PresentationServices>,
 ): Promise<ReadonlyArray<string>> => (await runFull(seed, handler)).lines.map((line) => line.text);
 
 const noSeed = () => Effect.void;
@@ -72,7 +76,10 @@ describe("history", () => {
 		const out = lines.join("\n");
 		expect(out).toContain("RUN");
 		expect(out).toContain("WHEN (UTC)");
-		expect(out).toContain("success");
+		// A row: the eight-character id, the UTC minute, then the outcome with
+		// its status glyph — plain text for the agent audience.
+		expect(out).toMatch(/^[0-9a-f]{8}\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2}\s+✓ success\s+applied\s+\(all\)\s+0\s/m);
+		expect(out).not.toContain("\u001b[");
 	});
 
 	it("reports a failed run's error, not just that it failed", async () => {
@@ -133,6 +140,23 @@ describe("history show", () => {
 		expect(out).not.toMatch(/^\s+updated\s/m);
 	});
 
+	it("puts a failed run's error before its changes", async () => {
+		// On a failed run the error is the answer someone came for.
+		const out = (
+			await run(
+				(j) =>
+					Effect.gen(function* () {
+						const id = yield* j.startRun({ dryRun: false });
+						yield* j.finishRun(id, "failed", "403 Forbidden on secrets");
+					}),
+				showHandler(""),
+			)
+		).join("\n");
+		expect(out).toContain("error: 403 Forbidden on secrets");
+		expect(out).toContain("No resources changed.");
+		expect(out.indexOf("error: 403")).toBeLessThan(out.indexOf("No resources changed."));
+	});
+
 	it("refuses an ambiguous prefix instead of guessing, as a usage error", async () => {
 		// Showing the wrong run's changes is worse than asking for another
 		// character.
@@ -148,6 +172,32 @@ describe("history show", () => {
 		);
 		expect(outcome.exitCode).toBe(64);
 		expect(on(outcome.lines, "stderr").join("\n")).toContain("matches 2 runs");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("without --run and nobody to ask, refuses as a usage error naming the flag", async () => {
+		// The agent audience is not interactive: nothing may prompt, so a missing
+		// `--run` is what it was before the picker — exit 64 — and the message
+		// says which flag to pass.
+		const outcome = await runFull(
+			(j) =>
+				Effect.gen(function* () {
+					const a = yield* j.startRun({ dryRun: false });
+					yield* j.finishRun(a, "success");
+				}),
+			showHandler(undefined),
+		);
+		expect(outcome.exitCode).toBe(64);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("--run");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("without --run and nobody to ask, refuses even on an empty journal", async () => {
+		// The same invocation must exit the same way whatever the journal holds:
+		// a script that omits --run is wrong whether or not a run is recorded.
+		const outcome = await runFull(noSeed, showHandler(undefined));
+		expect(outcome.exitCode).toBe(64);
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("--run");
 		expect(on(outcome.lines, "stdout")).toEqual([]);
 	});
 
@@ -169,6 +219,7 @@ describe("history show", () => {
 		);
 		expect(outcome.exitCode).toBe(0);
 		expect(on(outcome.lines, "stdout").join("\n")).toContain("run ");
+		expect(on(outcome.lines, "stdout").join("\n")).toContain("No resources changed (nothing to do).");
 		expect(on(outcome.lines, "stderr")).toEqual([]);
 	});
 });
@@ -188,7 +239,16 @@ describe("history prune and clear", () => {
 		// read as disabling drift detection.
 		const lines = await run(three, pruneHandler(1));
 		const out = lines.join("\n");
+		expect(out).toContain("✓ Pruned 2 runs, keeping the newest 1.");
 		expect(out).toContain("Applied state and the cache are untouched");
+	});
+
+	it("says there was nothing to prune, and still that the baselines survived", async () => {
+		const outcome = await runFull(three, pruneHandler(5));
+		expect(on(outcome.lines, "stdout")).toEqual([
+			"ℹ Nothing to prune; 5 or fewer runs are recorded.",
+			"ℹ Applied state and the cache are untouched — drift detection still works.",
+		]);
 	});
 
 	it("clears every run, and says the same", async () => {
@@ -197,4 +257,56 @@ describe("history prune and clear", () => {
 		expect(out).toContain("Cleared");
 		expect(out).toContain("Applied state and the cache are untouched");
 	});
+});
+
+describe("history output by audience", () => {
+	// A person at a colour terminal gets the same report as an agent, painted:
+	// the layout, the words and the glyphs are one document either way. Wide
+	// enough columns that the human render does not wrap.
+	const human: CliEnvTestOptions = { audience: "human", tty: true, color: "truecolor", columns: 400 };
+	// biome-ignore lint/suspicious/noControlCharactersInRegex: matching SGR escapes is the point.
+	const stripSgr = (value: string): string => value.replace(/\u001b\[[0-9;]*m/g, "");
+
+	const seed = (j: SyncJournal["Service"]) =>
+		Effect.gen(function* () {
+			const id = yield* j.startRun({ dryRun: false, group: "g" });
+			yield* j.recordChange(id, { repo: "acme/widget", kind: "secret", name: "API_KEY", action: "created" });
+			yield* j.finishRun(id, "partial", "403 Forbidden on secrets");
+		});
+
+	/** Seed once, then render the same journal for each audience, capturing what each wrote. */
+	const both = (handler: Effect.Effect<void, unknown, SyncJournal | PresentationServices>) =>
+		Effect.gen(function* () {
+			yield* seed(yield* SyncJournal).pipe(Effect.orDie);
+			const render = (env: CliEnvTestOptions) => {
+				const { console: double, lines } = capturingConsole();
+				return handler.pipe(
+					Effect.provide(presentation(env)),
+					Effect.provide(CliLogger.layer()),
+					Effect.provideService(Console.Console, double),
+					Effect.as(lines),
+				);
+			};
+			return { agent: yield* render({ audience: "agent" }), person: yield* render(human) };
+		}).pipe(
+			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(AppTest, NodeServices.layer))),
+			Effect.runPromise,
+		);
+
+	for (const [name, handler] of [
+		["the run table", historyHandler({ limit: 20, repo: undefined })],
+		["a run report", showHandler("")],
+		["a prune message", pruneHandler(5)],
+	] as const) {
+		it(`${name} differs for a person only by colour escapes`, async () => {
+			const { agent, person } = await both(handler);
+			const painted = person.map((line) => line.text).join("\n");
+
+			// The control: the human run really was painted, so the equality
+			// below is not two identical plain renders.
+			expect(painted).toContain("\u001b[");
+			expect(stripSgr(painted)).toBe(agent.map((line) => line.text).join("\n"));
+			expect(person.map((line) => line.stream)).toEqual(agent.map((line) => line.stream));
+		});
+	}
 });

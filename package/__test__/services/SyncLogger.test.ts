@@ -1,4 +1,4 @@
-import { CliLogger } from "@effected/cli";
+import { CliEnv, CliLogger } from "@effected/cli";
 import { Console, Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { SyncLoggerShape } from "../../src/services/SyncLogger.js";
@@ -13,7 +13,9 @@ import { capturingConsole } from "../utils/capture.js";
  * `Effect.logError`, so a `Logger` collector alone would see only the failures.
  * This installs the shipped `CliLogger` over a recording `Console` instead —
  * the same routing the bin uses — so every line is captured with the stream it
- * lands on.
+ * lands on. The presentation environment is fixed to an agent audience, so the
+ * status glyph every action line leads with is present but never painted: the
+ * expected strings below are exactly what an agent reads.
  *
  * The trap worth naming: a capture wired to the wrong sink returns `[]` forever,
  * and almost every assertion here is a `toContain` or a `toHaveLength(0)` that
@@ -29,6 +31,7 @@ const captureStreams = async (
 	await Effect.runPromise(
 		program.pipe(
 			Effect.provide(SyncLoggerLive(config)),
+			Effect.provide(CliEnv.layerTest({ audience: "agent" })),
 			Effect.provide(CliLogger.layer()),
 			Effect.provideService(Console.Console, double),
 		),
@@ -100,7 +103,7 @@ describe("output", () => {
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.settingsApplied(["has_issues"])),
 		);
-		expect(lines).toContain("    applied settings (has_issues)");
+		expect(lines).toContain("    ✓ applied settings (has_issues)");
 	});
 
 	it("logs cleanup summary with names", async () => {
@@ -108,7 +111,7 @@ describe("output", () => {
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.cleanupSummary("secret", 2, ["OLD_TOKEN", "STALE_KEY"])),
 		);
-		expect(lines).toContain("    deleted 2 secrets (OLD_TOKEN, STALE_KEY)");
+		expect(lines).toContain("    ⚠ deleted 2 secrets (OLD_TOKEN, STALE_KEY)");
 	});
 
 	it("prints per-resource operations, which used to need a raised tier", async () => {
@@ -119,7 +122,7 @@ describe("output", () => {
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.syncOperation("sync", "secret", "API_KEY", "(actions)")),
 		);
-		expect(lines).toContain("    sync    secret API_KEY (actions)");
+		expect(lines).toContain("    ✓ sync    secret API_KEY (actions)");
 	});
 });
 
@@ -129,7 +132,7 @@ describe("per-resource operations", () => {
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.syncOperation("sync", "secret", "API_KEY", "(actions)")),
 		);
-		expect(lines).toContain("    sync    secret API_KEY (actions)");
+		expect(lines).toContain("    ✓ sync    secret API_KEY (actions)");
 	});
 
 	it("omits the source annotation unless --debug", async () => {
@@ -137,7 +140,7 @@ describe("per-resource operations", () => {
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.syncOperation("sync", "secret", "API_KEY", "(actions)", "op://vault/item/key")),
 		);
-		expect(lines).toContain("    sync    secret API_KEY (actions)");
+		expect(lines).toContain("    ✓ sync    secret API_KEY (actions)");
 		expect(lines).not.toContainEqual(expect.stringContaining("<-"));
 	});
 });
@@ -148,7 +151,7 @@ describe("--debug annotations", () => {
 			{ dryRun: false, debug: true },
 			withLogger((l) => l.syncOperation("sync", "secret", "API_KEY", "(actions)", "op://vault/item/key")),
 		);
-		expect(lines).toContain("    sync    secret API_KEY (actions) <- op://vault/item/key");
+		expect(lines).toContain("    ✓ sync    secret API_KEY (actions) <- op://vault/item/key");
 	});
 });
 
@@ -177,7 +180,7 @@ describe("dry run", () => {
 			{ dryRun: true, debug: false },
 			withLogger((l) => l.syncOperation("sync", "secret", "API_KEY", "(actions)")),
 		);
-		expect(lines).toContain("    would sync    secret API_KEY (actions)");
+		expect(lines).toContain("    ℹ would sync    secret API_KEY (actions)");
 	});
 
 	it("prepends would to settings applied", async () => {
@@ -185,7 +188,7 @@ describe("dry run", () => {
 			{ dryRun: true, debug: false },
 			withLogger((l) => l.settingsApplied(["has_issues"])),
 		);
-		expect(lines).toContain("    would apply   settings (has_issues)");
+		expect(lines).toContain("    ℹ would apply   settings (has_issues)");
 	});
 
 	it("prepends would to cleanup summary", async () => {
@@ -193,7 +196,7 @@ describe("dry run", () => {
 			{ dryRun: true, debug: false },
 			withLogger((l) => l.cleanupSummary("variable", 1, ["STALE_VAR"])),
 		);
-		expect(lines).toContain("    would delete  1 variable (STALE_VAR)");
+		expect(lines).toContain("    ⚠ would delete  1 variable (STALE_VAR)");
 	});
 
 	it("prepends would to verbose operation lines", async () => {
@@ -201,7 +204,7 @@ describe("dry run", () => {
 			{ dryRun: true, debug: false },
 			withLogger((l) => l.syncOperation("sync", "secret", "API_KEY", "(actions)")),
 		);
-		expect(lines).toContain("    would sync    secret API_KEY (actions)");
+		expect(lines).toContain("    ℹ would sync    secret API_KEY (actions)");
 	});
 });
 
@@ -224,8 +227,8 @@ describe("drift", () => {
 			),
 		);
 		expect(lines).toHaveLength(2);
-		expect(lines[0]).toBe("    sync    secret API_KEY (actions)");
-		expect(lines[1]).toBe("    drift   secret API_KEY changed outside reposets — overwritten");
+		expect(lines[0]).toBe("    ✓ sync    secret API_KEY (actions)");
+		expect(lines[1]).toBe("    ⚠ drift   secret API_KEY changed outside reposets — overwritten");
 	});
 
 	it("reads differently from an ordinary change", async () => {
@@ -253,7 +256,7 @@ describe("drift", () => {
 			withLogger((l) => l.driftDetected("variable", "NODE_ENV", harmlessDrift)),
 		);
 		expect(lines).toEqual([
-			"    drift   variable NODE_ENV changed outside reposets — already matches config, nothing written",
+			"    ⚠ drift   variable NODE_ENV changed outside reposets — already matches config, nothing written",
 		]);
 	});
 
@@ -262,7 +265,7 @@ describe("drift", () => {
 			{ dryRun: true, debug: false },
 			withLogger((l) => l.driftDetected("secret", "API_KEY", drift)),
 		);
-		expect(lines).toEqual(["    drift   secret API_KEY changed outside reposets — would overwrite"]);
+		expect(lines).toEqual(["    ⚠ drift   secret API_KEY changed outside reposets — would overwrite"]);
 	});
 
 	it("never takes the dry-run would prefix on the verb itself", async () => {
@@ -272,7 +275,7 @@ describe("drift", () => {
 		);
 		// "would drift" would be nonsense: the drift already happened.
 		expect(lines[0]).not.toContain("would drift");
-		expect(lines[0]).toMatch(/^ {4}drift {3}/);
+		expect(lines[0]).toMatch(/^ {4}⚠ drift {3}/);
 	});
 
 	it("a harmless drift on a dry run still says nothing was written", async () => {
@@ -311,7 +314,7 @@ describe("error handling", () => {
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.syncError("secret DEPLOY_KEY (actions)", "403 Forbidden")),
 		);
-		expect(lines).toContain("    error   secret DEPLOY_KEY (actions): 403 Forbidden");
+		expect(lines).toContain("    ✗ error   secret DEPLOY_KEY (actions): 403 Forbidden");
 	});
 
 	it("finish reports accumulated errors", async () => {
@@ -349,7 +352,7 @@ describe("error handling", () => {
 			{ dryRun: false, debug: false },
 			withLogger((l) => l.finish()),
 		);
-		expect(lines).toContain("Sync complete!");
+		expect(lines).toContain("✓ Sync complete!");
 	});
 
 	it("attributes an error to the repo that was current when it happened", async () => {
@@ -463,7 +466,7 @@ describe("settingsApplied names what it sent", () => {
 
 		// The point of reading a dry run is to see whether a conditional field
 		// survived the gate — which "would apply settings" could never show.
-		expect(lines).toEqual(["    would apply   settings (allow_merge_commit, has_issues, has_wiki)"]);
+		expect(lines).toEqual(["    ℹ would apply   settings (allow_merge_commit, has_issues, has_wiki)"]);
 	});
 
 	it("summarises a long group rather than wrapping a wall of keys", async () => {

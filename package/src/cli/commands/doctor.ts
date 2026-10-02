@@ -1,4 +1,5 @@
-import { SchemaIssueRenderer } from "@effected/cli";
+import type { Block, InlineInput } from "@effected/cli";
+import { CliMessage, Doc, SchemaIssueRenderer, Status } from "@effected/cli";
 import { GitHubClient } from "@effected/github";
 import { Toml } from "@effected/toml";
 import { AppDirs } from "@effected/xdg";
@@ -239,10 +240,15 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
  * never resolves a reference, so there is no value in scope to leak.
  *
  * The report — failing sections included — is the command's output and goes to
- * stdout in one piece, so `reposets doctor > report.txt` captures all of it.
- * Only the three early stops (no config, unreadable, unparseable) are
- * diagnostics on stderr. `doctor` always exits 0: it describes, it does not
- * gate — `validate` is the gate.
+ * stdout, so `reposets doctor > report.txt` captures all of it. It is a `Doc`
+ * of sections (files, schema, config keys, credentials, the live token check,
+ * required permissions) printed with `Doc.print`: plain text for an agent,
+ * painted with status glyphs for a person, folded groups under GitHub Actions.
+ * The file-only sections are printed before the live check, so a slow GitHub
+ * never holds them back. Only the three early stops (no config, unreadable,
+ * unparseable) go to stderr, as `CliMessage.failure` lines no log level can
+ * hide. `doctor` always exits 0: it describes, it does not gate — `validate`
+ * is the gate.
  *
  * @public
  */
@@ -321,51 +327,88 @@ export const doctorHandler = (configFlag: string | undefined) =>
 
 		const configPath = sources[0]?.path ?? (yield* locateConfig(fs, path, appDirs, configFlag, invocation.cwd));
 		if (configPath === undefined) {
-			yield* Effect.logError("No config found. Run 'reposets init' to create one.");
+			// An early stop, and a failure line rather than a log entry: no log
+			// level may hide the only thing this run has to say. Still exit 0 —
+			// doctor describes, it does not gate.
+			yield* CliMessage.failure("No config found. Run 'reposets init' to create one.");
 			return;
 		}
 
-		yield* Console.log(`Config: ${configPath}`);
+		// --- Where everything lives -------------------------------------------
+		//
+		// Three files, three directories, three different rules for finding them.
+		// Printing them is the cheapest way to end "which config is it reading?",
+		// which is otherwise answered by guessing. First, so it is there even when
+		// the config cannot be read or parsed.
+		//
+		// `discover` reports the sources the resolver chain actually found, which
+		// is the only honest answer to "which credentials file is in play" — the
+		// chain has three tiers and the answer is not guessable from cwd.
+		//
+		// Three outcomes, not two. An earlier `orElseSucceed(() => [])` collapsed
+		// "failed to decode" into "found nothing", so a file that exists and does
+		// not parse was reported as `(not created yet)` four lines after this
+		// command had already said it failed to load — the same command
+		// contradicting itself about the same file.
+		const credentialDiscovery = yield* credentialsFile.discover.pipe(Effect.result);
+		const credentialSources = credentialDiscovery._tag === "Success" ? credentialDiscovery.success : [];
+		const credentialsLine: InlineInput =
+			credentialDiscovery._tag === "Failure"
+				? // No path here. The Credentials section names the file that
+					// actually failed; printing the XDG default beside "failed to load"
+					// would assert that a file which may not exist is the broken one,
+					// which is the same guessing that produced "(not created yet)".
+					Doc.text("(failed to load — the Credentials section names the file)", "failure")
+				: credentialSources.length === 0
+					? [Doc.file(path.join(appDirs.dirs.config, CREDENTIALS_FILENAME)), Doc.text(" (not created yet)", "muted")]
+					: Doc.file(credentialSources[0]?.path ?? "");
+		const files = Doc.section("Files", [
+			Doc.lines([
+				["Version: ", invocation.version],
+				["Config: ", Doc.file(configPath)],
+				["Credentials file: ", ...(Array.isArray(credentialsLine) ? credentialsLine : [credentialsLine])],
+				["State database: ", Doc.file(path.join(appDirs.dirs.state, "store.db"))],
+			]),
+		]);
 
 		const text = yield* fs.readFileString(configPath).pipe(Effect.option);
 		if (text._tag === "None") {
-			yield* Effect.logError(`Could not read ${configPath}`);
+			yield* Doc.print([files]);
+			yield* CliMessage.failure(`Could not read ${configPath}`);
 			return;
 		}
 
 		const parsed = Toml.parseResult(text.value);
 		if (Result.isFailure(parsed)) {
-			yield* Effect.logError(`TOML parse error: ${String(parsed.failure)}`);
+			yield* Doc.print([files]);
+			yield* CliMessage.failure(`TOML parse error: ${String(parsed.failure)}`);
 			return;
 		}
 
 		const raw = isRecord(parsed.success) ? parsed.success : {};
-		let warnings = 0;
+		const warnings: Array<string> = [];
 
-		const checkKeys = (target: unknown, known: ReadonlySet<string>, where: string): Effect.Effect<void> =>
-			Effect.gen(function* () {
-				if (!isRecord(target)) return;
-				for (const key of Object.keys(target)) {
-					if (known.has(key)) continue;
+		const checkKeys = (target: unknown, known: ReadonlySet<string>, where: string): void => {
+			if (!isRecord(target)) return;
+			for (const key of Object.keys(target)) {
+				if (known.has(key)) continue;
 
-					// A key that was removed is not a typo, and guessing a near match
-					// for it sends the reader the wrong way — `owner` is three edits
-					// from `repos`.
-					const removedFrom = REMOVED_KEYS[where === "" ? key : `${key} (in groups)`] ?? REMOVED_KEYS[key];
-					if (removedFrom !== undefined) {
-						yield* Console.log(`Warning: '${key}'${where} ${removedFrom}`);
-						warnings += 1;
-						continue;
-					}
-
-					const suggestion = findClosestMatch(key, known);
-					const hint = suggestion === undefined ? "" : ` — did you mean '${suggestion}'?`;
-					yield* Console.log(`Warning: unknown key '${key}'${where}${hint}`);
-					warnings += 1;
+				// A key that was removed is not a typo, and guessing a near match
+				// for it sends the reader the wrong way — `owner` is three edits
+				// from `repos`.
+				const removedFrom = REMOVED_KEYS[where === "" ? key : `${key} (in groups)`] ?? REMOVED_KEYS[key];
+				if (removedFrom !== undefined) {
+					warnings.push(`'${key}'${where} ${removedFrom}`);
+					continue;
 				}
-			});
 
-		yield* checkKeys(raw, KNOWN_CONFIG_KEYS, "");
+				const suggestion = findClosestMatch(key, known);
+				const hint = suggestion === undefined ? "" : ` — did you mean '${suggestion}'?`;
+				warnings.push(`unknown key '${key}'${where}${hint}`);
+			}
+		};
+
+		checkKeys(raw, KNOWN_CONFIG_KEYS, "");
 
 		// Settings fields, which no gate covered. Warned about rather than
 		// rejected: the rest schema passes unknown fields to GitHub on purpose.
@@ -379,37 +422,53 @@ export const doctorHandler = (configFlag: string | undefined) =>
 					suggestion === undefined
 						? " — it will be sent to GitHub as-is, which ignores fields it does not recognise"
 						: ` — did you mean '${suggestion}'?`;
-				yield* Console.log(`Warning: unrecognised setting '${field}' in settings.${groupName}${hint}`);
-				warnings += 1;
+				warnings.push(`unrecognised setting '${field}' in settings.${groupName}${hint}`);
 			}
 		}
 
 		const groups = raw.groups;
 		if (isRecord(groups)) {
 			for (const [groupName, group] of Object.entries(groups)) {
-				yield* checkKeys(group, KNOWN_GROUP_KEYS, ` in groups.${groupName}`);
+				checkKeys(group, KNOWN_GROUP_KEYS, ` in groups.${groupName}`);
 				if (!isRecord(group)) continue;
 				const cleanup = group.cleanup;
 				if (!isRecord(cleanup)) continue;
 				const prefix = `groups.${groupName}.cleanup`;
-				yield* checkKeys(cleanup, KNOWN_CLEANUP_KEYS, ` in ${prefix}`);
-				yield* checkKeys(cleanup.secrets, KNOWN_CLEANUP_SECRETS_KEYS, ` in ${prefix}.secrets`);
-				yield* checkKeys(cleanup.variables, KNOWN_CLEANUP_VARIABLES_KEYS, ` in ${prefix}.variables`);
+				checkKeys(cleanup, KNOWN_CLEANUP_KEYS, ` in ${prefix}`);
+				checkKeys(cleanup.secrets, KNOWN_CLEANUP_SECRETS_KEYS, ` in ${prefix}.secrets`);
+				checkKeys(cleanup.variables, KNOWN_CLEANUP_VARIABLES_KEYS, ` in ${prefix}.variables`);
 			}
 		}
 
+		// --- Schema posture -----------------------------------------------------
 		// Reaching `discover` without failing means the schema accepted it.
-		if (schemaValid) {
-			yield* Console.log("Schema validation: passed");
-		} else {
-			yield* Console.log("Schema validation: FAILED — these values are rejected, not ignored");
-			for (const line of SchemaIssueRenderer.render(validationIssue)) {
-				yield* Console.log(`  ${line}`);
-			}
-		}
+		const issueLines = schemaValid ? [] : SchemaIssueRenderer.render(validationIssue);
+		const schema = Doc.section("Schema", [
+			schemaValid
+				? Doc.paragraph(Doc.status(Status.core, "success"), " Schema validation: passed")
+				: Doc.paragraph(
+						Doc.status(Status.core, "failure"),
+						" Schema validation: FAILED — these values are rejected, not ignored",
+					),
+			...(issueLines.length === 0 ? [] : [Doc.verbatim(issueLines.join("\n"), { indent: 2 })]),
+		]);
+
+		// --- Config keys --------------------------------------------------------
+		const keys = Doc.section("Config keys", [
+			...(warnings.length === 0
+				? []
+				: [
+						Doc.list(
+							warnings.map((warning) => Doc.paragraph(Doc.status(Status.core, "warning"), " ", warning)),
+							{ compact: true },
+						),
+					]),
+			warnings.length === 0
+				? Doc.paragraph(Doc.status(Status.core, "success"), " No unknown keys detected.")
+				: Doc.paragraph(`${warnings.length} warning(s) found.`),
+		]);
 
 		// --- Credentials ------------------------------------------------------
-		yield* Console.log("");
 		// Swallowing this failure would repeat the mistake strict decoding just
 		// exposed on the config side: a credentials file that exists and does not
 		// decode would report as "no profiles configured", indistinguishable from
@@ -419,21 +478,26 @@ export const doctorHandler = (configFlag: string | undefined) =>
 
 		const credentials = loaded._tag === "Success" ? loaded.success : { profiles: {} };
 		const profileNames = Object.keys(credentials.profiles);
+		const credentialBlocks: Array<Block> = [];
 
 		if (loaded._tag === "Failure") {
-			yield* Console.log(
-				`Credentials: FAILED to load — ${String((loaded.failure as { message?: string }).message ?? loaded.failure)}`,
-			);
-			yield* Console.log(
-				"  Unknown keys are rejected. `op_service_account_token` was removed — that token now comes from OP_SERVICE_ACCOUNT_TOKEN in the environment.",
+			credentialBlocks.push(
+				Doc.paragraph(
+					Doc.status(Status.core, "failure"),
+					` Credentials: FAILED to load — ${String((loaded.failure as { message?: string }).message ?? loaded.failure)}`,
+				),
+				Doc.paragraph(
+					"Unknown keys are rejected. `op_service_account_token` was removed — that token now comes from OP_SERVICE_ACCOUNT_TOKEN in the environment.",
+				),
 			);
 			// Falls through to the permissions section: a broken credentials file is
 			// not a reason to withhold the rest of the diagnosis.
 		} else if (profileNames.length === 0) {
-			yield* Console.log("Credentials: no profiles configured");
+			credentialBlocks.push(Doc.paragraph("Credentials: no profiles configured"));
 		} else {
-			yield* Console.log(`Credentials: ${profileNames.length} profile(s)`);
+			credentialBlocks.push(Doc.paragraph(`Credentials: ${profileNames.length} profile(s)`));
 			let usesOnePassword = false;
+			const profileLines: Array<Block> = [];
 			for (const [name, profile] of Object.entries(credentials.profiles)) {
 				// A reference is an address, not a secret: safe to print, and the
 				// only useful thing to print. Nothing is resolved here.
@@ -450,8 +514,9 @@ export const doctorHandler = (configFlag: string | undefined) =>
 					}
 				}
 				const resolveSummary = sections.length === 0 ? "" : `, resolve ${sections.join(" ")}`;
-				yield* Console.log(`  [${name}] github_token: ${token}${resolveSummary}`);
+				profileLines.push(Doc.paragraph(`[${name}] github_token: ${token}${resolveSummary}`));
 			}
+			credentialBlocks.push(Doc.list(profileLines, { compact: true }));
 
 			// Through `Config`, like the client that will need it: an empty value
 			// counts as unset there, and it must here too, or this line would say
@@ -460,44 +525,22 @@ export const doctorHandler = (configFlag: string | undefined) =>
 				yield* Config.option(Config.String(OP_SERVICE_ACCOUNT_TOKEN)).pipe(Effect.orElseSucceed(() => Option.none())),
 			);
 			if (usesOnePassword) {
-				yield* Console.log(
+				credentialBlocks.push(
 					hasServiceAccount
-						? `  ${OP_SERVICE_ACCOUNT_TOKEN}: set`
-						: `  ${OP_SERVICE_ACCOUNT_TOKEN}: NOT SET — op:// references cannot be resolved`,
+						? Doc.paragraph(Doc.status(Status.core, "success"), ` ${OP_SERVICE_ACCOUNT_TOKEN}: set`)
+						: Doc.paragraph(
+								Doc.status(Status.core, "warning"),
+								` ${OP_SERVICE_ACCOUNT_TOKEN}: NOT SET — op:// references cannot be resolved`,
+							),
 				);
 			}
 		}
 
-		// --- Where everything lives -------------------------------------------
-		//
-		// Three files, three directories, three different rules for finding them.
-		// Printing them is the cheapest way to end "which config is it reading?",
-		// which is otherwise answered by guessing.
-		yield* Console.log("");
-		yield* Console.log(`Version: ${invocation.version}`);
-		// `discover` reports the sources the resolver chain actually found, which
-		// is the only honest answer to "which credentials file is in play" — the
-		// chain has three tiers and the answer is not guessable from cwd.
-		//
-		// Three outcomes, not two. An earlier `orElseSucceed(() => [])` collapsed
-		// "failed to decode" into "found nothing", so a file that exists and does
-		// not parse was reported as `(not created yet)` four lines after this
-		// command had already said it failed to load — the same command
-		// contradicting itself about the same file.
-		const credentialDiscovery = yield* credentialsFile.discover.pipe(Effect.result);
-		const credentialSources = credentialDiscovery._tag === "Success" ? credentialDiscovery.success : [];
-		const credentialsLine =
-			credentialDiscovery._tag === "Failure"
-				? // No path here. The failure above names the file that actually
-					// failed; printing the XDG default beside "failed to load" would
-					// assert that a file which may not exist is the broken one, which
-					// is the same guessing that produced "(not created yet)".
-					"(failed to load — the error above names the file)"
-				: credentialSources.length === 0
-					? `${path.join(appDirs.dirs.config, CREDENTIALS_FILENAME)} (not created yet)`
-					: (credentialSources[0]?.path ?? "");
-		yield* Console.log(`Credentials file: ${credentialsLine}`);
-		yield* Console.log(`State database: ${path.join(appDirs.dirs.state, "store.db")}`);
+		// Everything so far reads files only, so it is printed before the live
+		// check below — a slow or unreachable GitHub must not hold back the
+		// diagnosis of the files. Still stdout, so `doctor > report.txt` captures
+		// every section.
+		yield* Doc.print([Doc.section(undefined, [files, schema, keys, Doc.section("Credentials", credentialBlocks)])]);
 
 		// --- Does the token actually work? ------------------------------------
 		//
@@ -506,7 +549,7 @@ export const doctorHandler = (configFlag: string | undefined) =>
 		// working setup from three broken ones: a revoked token, an `op://` path
 		// pointing at an item that is not there, and a service-account token
 		// without access to the vault all produce exactly the output above.
-		yield* Console.log("");
+		const tokenLines: Array<Block> = [];
 		for (const [name, profile] of Object.entries(credentials.profiles)) {
 			const resolverLayer = Layer.provide(CredentialResolverLive, OnePasswordClientLive);
 
@@ -516,7 +559,12 @@ export const doctorHandler = (configFlag: string | undefined) =>
 			}).pipe(Effect.provide(resolverLayer), Effect.result);
 
 			if (resolved._tag === "Failure") {
-				yield* Console.log(`Token [${name}]: could not resolve — ${String(resolved.failure)}`);
+				tokenLines.push(
+					Doc.paragraph(
+						Doc.status(Status.core, "failure"),
+						` Token [${name}]: could not resolve — ${String(resolved.failure)}`,
+					),
+				);
 				continue;
 			}
 
@@ -528,29 +576,42 @@ export const doctorHandler = (configFlag: string | undefined) =>
 			}).pipe(Effect.provide(GitHubClient.layerFromToken({ token: resolved.success })), Effect.result);
 
 			if (identity._tag !== "Success") {
-				yield* Console.log(`Token [${name}]: resolved but REJECTED by GitHub — ${String(identity.failure)}`);
+				tokenLines.push(
+					Doc.paragraph(
+						Doc.status(Status.core, "failure"),
+						` Token [${name}]: resolved but REJECTED by GitHub — ${String(identity.failure)}`,
+					),
+				);
 				continue;
 			}
 
 			const line = describeIdentity(name, profile, identity.success.login);
-			yield* Console.log(line.text);
+			tokenLines.push(Doc.paragraph(Doc.status(Status.core, line.ok ? "success" : "failure"), " ", line.text));
 		}
 
 		// --- Token permissions ------------------------------------------------
-		yield* Console.log("");
-		yield* Console.log("Required fine-grained token permissions:");
-		for (const [scope, permission, why] of REQUIRED_PERMISSIONS) {
-			yield* Console.log(`  ${scope} > ${permission} — ${why}`);
-		}
-		yield* Console.log("  (Metadata: Read is mandatory and granted automatically)");
-		// Said plainly because the list above looks like a checklist that was
-		// checked. GitHub reports a permission set for App installation tokens
-		// only; a fine-grained PAT's scopes are not readable through the API, so
-		// this is a requirement to compare against by hand.
-		yield* Console.log("  These are NOT verified — GitHub does not expose a fine-grained token's own scopes.");
+		const permissions = Doc.section("Required fine-grained token permissions", [
+			Doc.list(
+				REQUIRED_PERMISSIONS.map(([scope, permission, why]) => Doc.paragraph(`${scope} > ${permission} — ${why}`)),
+				{ compact: true },
+			),
+			Doc.paragraph(Doc.text("(Metadata: Read is mandatory and granted automatically)", "muted")),
+			// Said plainly because the list above looks like a checklist that was
+			// checked. GitHub reports a permission set for App installation tokens
+			// only; a fine-grained PAT's scopes are not readable through the API, so
+			// this is a requirement to compare against by hand.
+			Doc.callout("note", [
+				Doc.paragraph("These are NOT verified — GitHub does not expose a fine-grained token's own scopes."),
+			]),
+		]);
 
 		yield* Console.log("");
-		yield* Console.log(warnings === 0 ? "No unknown keys detected." : `${warnings} warning(s) found.`);
+		yield* Doc.print([
+			Doc.section(
+				undefined,
+				tokenLines.length === 0 ? [permissions] : [Doc.section("Token check", tokenLines), permissions],
+			),
+		]);
 	});
 
 /**

@@ -2,7 +2,7 @@ import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { App } from "@effected/app";
-import { CliLogger } from "@effected/cli";
+import { CliEnv, CliLogger } from "@effected/cli";
 import {
 	CodeScanning,
 	DeploymentEnvironment,
@@ -36,6 +36,12 @@ import { settingsPhase } from "../../src/sync/phases/settings.js";
 import { variablesPhase } from "../../src/sync/phases/variables.js";
 import { capturingConsole } from "../utils/capture.js";
 import { recorder } from "../utils/harness.js";
+
+/**
+ * What `SyncLoggerLive` reads to paint its status glyphs: an agent audience,
+ * so the captured lines are plain text with an unpainted glyph.
+ */
+const LoggerEnv = CliEnv.layerTest({ audience: "agent" });
 
 /**
  * A phase is a function of its `RepoContext`, so these construct one directly
@@ -184,7 +190,7 @@ const runPhase = async <R>(
 		WorkflowDispatch.layer,
 		RepoCacheLive,
 		AppliedStateLive,
-		SyncLoggerLive({ dryRun: ctx.dryRun, debug: true }),
+		SyncLoggerLive({ dryRun: ctx.dryRun, debug: true }).pipe(Layer.provide(LoggerEnv)),
 	).pipe(Layer.provideMerge(AppTest), Layer.provideMerge(rec.layer));
 
 	const program = Effect.gen(function* () {
@@ -234,7 +240,7 @@ describe("settings phase", () => {
 						Ruleset.layer,
 						RepoCacheLive,
 						AppliedStateLive,
-						SyncLoggerLive({ dryRun: false, debug: true }),
+						SyncLoggerLive({ dryRun: false, debug: true }).pipe(Layer.provide(LoggerEnv)),
 					).pipe(Layer.provideMerge(AppTest), Layer.provideMerge(recorder().layer)),
 				),
 			) as Effect.Effect<Phase>,
@@ -1064,7 +1070,7 @@ describe("cleanup phase", () => {
 						DeploymentEnvironment.layer,
 						RepoCacheLive,
 						AppliedStateLive,
-						SyncLoggerLive({ dryRun: false, debug: true }),
+						SyncLoggerLive({ dryRun: false, debug: true }).pipe(Layer.provide(LoggerEnv)),
 					).pipe(Layer.provideMerge(AppTest), Layer.provideMerge(recorder().layer)),
 				),
 			) as Effect.Effect<Phase>,
