@@ -57,6 +57,7 @@
 		"@effected/env": "catalog:effected",
 		"@effected/github": "catalog:effected",
 		"@effected/glob": "catalog:effected",
+		"@effected/schemastore": "catalog:effected",
 		"@effected/store": "catalog:effected",
 		"@effected/toml": "catalog:effected",
 		"@effected/walker": "catalog:effected",
@@ -68,7 +69,6 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "catalog:effect",
-		"@effected/schemastore": "catalog:effected",
 		"@effected/schemastore-cli": "catalog:effected",
 		"@savvy-web/bundler": "^2.4.20",
 		"@types/node": "catalog:build",

@@ -11,7 +11,7 @@
 			"cache": true,
 			"inputs": ["src/schemas/**", "lib/configs/schemastore.config.ts"],
 			"outputLogs": "errors-only",
-			"outputs": ["schemas/**"]
+			"outputs": ["$TURBO_ROOT$/schemas/**"]
 		},
 		"schema:check": {
 			"cache": false

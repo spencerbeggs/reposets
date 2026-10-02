@@ -19,6 +19,15 @@ If you parse output, match on exit codes rather than message text, or pass `--ag
 
 `--config <directory>` now fails (exit 1) when the directory has no `reposets.config.toml`. It used to fall back silently to the config in the XDG directory, so a setup that relied on that fallback must point `--config` at a directory that holds the file, or drop the flag.
 
+### JSON Schemas moved and are now versioned
+
+The JSON schemas for the two TOML files moved to versioned URLs at the repository root:
+
+* `reposets.config.toml`: `https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/config.json`
+* `reposets.credentials.toml`: `https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/credentials.json`
+
+The old `package/schemas/reposets.config.schema.json` and `package/schemas/reposets.credentials.schema.json` URLs are gone. Editors that resolve these files through SchemaStore lose validation and completion until SchemaStore's catalog points at the new URLs. To restore it now, add a `#:schema` line with the URL above as the first line of the file. New files created by `reposets init` already start with that line.
+
 ## Features
 
 ### Audience-aware output
