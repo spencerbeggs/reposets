@@ -1,6 +1,23 @@
 ---
-"reposets": minor
+"reposets": major
 ---
+
+## Breaking Changes
+
+### Changed output wording
+
+Human-readable output changed. Exit codes are unchanged (`0`, `1` for a finding, `64` for usage), but scripts that match on text should be reviewed:
+
+* The sync and drift summary line is now `Sync: x/total repos, N changes, N drifted, N errors` (`Dry run:` on a dry run), replacing `N repo(s), N change(s), N drifted, N error(s)`.
+* Report lines now start with a status glyph: `✓` applied, `ℹ` would-change, `⚠` delete or drift, `↷` skip, `✗` error.
+* `validate` prints `✓ Valid: <path>` on success and `✗ Invalid: <path>` on stderr for findings.
+* `doctor` and `list` section layouts and `history` table columns were reorganized.
+
+If you parse output, match on exit codes rather than message text, or pass `--agent` to get plain, glyph-light output without escape sequences.
+
+### `--config <directory>` requires a config in that directory
+
+`--config <directory>` now fails (exit 1) when the directory has no `reposets.config.toml`. It used to fall back silently to the config in the XDG directory, so a setup that relied on that fallback must point `--config` at a directory that holds the file, or drop the flag.
 
 ## Features
 
@@ -28,24 +45,10 @@ On a terminal, `reposets sync` and `reposets drift` show a live footer with a sp
 
 `list`, `validate`, `doctor`, `history` and `credentials list` render as structured, sectioned reports. `doctor` is organized into Files, Schema, Config keys, Credentials, Token check and Required token permissions, and still always exits 0. Config validation errors now show the rejected keys as a tree.
 
-## Other
-
-### Changed output wording
-
-Human-readable output changed. Exit codes are unchanged (`0`, `1` for a finding, `64` for usage), but scripts that match on text should be reviewed:
-
-* The sync and drift summary line is now `Sync: x/total repos, N changes, N drifted, N errors` (`Dry run:` on a dry run), replacing `N repo(s), N change(s), N drifted, N error(s)`.
-* Report lines now start with a status glyph: `✓` applied, `ℹ` would-change, `⚠` delete or drift, `↷` skip, `✗` error.
-* `validate` prints `✓ Valid: <path>` on success and `✗ Invalid: <path>` on stderr for findings.
-* `doctor` and `list` section layouts and `history` table columns were reorganized.
-
-If you parse output, match on exit codes rather than message text, or pass `--agent` to get plain, glyph-light output without escape sequences.
-
 ## Bug Fixes
 
 * Findings that cause exit 1 ("No config found", "No groups configured", dangling references, `✗ Invalid:`) are no longer hidden by `--log-level`; they always reach stderr. Per-resource sync errors are still filtered by the log level.
 * `nuke` now removes everything reposets wrote: the state database together with its `-wal`/`-shm` files, the cache database, the `.gitignore` that `init` writes in the XDG config directory (only when it holds nothing else), and the `reposets` directories left empty. It previously deleted the state database while holding it open, left orphaned WAL files behind, ignored the cache, and could never report "Nothing to remove".
 * Only `sync`, `drift` and `history` open the local databases. Other commands (`init`, `list`, `validate`, `doctor`, `credentials`, `nuke`) no longer create `store.db` or `cache.db` as a side effect.
 * `history` shows each run id as the shortest prefix unique across the journal (at least 8 characters). Runs started within about a minute of each other used to share the same 8-character id, which `history show --run` then rejected as ambiguous.
-* `--config <directory>` now fails when the directory has no `reposets.config.toml`, instead of silently loading the config from the XDG directory.
 * `validate` with no config anywhere now says "No config found. Run 'reposets init' to create one." and exits 1, like `sync` and `list`, instead of printing a raw `ConfigFileNotFoundError`.
