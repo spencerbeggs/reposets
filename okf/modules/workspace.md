@@ -7,8 +7,8 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:49:51Z
-  body_sha256: 767448e196e981292303b05f7b7a5a7d24f6a560fc2ba2ef873faee920eadbcf
+  at: 2026-10-02T17:48:12Z
+  body_sha256: 1889404c33b268969a8235528ca2db7f381740e754772e963b97ef8e76f99c9f
 tags: [architecture, dx, deps]
 ---
 
@@ -62,7 +62,9 @@ compiles:
   under `src`, `lib`, and `__test__`.
 - `schema:build` — `schemastore build lib/configs/schemastore.config.ts`,
   cached on `src/schemas/**` and the config file itself, outputting
-  `schemas/**`.
+  `$TURBO_ROOT$/schemas/**` — the repository root's `schemas/`, outside the
+  package, which turbo stores and restores on a cache hit like any
+  package-local output.
 - `schema:check` — the same command's `check` mode, deliberately uncached:
   it is the CI gate for schema drift, and caching a gate risks it reporting a
   stale pass.
@@ -96,5 +98,5 @@ Biome is configured through `@savvy-web/silk/biome`. `pnpm run test` runs
 Vitest with coverage always on, and `vitest.setup.ts`'s global setup runs
 `turbo run build:dev` before the suite — see
 [test-run-rewrites-schemas](../gotchas/test-run-rewrites-schemas.md) for what
-that side effect does to `package/schemas/*.json` and why it is not a
+that side effect does to the committed `schemas/**/*.json` and why it is not a
 regression.

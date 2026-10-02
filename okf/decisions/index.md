@@ -17,3 +17,4 @@
 * [The run boundary belongs to the command, not the engine](run-boundary-belongs-to-the-command.md) - SyncEngine records into a runId it is given and never opens or closes one; sync owns exactly one journal run per invocation.
 * [There are no verbosity tiers](no-verbosity-tiers.md) - Output is one level, plus a --debug flag on sync and drift that adds two diagnostic suffixes, rather than a config-selected tier of output detail.
 * [Tokens are references, never values](tokens-are-references-never-values.md) - github\_token and op\_service\_account are addresses only; no field in the credentials file ever holds a plaintext secret.
+* [Versioned JSON schemas at the repository root](versioned-schemas-at-the-root.md) - Why the two published JSON schemas moved from flat, unversioned files under package/schemas/ to schemas/\<version\>/\<name\>.json at the root, with one HostedSchema identity shared by the build and init.

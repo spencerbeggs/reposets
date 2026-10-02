@@ -11,6 +11,7 @@
 * Updated The reposets command line
 * Updated reposets
 * Updated workspace
+* Updated Local state
 
 ## 2026-09-29
 

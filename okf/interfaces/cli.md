@@ -7,8 +7,8 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T17:35:35Z
-  body_sha256: 21c3c4b297fa13bdddd3a9043381418bc9f19a18c5ee284f5d1b3506740e957b
+  at: 2026-10-02T17:48:12Z
+  body_sha256: f4e35312c197c6d7f2e0bcc80f15718485e3e5cde6f67271ea610558fe774a56
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -438,7 +438,11 @@ non-empty one is kept.
 interactive run asks and anyone else gets the XDG directory. It never
 overwrites an existing file — `ℹ Already exists:` rather than `✓ Created:`
 — so it stays safe to re-run against an already-configured machine, and it
-adds the credentials file to `.gitignore` in both modes.[^cli-init] A file
+adds the credentials file to `.gitignore` in both modes.[^cli-init] Each
+scaffolded file opens with a `#:schema <url>` directive and a blank line,
+naming the versioned JSON Schema it was written against
+(`schemas/3.0/config.json` or `schemas/3.0/credentials.json` on `main`) — see
+[json-schemas](json-schemas.md). A file
 it could not write, the `.gitignore` included, is logged to stderr as
 `Could not write: <path>`. The remaining files are still attempted, and
 the run exits 1 through `CliExit`. The closing hint offers both a bare

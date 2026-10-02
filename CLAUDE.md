@@ -35,11 +35,11 @@ pnpm run lint          # biome check
 pnpm run lint:fix
 pnpm run lint:md
 pnpm run lint:md:fix
-pnpm --filter reposets schema:build   # regenerate package/schemas/
+pnpm --filter reposets schema:build   # regenerate the root schemas/ (schemas/<version>/<name>.json + catalogs)
 pnpm --filter reposets schema:check   # CI gate: 0 clean, 1 drift/stale/gate failure, 2 config problem
 ```
 
-`pnpm run test` rewrites `package/schemas/*.json` unformatted, which then fails `pnpm run lint` until `lint:fix` runs — see `okf/gotchas/test-run-rewrites-schemas.md`.
+`pnpm run test` rewrites `schemas/**/*.json` unformatted, which then fails `pnpm run lint` until `lint:fix` runs — see `okf/gotchas/test-run-rewrites-schemas.md`.
 
 ## Repository layout
 
@@ -52,10 +52,11 @@ package/src/cli/views/    # the sync live view: a JSX-free model and the one .ts
 package/src/services/     # ConfigFiles, CredentialResolver, Invocation, OnePasswordClient, SyncLogger
 package/src/store/        # AppliedState, SyncJournal, RepoCache, migrations (SQLite via @effected/app)
 package/src/sync/         # SyncEngine, the Phase contract, decide(); phases/ holds one module per phase
-package/src/schemas/      # Effect Schema: config, credentials, common, environment, ruleset, annotations
+package/src/schemas/      # Effect Schema: config, credentials, common, environment, ruleset, annotations, hosted (schema URLs)
 package/src/lib/          # config-refs, org-only, credential-labels, fingerprint
-package/lib/configs/      # schemastore.config.ts
+package/lib/configs/      # schemastore.config.ts (identities in src/schemas/hosted.ts)
 package/__test__/         # tests mirroring src/
+schemas/                  # generated versioned JSON schemas (<version>/<name>.json), catalog.json, catalogs/
 lib/configs/              # commitlint, lint-staged, markdownlint
 ```
 
@@ -71,7 +72,7 @@ TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Tar
 
 ## reposets CLI
 
-CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos. Built on **`effect/cli`, from core** — see the three warnings below and `okf/interfaces/cli.md` for the full command tree, flags and exit codes; `okf/interfaces/config-file.md` and `okf/interfaces/credentials-file.md` for the two TOML files' shapes; `okf/interfaces/json-schemas.md` for how `package/schemas/*.json` is built; `okf/interfaces/token-permissions.md` for the required fine-grained PAT scopes.
+CLI for syncing GitHub repository settings, secrets, variables, rulesets, deployment environments, repository security features and CodeQL default setup across personal and organization repos. Built on **`effect/cli`, from core** — see the three warnings below and `okf/interfaces/cli.md` for the full command tree, flags and exit codes; `okf/interfaces/config-file.md` and `okf/interfaces/credentials-file.md` for the two TOML files' shapes; `okf/interfaces/json-schemas.md` for how the versioned `schemas/<version>/*.json` at the repo root are built and how `init` stamps their `#:schema` URLs; `okf/interfaces/token-permissions.md` for the required fine-grained PAT scopes.
 
 ## Three early traps
 

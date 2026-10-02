@@ -6,8 +6,8 @@ type: Gotcha
 tags: [dx, docs]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 393f33fd2ffe70023a8ba6d52161b8bee3c5d7403120e06316db1a7926e48caf
+  at: 2026-10-02T17:48:12Z
+  body_sha256: cfa5c6e53a6d2a4f1289513f30a0b878a68bf31a09e9fe12804268397d799ff4
 sources:
   - id: schemastore-cli
     resource: "npm:@effected/schemastore-cli"
@@ -47,7 +47,7 @@ expected to change output, would have looked like a failed edit instead.
 
 When an edit is expected to change the published schema and the tool
 reports `unchanged`, diff the actual JSON Schema output
-(`git diff package/schemas/`) rather than trusting the human-readable
+(`git diff schemas/`) rather than trusting the human-readable
 summary line alone — a real no-op leaves `git diff` empty, and an edit
 that failed to reach the schema in the way expected shows the file
 untouched for a specific, inspectable reason.
