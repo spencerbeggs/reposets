@@ -9,7 +9,8 @@ This repository's design knowledge — architecture, service boundaries, config 
 A first-turn shortlist:
 
 - `okf/modules/reposets.md` — the one workspace package: CLI, sync engine, phases, services
-- `okf/interfaces/cli.md` — the command tree, flags, and exit-code promises
+- `okf/interfaces/cli.md` — the command tree, flags, prompts, output channels, and exit-code promises
+- `okf/decisions/adopt-interactive-cli-kit.md` — audience-aware output, prompts with non-interactive answers, the sync live view
 - `okf/interfaces/config-file.md` — `reposets.config.toml`'s shape
 - `okf/interfaces/credentials-file.md` — `reposets.credentials.toml`'s shape
 - `okf/conventions/*` — imports, code style, Effect patterns, commits
@@ -18,6 +19,7 @@ A first-turn shortlist:
 - `okf/gotchas/pnpm-exec-runs-the-dev-build.md` — why a source change looks invisible until rebuilt
 - `okf/gotchas/nul-bytes-hide-from-grep.md` — why a plain `grep` can silently miss a match in the store
 - `okf/gotchas/log-level-none-still-prints-reports.md` — why `--log-level none` does not silence a report
+- `okf/gotchas/ui-test-session-hides-clear-and-log-lines.md` — why a prompt or live-view test cannot see `clear` or the lines above the frame
 
 ## Commands
 
@@ -46,6 +48,7 @@ pnpm workspace monorepo orchestrated by Turbo. One package: `package/` (workspac
 ```text
 package/src/cli/          # entrypoint (CliRuntime.main from @effected/cli), the --config global flag
 package/src/cli/commands/ # one file per subcommand
+package/src/cli/views/    # the sync live view: a JSX-free model and the one .tsx module, loaded only when drawing
 package/src/services/     # ConfigFiles, CredentialResolver, Invocation, OnePasswordClient, SyncLogger
 package/src/store/        # AppliedState, SyncJournal, RepoCache, migrations (SQLite via @effected/app)
 package/src/sync/         # SyncEngine, the Phase contract, decide(); phases/ holds one module per phase
@@ -56,7 +59,7 @@ package/__test__/         # tests mirroring src/
 lib/configs/              # commitlint, lint-staged, markdownlint
 ```
 
-There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github` — read that package rather than looking for a wrapper here. Likewise the CLI logger, exit-code handling and schema-issue rendering are upstream in `@effected/cli`; `package/src/cli/index.ts` is the only file that reads `process` (see `okf/conventions/effect-patterns.md`).
+There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. Every GitHub resource service, and the libsodium sealed-box encryption for secrets, is upstream in `@effected/github` — read that package rather than looking for a wrapper here. Likewise the CLI logger, exit-code handling, audience-aware output, prompts, the live view and schema-issue rendering are upstream in `@effected/cli`; `package/src/cli/index.ts` is the only file that reads `process` (see `okf/conventions/effect-patterns.md`).
 
 ## Build system
 

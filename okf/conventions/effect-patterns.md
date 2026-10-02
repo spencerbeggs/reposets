@@ -5,8 +5,8 @@ description: How Effect v4 idioms are used consistently across this codebase —
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-09-28T22:03:48Z
-  body_sha256: dc0a5f72b9c7aa1fdbcdc503c2ea89c1d24c438241b2f83088a70c2ae44b361c
+  at: 2026-10-02T15:49:51Z
+  body_sha256: a6b393a0ba7ddac12ae6fee00d9be4587d53a5d0fdc8364d4d67c5ab5a13ae53
 tags: [effect, architecture]
 ---
 
@@ -15,8 +15,9 @@ tags: [effect, architecture]
 Build on **`effect/cli`, from core**. `@effect/cli` does not exist on
 the Effect v4 line — do not reach for it. `@effected/cli` is a different
 package: the kit's boundary layer over core's CLI (`CliRuntime`, `CliLogger`,
-`CliExit`, `CliColor`, `CliTest`), and the entrypoint runs under its
-`CliRuntime.main`.
+`CliExit`, `CliAudience`, `CliMessage`, `Doc`, `CliInteractive`, `CliTest`,
+and the prompts and live view in `@effected/cli/ui`), and the entrypoint
+runs under its `CliRuntime.main`.
 
 Define a service as a `Context.Service` class, never a bare `Context.Tag`.
 `package/src/services/OnePasswordClient.ts`, `CredentialResolver.ts`, and
@@ -34,17 +35,28 @@ plain `Error` subclass or a bare string tag. `ResolveError`
 override `get message()` so the class renders a useful string rather than a
 bare `Tag:` prefix with the payload never reaching the log line.
 
-In CLI commands, write the command's output with `Console.log` and its
-diagnostics with `Effect.log*`, never the other way round. The output is
-what a caller redirects or parses: a report, a listing, a `Valid:` line.
-`CliLogger.layer()`, installed by `CliRuntime.main` in
-`package/src/cli/index.ts`, sends every `Effect.log*` level to stderr. So
-`Console.log` is the only route to stdout, and `Effect.log` is never a
-substitute for it. Never call `console.log` or `process.stdout.write`
-directly: `CliLogger` and `CliTest` both read the `Console` off the fiber,
-and a direct write bypasses the routing a test captures. A message that
-explains a failure, such as `No config found` or a dangling reference, is a
-diagnostic and goes through `Effect.logError`.
+In CLI commands, print a report as a `Doc` document with `Doc.print`, and a
+one-line outcome as a `CliMessage` line: `success` or `info` to stdout,
+`warning` or `failure` to stderr. Both render for the audience, plain for an
+agent and styled for a person, so never hand-paint a glyph or an escape.
+Write a finding that exits 1, such as `No config found` or a dangling
+reference, with `CliMessage.failure`, never `Effect.logError`: no log level
+silences it, so a run that did nothing always says why. Keep `Effect.log*`
+for diagnostics, which `CliLogger.layer()`, installed by `CliRuntime.main`
+in `package/src/cli/index.ts`, sends to stderr at every level, and never use
+it as a route to stdout. Never call `console.log` or `process.stdout.write`
+directly: `CliLogger`, `CliTest` and the live view's `logConsole` all read
+the `Console` off the fiber, and a direct write bypasses the routing a test
+captures and tears a live view's frame. See
+[`decisions/adopt-interactive-cli-kit.md`](../decisions/adopt-interactive-cli-kit.md).
+
+Ask a question only behind `CliInteractive`, and give every prompt a
+non-interactive answer: refuse with `CliError.UserError` naming the flag
+that answers it, or take the default the command always took. Never probe
+stdin or `TERM` yourself. Leave the kit's `Cancelled` to propagate, so
+`CliRuntime.main` prints its one line and exits 130. Keep JSX in
+`package/src/cli/views/` and import a view dynamically on the path that
+draws it, so a run that draws nothing never loads React or Ink.
 
 End a command by what went wrong, not by setting a code. Fail with
 `CliError.UserError` when the invocation was wrong (exit 64), and call
@@ -56,8 +68,8 @@ it. Never write `process.exitCode`. See
 Read `process` only in `package/src/cli/index.ts`, and there only for the
 working directory and the build-time version. Everything below the
 entrypoint gets those two from the `Invocation` service
-(`package/src/services/Invocation.ts`), and asks core's `Stdio` whether
-stdin is a terminal. Do not import `node:process` in a command or service.
+(`package/src/services/Invocation.ts`), and asks `CliInteractive` whether
+it may prompt. Do not import `node:process` in a command or service.
 Tests hand a command a different directory through `Invocation.layer(...)`
 instead of calling `process.chdir`. The one exception today is config
 discovery, where `@effected/config-file`'s `ConfigResolver.upwardWalk`
@@ -81,9 +93,9 @@ Route every line the sync pipeline emits through `SyncLogger`
 scattered across phases. `SyncEngine` and every phase describe *what*
 happened; `SyncLogger` decides how to say it, and that split is what let the
 four verbosity tiers collapse to one output plus a `debug` flag without
-touching a single phase. `SyncLogger` follows the same split as a command:
-its report lines are `Console.log` on stdout, and its failures are
-`Effect.logError` on stderr.
+touching a single phase. `SyncLogger` streams its report lines with
+`Console.log` on stdout and its failures with `Effect.logError` on stderr,
+and publishes a `SyncEvent` beside each line when a live view is drawn.
 
 Keep a resolved credential as `Redacted.Redacted<string>` end to end, and
 unwrap it with `Redacted.value` only where a value must physically leave the

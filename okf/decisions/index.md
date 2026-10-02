@@ -1,6 +1,7 @@
 # Decision
 
 * [--config replaces the upward walk](config-flag-replaces-the-upward-walk.md) - A --config flag swaps out the upward-walk resolver tier rather than being prepended to it, and fails loudly on a missing path.
+* [Adopt @effected/cli's interactive kit](adopt-interactive-cli-kit.md) - Output is presented for its audience, a missing input is asked for only when a person can answer it, sync and drift draw a hosted live view, and findings are failure lines no log level silences.
 * [An enabled cleanup scope with nothing declared deletes everything in that scope](enabled-cleanup-scope-deletes-everything-undeclared.md) - Why cleanup treats an empty declaration as "this repository should have none", not "leave alone".
 * [Drift is reported and still converged](drift-is-reported-and-still-converged.md) - reposets always overwrites out-of-band changes to a resource it manages, but always reports them first, and \`drift\` reuses the sync handler rather than a second read-only pipeline
 * [Failures are caught inside the effect](failures-are-caught-inside-the-effect.md) - The entrypoint wraps the whole command effect in Effect.catch(reportAndExit) rather than letting an unhandled failure reach NodeRuntime.runMain's own reporting path.

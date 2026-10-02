@@ -7,8 +7,8 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-09-27T17:39:49Z
-  body_sha256: dd61385f4121df96e39404cadfcbc1004c894ac4c7d75b59d17212f8b4aa5aab
+  at: 2026-10-02T15:49:51Z
+  body_sha256: c4cebb12c758ee590f83b9fcecd991f1f8549fff05c91fb4c030e2146de32dce
 tags: [architecture, effect, github]
 ---
 
@@ -22,11 +22,14 @@ opens the two SQLite databases the store services need, and provides
 command — subcommand requirements bubble up into the root command's `R`
 through `Command.withSubcommands`, so one `Command.provide` per service covers
 every subcommand rather than each wiring its own copy
-(`package/src/cli/index.ts:72-88`). The tree runs under `@effected/cli`'s
-`CliRuntime.main`, which installs the CLI logger, provides the platform layer
-inside failure reporting, and turns a usage error, a finding recorded with
-`CliExit`, or an escaped failure into the exit code — see
-[cli-runtime-via-effected-cli](../decisions/cli-runtime-via-effected-cli.md).
+(`package/src/cli/index.ts:72-88`). The tree runs through `CliAudience.run` under `@effected/cli`'s
+`CliRuntime.main`, which installs the CLI logger, builds the audience,
+terminal, theme and `CliInteractive` environment, provides the platform
+layer inside failure reporting, and turns a usage error, a finding recorded
+with `CliExit`, a cancelled prompt, or an escaped failure into the exit
+code — see
+[cli-runtime-via-effected-cli](../decisions/cli-runtime-via-effected-cli.md)
+and [adopt-interactive-cli-kit](../decisions/adopt-interactive-cli-kit.md).
 
 `reposets sync` (`package/src/cli/commands/sync.ts`) loads the config and
 credentials files, checks for dangling section references and unknown
@@ -47,9 +50,10 @@ The layer graph is assembled at three levels, and the split between them is
 load-bearing rather than a style choice:
 
 1. **Root entrypoint** (`package/src/cli/index.ts`) — `PlatformLive`
-   (`App.layer`, `CliColor.formatterLayer()` and the `Invocation` layer over
-   `NodeServices.layer`) handed to `CliRuntime.main`, which adds
-   `CliLogger.layer()` outermost, plus `ConfigLive`, `CredentialsFilesLive`
+   (`App.layer` and the `Invocation` layer over `NodeServices.layer`)
+   handed to `CliRuntime.main`, which adds `CliLogger.layer()` outermost
+   and, from its `env` option, the audience, terminal, theme,
+   `CliInteractive` and the colour-aware help formatter, plus `ConfigLive`, `CredentialsFilesLive`
    and `SyncJournalLive` on the root command, all provided once for the
    whole process. `AppLive` is bound at
    module scope specifically because `App.layer` opens both SQLite databases;
@@ -57,7 +61,8 @@ load-bearing rather than a style choice:
    layer is built exactly once no matter how many commands or partitions run.
 2. **Per sync invocation** (`syncHandler` in `package/src/cli/commands/sync.ts:178-186`)
    — `SyncJournalLive`, `AppliedStateLive`, `RepoCacheLive`, the
-   `CredentialResolver` layer, and `SyncLoggerLive` are merged into one
+   `CredentialResolver` layer, and `SyncLoggerLive` (given the run's event
+   sink when a live view is drawn) are merged into one
    `sharedLayer` and provided around the *whole* partition loop, not inside
    it. Layers memoize per `provide`/build call: building this layer inside
    the loop would mint a fresh `SyncLogger` per profile, each with its own
@@ -100,9 +105,13 @@ services — `AppliedState`, `SyncJournal`, `RepoCache` — live in
 GitHub — the eight resource services and the libsodium sealed-box encryption
 secrets need before they can be written — is upstream in `@effected/github`.
 Everything at the CLI boundary — the runtime wrapper, the logger, the exit
-code cell, colour, and the schema-issue renderers (`SchemaIssueRenderer`,
-`ConfigIssueRenderer`) that turn a decode failure into `unknown key at …`
-lines — is upstream in `@effected/cli`. There is no `src/cli/logger.ts` and
+code cell, colour, the audience, `Doc` reports and `CliMessage` lines, the
+prompts and the live view (`@effected/cli/ui`), and the schema-issue
+renderers (`SchemaIssueRenderer`, `ConfigIssueRenderer`) that turn a decode
+failure into `unknown key` lines — is upstream in `@effected/cli`, with the
+audience and terminal detection in `@effected/env`. `@effected/glob` and
+`@effected/walker` are direct dependencies only because they are required
+peers of `@effected/cli`. There is no `src/cli/logger.ts` and
 no `src/lib/schema-issues.ts`.
 
 ### Invocation (`package/src/services/Invocation.ts`)
@@ -114,8 +123,9 @@ version. That makes `index.ts` the only file under `package/src` that reads
 different directory with `Invocation.layer(...)`. The environment is not
 here: every environment variable is read through Effect's `Config` from the
 ambient `ConfigProvider`, which is the process environment in the shipped
-bin. Whether stdin is a terminal is not here either: `nuke` asks core's
-`Stdio.stdinIsTerminal`. The version has to be
+bin. Whether the run may prompt is not here either: every command asks
+`CliInteractive`, which `CliRuntime.main` decides from the audience and
+the terminal. The version has to be
 threaded down from `index.ts` because the bundler substitutes only the
 literal `process.env.__PACKAGE_VERSION__` spelling, not a destructured
 `env.__PACKAGE_VERSION__`. Config discovery is the one place the process
@@ -202,13 +212,44 @@ is the command's output, so every line is `Console.log` on stdout; failures
 are `Effect.logError` on stderr. `--log-level` therefore filters the
 failures and never the report — see
 [log-level-none-still-prints-reports](../gotchas/log-level-none-still-prints-reports.md).
+Every action line leads with a status glyph from the kit's core
+vocabulary, painted for a person and plain for an agent, so the layer
+requires `CliTheme` and `Audience`. Every line is sanitised before it is
+written, because it interpolates config and API text.
+
+`SyncLoggerLive` takes an optional `events` `PubSub<SyncEvent>`. When it
+is given, every hook publishes an event beside the line it prints, so a
+live view and the streamed report are fed by the same call and cannot
+disagree. `runStart(total)` prints nothing and exists only to publish
+`RunStarted` with the number of repositories selected; `finish(summary)`
+publishes `RunEnded` with the engine's totals, last, after every line.
+Both lines and events reach the terminal through the fiber's `Console`,
+which is the seam the live view uses: `runUnderSyncView` in `sync.ts`
+provides the view's `logConsole` around the run, so every line lands above
+the redrawing footer without this service knowing a view exists.
+
+### Views (`package/src/cli/views/`)
+
+The live view of an interactive `sync` or `drift`, split in two so the
+non-interactive path never loads React. `sync-progress-model.ts` holds no
+JSX: the progress state, the reducer that folds `SyncEvent`s into it, and
+`syncSummaryBlock`, the one summary both paths draw. `sync-progress.tsx`
+is the only module with JSX; it holds the footer component and
+`syncProgressView`, the `CliUi.live` options in `hosted` mode, and
+`sync.ts` imports it dynamically on the drawing path alone. Command
+modules contain no JSX. `package/tsconfig.json` and the root
+`tsconfig.json` set `"jsx": "react-jsx"` for it, and `ink` and `react` are
+runtime dependencies that load only when a screen or the live view mounts.
+`selectedRepoCount` in `sync.ts` computes the view's denominator up front
+with the engine's own selection rule.
 
 ### CLI runtime (`@effected/cli`)
 
 `CliRuntime.main` owns the process edge. Its default logger,
-`CliLogger.layer()`, drops Effect's timestamp, level and fiber id and sends
-every `Effect.log*` level to stderr, so a command's output reaches stdout
-only through `Console.log`. `CliExit.set(1)` records a finding from a handler
+`CliLogger.layer()`, drops Effect's timestamp, level and fiber id, strips
+escapes from every line, and sends every `Effect.log*` level to stderr, so
+a command's output reaches stdout through `Console.log`, `Doc.print` or a
+success or info `CliMessage`. `CliExit.set(1)` records a finding from a handler
 that succeeds, a `CliError.UserError` exits 64, and anything that escapes is
 rendered by the entrypoint's `render` callback and exits 1. The stream
 split and exit codes are specified in
@@ -217,8 +258,12 @@ split and exit codes are specified in
 built dev bin in `package/__test__/cli/bin.e2e.test.ts` and asserts exit
 codes and stream placement. `@effect/vitest` is a devDependency for that
 suite, and `package/__test__/utils/capture.ts` provides a capturing `Console`
-so unit tests assert which stream a line landed on through the same
-`CliLogger` routing the bin uses.
+and the agent audience, so unit tests assert plain, deterministic text and
+which stream a line landed on through the same `CliLogger` routing the bin
+uses. Prompt flows are driven with `CliUiTest.session` from
+`@effected/cli/ui/testing`, and the live view on
+`package/__test__/utils/terminal.ts`'s in-memory terminal — see
+[ui-test-session-hides-clear-and-log-lines](../gotchas/ui-test-session-hides-clear-and-log-lines.md).
 
 ## Phase-by-phase decisions
 

@@ -7,8 +7,8 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:04:56Z
-  body_sha256: 62ea7c329da6d691c1c1009e83bff40afd94fc6b907713fbb703a94e0e48e51d
+  at: 2026-10-02T15:49:51Z
+  body_sha256: 767448e196e981292303b05f7b7a5a7d24f6a560fc2ba2ef873faee920eadbcf
 tags: [architecture, dx, deps]
 ---
 
@@ -20,7 +20,21 @@ This is a pnpm workspace orchestrated by Turbo with exactly one package,
 `reposets`, under `package/` (`pnpm-workspace.yaml:1-2`). It carries two
 pnpm `configDependencies` — `@effected/pnpm-plugin-effect` and
 `@savvy-web/pnpm-plugin-silk` — loaded before the workspace resolves rather
-than as ordinary dependencies.
+than as ordinary dependencies. They supply the catalogs the package
+resolves through: `catalog:effected` for every `@effected/*` package and
+`catalog:effect` for `effect`, both from the `0.13.0` effect plugin, and
+`catalog:silk` for `ink` and `react`, which the CLI loads only when a
+screen or the live view mounts.
+
+## Vendored reference source
+
+`.repos/config.json` vendors two upstreams as read-only reference source,
+each pinned to what the lockfile installs. `.repos/effect` is pinned to
+`effect@4.0.0` and is the authority for core APIs, `effect/cli` included.
+`.repos/effected` is pinned to the `@effected/pnpm-plugin-effect@0.13.0`
+tag, the kit release that pins `@effected/cli` 0.11.0, with a sparse
+checkout that includes `packages/cli` and `packages/env`. Both are
+re-pinned whenever the lockfile's `effect` or the effect plugin moves.
 
 ## Build: `@savvy-web/bundler`
 
@@ -66,7 +80,9 @@ respectively.
 TypeScript 7's native compiler, invoked as plain `tsc` (`types:check`'s
 script). There are no project references: the root `tsconfig.json` extends
 `@savvy-web/silk/tsconfig/node/root.json`, and `package/tsconfig.json`
-extends `@savvy-web/bundler/tsconfig/ecma.json`. `effect` resolves to
+extends `@savvy-web/bundler/tsconfig/ecma.json`. Both set
+`"jsx": "react-jsx"` for the one JSX module,
+`package/src/cli/views/sync-progress.tsx`. `effect` resolves to
 `4.0.0` (`pnpm-lock.yaml`; the `@effected/pnpm-plugin-effect` catalog
 gives it `^4.0.0`), and the root `tsconfig.json`'s `skipLibCheck: true`
 exists solely to route around declaration files in that release that
