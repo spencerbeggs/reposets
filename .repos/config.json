@@ -11,8 +11,8 @@
 		},
 		"effected": {
 			"url": "https://github.com/spencerbeggs/effected",
-			"ref": "@effected/pnpm-plugin-effect@0.13.0",
-			"purpose": "The @effected kit source at the kit release this repo installs (@effected/pnpm-plugin-effect@0.13.0) — authority for app, store, config-file, toml, xdg, github, schemastore, cli, env and their transitive deps. Re-pin with the catalog plugin.",
+			"ref": "@effected/pnpm-plugin-effect@0.13.2",
+			"purpose": "The @effected kit source at the kit release this repo installs (@effected/pnpm-plugin-effect@0.13.2) — authority for app, store, config-file, toml, xdg, github, schemastore, cli, env and their transitive deps. Re-pin with the catalog plugin.",
 			"sparse": [
 				"packages/app",
 				"packages/store",

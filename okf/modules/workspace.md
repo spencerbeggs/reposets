@@ -7,8 +7,8 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T17:48:12Z
-  body_sha256: 1889404c33b268969a8235528ca2db7f381740e754772e963b97ef8e76f99c9f
+  at: 2026-10-02T19:01:19Z
+  body_sha256: e809ea6051dd4e0344323e042ace61813b48596addf1cdb9c96ae650d727d813
 tags: [architecture, dx, deps]
 ---
 
@@ -22,7 +22,7 @@ pnpm `configDependencies` — `@effected/pnpm-plugin-effect` and
 `@savvy-web/pnpm-plugin-silk` — loaded before the workspace resolves rather
 than as ordinary dependencies. They supply the catalogs the package
 resolves through: `catalog:effected` for every `@effected/*` package and
-`catalog:effect` for `effect`, both from the `0.13.0` effect plugin, and
+`catalog:effect` for `effect`, both from the `0.13.2` effect plugin, and
 `catalog:silk` for `ink` and `react`, which the CLI loads only when a
 screen or the live view mounts.
 
@@ -31,7 +31,7 @@ screen or the live view mounts.
 `.repos/config.json` vendors two upstreams as read-only reference source,
 each pinned to what the lockfile installs. `.repos/effect` is pinned to
 `effect@4.0.0` and is the authority for core APIs, `effect/cli` included.
-`.repos/effected` is pinned to the `@effected/pnpm-plugin-effect@0.13.0`
+`.repos/effected` is pinned to the `@effected/pnpm-plugin-effect@0.13.2`
 tag, the kit release that pins `@effected/cli` 0.11.0, with a sparse
 checkout that includes `packages/cli` and `packages/env`. Both are
 re-pinned whenever the lockfile's `effect` or the effect plugin moves.
