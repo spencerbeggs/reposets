@@ -30,7 +30,7 @@ Requires the Node.js version in the package's `engines` field.
 
    ```bash
    reposets credentials create --profile personal --username your-username --op "op://Private/github/token"
-   # Created profile 'personal' (username: your-username, github_token: op op://Private/github/token) in ./reposets.credentials.toml.
+   # ✓ Created profile 'personal' (username: your-username, github_token: op op://Private/github/token) in ./reposets.credentials.toml.
    ```
 
    Use `--env REPOSETS_GITHUB_TOKEN` instead of `--op` to read the token from the environment.
@@ -40,7 +40,7 @@ Requires the Node.js version in the package's `engines` field.
 
    ```bash
    reposets validate
-   # Valid: ./reposets.config.toml
+   # ✓ Valid: ./reposets.config.toml
    #   groups: 1
    ```
 
