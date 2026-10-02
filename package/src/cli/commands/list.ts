@@ -53,7 +53,7 @@ export const listHandler = Effect.gen(function* () {
 		// and `validate` do when there is no config to read. Written with
 		// `CliMessage.failure` rather than `Effect.logError` so no log level can
 		// hide the one line that explains the exit code.
-		yield* CliMessage.failure("No config file found. Run 'reposets init' to create one.");
+		yield* CliMessage.failure("No config found. Run 'reposets init' to create one.");
 		return yield* CliExit.set(1);
 	}
 

@@ -741,7 +741,15 @@ describe("exit codes and streams", () => {
 		const outcome = await runOutcome(provided(listHandler as never));
 
 		expect(outcome.exitCode).toBe(1);
-		expect(on(outcome.lines, "stderr").join("\n")).toContain("No config file found");
+		expect(on(outcome.lines, "stderr").join("\n")).toContain("No config found. Run 'reposets init'");
+		expect(on(outcome.lines, "stdout")).toEqual([]);
+	});
+
+	it("validate with no config anywhere is a finding pointing at init: stderr, exit 1", async () => {
+		const outcome = await runOutcome(provided(validateHandler as never));
+
+		expect(outcome.exitCode).toBe(1);
+		expect(on(outcome.lines, "stderr")).toEqual(["✗ No config found. Run 'reposets init' to create one."]);
 		expect(on(outcome.lines, "stdout")).toEqual([]);
 	});
 

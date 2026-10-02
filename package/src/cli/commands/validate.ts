@@ -65,8 +65,16 @@ export const validateHandler = Effect.gen(function* () {
 	const credentialsFile = yield* ReposetsCredentialsFile;
 
 	const sources = yield* configFile.discover;
-	const value = yield* configFile.load;
-	const where = sources[0]?.path ?? "config";
+	// No config anywhere is a finding, worded as `sync` and `list` word it —
+	// without this, `load` failed with the kit's raw `ConfigFileNotFoundError`
+	// report, the one command of the three that did not point at `init`.
+	const source = sources[0];
+	if (source === undefined) {
+		yield* CliMessage.failure("No config found. Run 'reposets init' to create one.");
+		return yield* CliExit.set(1);
+	}
+	const value = source.value;
+	const where = source.path;
 	// Credentials are read here for their OWNER declarations, not their
 	// tokens — nothing is resolved and no network is touched. A missing or
 	// unreadable credentials file simply means there is nothing to check
