@@ -52,8 +52,19 @@ const orgFlag = Flag.String("org").pipe(
  */
 const SECRET_PREFIXES = ["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_", "ops_", "sk-", "xoxb-"];
 
+/**
+ * Whether a value looks like a pasted token rather than a reference or a name.
+ *
+ * @remarks
+ * A known token prefix, or anything longer than 60 characters. The length rule
+ * catches the tokens that carry no recognisable prefix, but it never applies to
+ * an `op://` value: that is a 1Password reference by construction, none of the
+ * token prefixes begins that way, and a real reference crosses 60 characters
+ * easily once a vault or item name has spaces in it
+ * (`op://Engineering Shared Vault/GitHub Production Deploy Token/credential`).
+ */
 const looksLikeSecret = (value: string): boolean =>
-	SECRET_PREFIXES.some((prefix) => value.startsWith(prefix)) || value.length > 60;
+	SECRET_PREFIXES.some((prefix) => value.startsWith(prefix)) || (!value.startsWith("op://") && value.length > 60);
 
 /**
  * The explanation for a flag value {@link looksLikeSecret} catches — in any

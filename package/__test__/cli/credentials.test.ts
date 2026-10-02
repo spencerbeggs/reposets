@@ -75,6 +75,41 @@ describe("credentials create, not interactive", () => {
 	});
 });
 
+/** A real-shaped 1Password reference over the 60-character token heuristic. */
+const LONG_REFERENCE = "op://Engineering Shared Vault/GitHub Production Deploy Token/credential";
+
+/** Where a profile lands when no credentials file exists yet: the fixture's XDG config directory. */
+const xdgCredentialsFile = (): string => join(temp.home(), ".config", "reposets-ui-test", "reposets.credentials.toml");
+
+describe("credentials create accepts a long 1Password reference", () => {
+	it("by flag: a reference over 60 characters is stored, not refused as a token", async () => {
+		assert.isAbove(LONG_REFERENCE.length, 60);
+		const outcome = await runOutcome(create({ profile: "p", op: LONG_REFERENCE, username: "u" }));
+		assert.strictEqual(outcome.exitCode, 0);
+		assert.include(readFileSync(xdgCredentialsFile(), "utf8"), LONG_REFERENCE);
+	});
+
+	it("by flag: a value over 60 characters that is not a reference is still refused", async () => {
+		const long = "x".repeat(61);
+		const outcome = await runOutcome(create({ profile: "p", env: long, username: "u" }));
+		assert.strictEqual(outcome.exitCode, 64);
+		assert.notInclude(outcome.lines.map((line) => line.text).join("\n"), long);
+		assert.isFalse(existsSync(xdgCredentialsFile()));
+	});
+
+	it.effect("at the prompt: a reference over 60 characters is accepted", () =>
+		Effect.gen(function* () {
+			const run = yield* interactive(create({ profile: "p", username: "u" }));
+			yield* (yield* run.next("Where is the GitHub token?")).press("enter");
+			const ref = yield* run.next("1Password reference");
+			yield* ref.type(LONG_REFERENCE);
+			yield* ref.press("enter");
+			assert.deepStrictEqual(yield* run.done, Exit.succeed(0));
+			assert.include(yield* run.session.stdout, "Created profile 'p'");
+		}).pipe(Effect.scoped),
+	);
+});
+
 describe("credentials create, interactive", () => {
 	it.effect("asks for everything missing, in order, and stores a reference", () =>
 		Effect.gen(function* () {
