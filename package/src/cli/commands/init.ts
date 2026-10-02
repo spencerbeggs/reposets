@@ -5,6 +5,7 @@ import type { Audience } from "@effected/env";
 import { AppDirs } from "@effected/xdg";
 import { Effect, FileSystem, Option, Path } from "effect";
 import { Command, Flag } from "effect/cli";
+import { configSchemaHost, credentialsSchemaHost, schemaDirective } from "../../schemas/hosted.js";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
 import { Invocation } from "../../services/Invocation.js";
 
@@ -151,6 +152,12 @@ const chooseProject = (configDir: string, cwd: string) =>
  * Existing files are reported and never overwritten — this command must be
  * safe to re-run against a configured machine.
  *
+ * Each scaffolded file opens with a `#:schema` directive naming the versioned
+ * JSON Schema it was written against, taken from the same `HostedSchema` the
+ * schema build writes that document's `$id` from (`src/schemas/hosted.ts`).
+ * Taplo and Tombi bind the file to that exact version without consulting
+ * SchemaStore's catalog, and to the TOML decoder the line is a comment.
+ *
  * The credentials file is added to `.gitignore` in both modes. It contains only
  * references and so is not catastrophic to commit, but it still names a
  * person's vault layout, and the habit is worth keeping.
@@ -197,8 +204,8 @@ export const initHandler = (project: boolean | undefined) =>
 				yield* written._tag === "Some" ? CliMessage.success(`Created: ${target}`) : failed(target);
 			});
 
-		yield* scaffold(CONFIG_FILENAME, CONFIG_TEMPLATE);
-		yield* scaffold(CREDENTIALS_FILENAME, CREDENTIALS_TEMPLATE);
+		yield* scaffold(CONFIG_FILENAME, `${schemaDirective(configSchemaHost)}${CONFIG_TEMPLATE}`);
+		yield* scaffold(CREDENTIALS_FILENAME, `${schemaDirective(credentialsSchemaHost)}${CREDENTIALS_TEMPLATE}`);
 
 		// Keep the credentials file out of version control.
 		const gitignorePath = path.join(targetDir, ".gitignore");
