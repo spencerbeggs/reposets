@@ -56,14 +56,13 @@ export class ReposetsCredentialsFile extends ConfigFile.Service<ReposetsCredenti
  * are covered by a `StructWithRest` rest schema, so they are not excess;
  * verified here and pinned by a test upstream.
  *
- * **Applied to credentials only, for now.** The config file keeps lenient
- * decoding because `doctor` diagnoses unknown keys with nearest-match
- * suggestions — strictly better output than a decode failure — and it locates
- * the file through `discover`, which decodes. Making the load strict means
- * `discover` fails and `doctor` reports "no config found" for a file that is
- * present and one character wrong, losing the diagnosis exactly when it is
- * wanted. Turning it on for config needs `doctor` to locate the file without
- * decoding first.
+ * **Applied to both files.** Strict config decoding was once held back
+ * because `doctor` found the config through `discover`, which decodes: a
+ * strict load would have made a file that is present and one key wrong look
+ * absent, losing the diagnosis exactly when it is wanted. `doctor` now keeps
+ * `discover`'s failure as the structured issue it reports, and locates the
+ * file on its own (`locateConfig`) without decoding, so its nearest-match
+ * suggestions survive a strict load.
  */
 const STRICT_KEYS = {
 	onExcessProperty: "error",
