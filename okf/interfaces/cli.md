@@ -7,8 +7,8 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T16:06:57Z
-  body_sha256: cd6fbc82a7fd6e418a0458f712ba3732f0187634fb16afe0239bd0268aefacdf
+  at: 2026-10-02T17:35:35Z
+  body_sha256: 21c3c4b297fa13bdddd3a9043381418bc9f19a18c5ee284f5d1b3506740e957b
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -420,9 +420,11 @@ everything or answering No deletes nothing and exits 0.[^cli-nuke]
 Once confirmed, `nuke` attempts every chosen target even when one fails.
 Each removal prints `✓ removed <path>`, and a clean run ends `✓ Done. N
 files removed.` A target it could not remove is logged to stderr as
-`could not remove <path>`, a `✗ Removed N of M` line follows, and the run
-exits 1 through `CliExit` after the rest were tried. A database's
-companions each get their own `removed` line but count with it as one.
+`could not remove <path>`, a `✗ Removed N of M files` line follows, and
+the run exits 1 through `CliExit` after the rest were tried. Every count —
+the confirmation's "Delete N files?" and both closing lines — is in files,
+the unit of the `removed` lines: a database's companions are listed and
+chosen with it as one target but counted as the files they are.
 After a confirmed or forced run, the `reposets` directories under the XDG
 config, state, cache and data homes are removed when empty (`✓ removed
 empty directory <path>`). They are never listed as targets, and a

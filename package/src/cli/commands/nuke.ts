@@ -252,6 +252,17 @@ const removeEmptyDirs = (
 const plural = (n: number): string => `${n} file${n === 1 ? "" : "s"}`;
 
 /**
+ * How many files a set of targets removes.
+ *
+ * @remarks
+ * Counted in files, not targets, because files are what the run reports: a
+ * database is one target but up to four files (`-wal`, `-shm`, `-journal`),
+ * each with its own `removed` line, and a summary counting targets would read
+ * "1 file removed" under three of them.
+ */
+const fileCount = (targets: ReadonlyArray<Target>): number => targets.reduce((n, target) => n + target.paths.length, 0);
+
+/**
  * The list of what was found, as a document.
  *
  * @remarks
@@ -365,7 +376,7 @@ const choose = (
 			MultiSelect.screen({ message: "Delete which files?", sections: pickerSections(targets, short) }),
 		);
 		if (chosen.length === 0) return [];
-		const { confirmed } = yield* CliUi.run(Confirm.screen({ message: `Delete ${plural(chosen.length)}?` }));
+		const { confirmed } = yield* CliUi.run(Confirm.screen({ message: `Delete ${plural(fileCount(chosen))}?` }));
 		return confirmed ? chosen : [];
 	}).pipe(Effect.catchTag("NotInteractive", () => Effect.fail(refusal())));
 
@@ -453,32 +464,31 @@ export const nukeHandler = (
 			}
 		}
 
+		const total = fileCount(targets);
 		let removed = 0;
 		for (const target of targets) {
 			// Every file of the target is attempted, main file first, so one that
 			// fails still reports what else did or did not go.
-			let ok = true;
 			for (const file of target.paths) {
 				const outcome = yield* fs.remove(file).pipe(Effect.result);
 				if (outcome._tag === "Failure") {
-					ok = false;
 					yield* Effect.logError(`could not remove ${file} — ${String(outcome.failure)}`);
 					continue;
 				}
 				yield* CliMessage.success(`removed ${file}`);
+				removed += 1;
 			}
-			if (ok) removed += 1;
 		}
 
 		yield* removeEmptyDirs(fs, appDirs);
 
-		if (removed === targets.length) {
+		if (removed === total) {
 			yield* CliMessage.success(`Done. ${plural(removed)} removed.`);
 		} else {
 			// A file left behind is a real failure — the user asked for it gone —
 			// so the run exits 1, after every target has been attempted and
 			// reported.
-			yield* CliMessage.failure(`Removed ${removed} of ${targets.length}; the failures are listed above.`);
+			yield* CliMessage.failure(`Removed ${removed} of ${plural(total)}; the failures are listed above.`);
 			yield* CliExit.set(1);
 		}
 	});

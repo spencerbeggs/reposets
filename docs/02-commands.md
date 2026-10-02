@@ -597,7 +597,7 @@ reposets nuke --force
 # ✓ removed /path/to/state/reposets/store.db-wal
 # ✓ removed empty directory /path/to/config/reposets
 # ✓ removed empty directory /path/to/state/reposets
-# ✓ Done. 4 files removed.
+# ✓ Done. 5 files removed.
 ```
 
 A file that cannot be removed is reported on stderr and the run exits `1`, after every other file has been tried. Once the removals are done, the `reposets` directories under the config, state, cache and data homes are removed if they are now empty; a directory with anything left in it — a file you kept, or one reposets did not write — stays.

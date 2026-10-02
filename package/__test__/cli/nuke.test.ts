@@ -108,7 +108,8 @@ describe("nuke, what it finds", () => {
 		assert.strictEqual(out.split("cache database — ").length - 1, 1);
 		assert.include(out, "loses cached GitHub reads — rebuilt on the next sync");
 		assert.include(out, `removed ${cacheDb()}-wal`);
-		assert.include(out, "Done. 1 file removed.");
+		// Counted in files, the unit of the `removed` lines above it.
+		assert.include(out, "Done. 3 files removed.");
 		// The cache is rebuildable, so it carries no irreversible-loss warning.
 		assert.notInclude(out, "cannot be undone");
 		for (const file of [cacheDb(), `${cacheDb()}-wal`, `${cacheDb()}-shm`]) assert.isFalse(existsSync(file));
@@ -121,7 +122,7 @@ describe("nuke, what it finds", () => {
 		assert.strictEqual(outcome.exitCode, 0);
 		const out = on(outcome.lines, "stdout").join("\n");
 		assert.include(out, "state database — ");
-		assert.include(out, "Done. 1 file removed.");
+		assert.include(out, "Done. 2 files removed.");
 		assert.isFalse(existsSync(`${stateDb()}-wal`));
 		assert.isFalse(existsSync(`${stateDb()}-shm`));
 	});
@@ -197,6 +198,22 @@ describe("nuke, interactive", () => {
 			assert.isFalse(existsSync(userConfig()));
 			assert.isFalse(existsSync(stateDb()));
 			assert.include(yield* run.session.stdout, `removed ${projectConfig()}`);
+		}).pipe(Effect.scoped),
+	);
+
+	it.effect("the confirmation counts files, so a database's companions are included", () =>
+		Effect.gen(function* () {
+			// One row in the checklist, three files on disk.
+			put(stateDb(), "");
+			put(`${stateDb()}-wal`, "");
+			put(`${stateDb()}-shm`, "");
+			const run = yield* interactive(nuke(false));
+			yield* (yield* run.next("Delete which files?")).press("enter");
+			const confirm = yield* run.next("Delete 3 files?");
+			yield* confirm.type("y");
+			yield* confirm.press("enter");
+			assert.deepStrictEqual(yield* run.done, Exit.succeed(0));
+			assert.include(yield* run.session.stdout, "Done. 3 files removed.");
 		}).pipe(Effect.scoped),
 	);
 
