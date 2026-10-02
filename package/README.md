@@ -148,7 +148,13 @@ The last five are only needed if you use the matching config sections. No accoun
 
 ## Editor support
 
-JSON schemas for both config files are published to [SchemaStore](https://www.schemastore.org/), so editors validate and autocomplete `reposets.config.toml` and `reposets.credentials.toml` with no setup. The schemas carry annotations for the Tombi and Taplo TOML language servers.
+Both files have versioned JSON schemas, and `reposets init` stamps a `#:schema` line at the top of each file it creates so editors validate and autocomplete it:
+
+```toml
+#:schema https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/config.json
+```
+
+The credentials file uses `https://raw.githubusercontent.com/spencerbeggs/reposets/main/schemas/3.0/credentials.json`. The schemas are also listed in [SchemaStore](https://www.schemastore.org/), and carry annotations for the Tombi and Taplo TOML language servers.
 
 ## License
 

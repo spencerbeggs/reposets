@@ -173,9 +173,10 @@ package/               # the reposets CLI package
   src/cli/             # entrypoint and one file per command
   src/services/        # Effect services (config files, credentials, 1Password, logging)
   src/sync/            # the sync engine and its phases
-  src/schemas/         # Effect Schema definitions and JSON schema generation
+  src/schemas/         # Effect Schema definitions and the hosted JSON schema identities
   src/store/           # SQLite-backed journal, applied state and cache
   __test__/            # tests mirroring src/
+schemas/               # generated, versioned JSON schemas (schemas/<version>/<name>.json) and catalog
 lib/configs/           # shared dev config (commitlint, lint-staged, markdownlint)
 docs/                  # user documentation
 ```
