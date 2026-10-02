@@ -19,6 +19,7 @@ export type { Config } from "./schemas/config.js";
 export { ConfigSchema } from "./schemas/config.js";
 export {
 	CONFIG_FILENAME,
+	ConfigFlagMissingConfig,
 	ConfigFlagNotFound,
 	ReposetsConfigFile,
 	makeConfigFilesLive,
