@@ -72,20 +72,60 @@ const outcomeStatus = (outcome: string): "success" | "warning" | "failure" | "sk
 // read that.
 const formatMode = (summary: RunSummary): string => (summary.dryRun === 1 ? "dry-run" : "applied");
 
+/** The fewest characters a displayed run id is cut to. */
+const MIN_ID_LENGTH = 8;
+
+/** How many leading characters two strings share. */
+const commonPrefixLength = (a: string, b: string): number => {
+	let i = 0;
+	while (i < a.length && i < b.length && a[i] === b[i]) i += 1;
+	return i;
+};
+
 /**
- * The handle `history show` takes.
+ * The handle `history show` takes: each run id cut to the shortest prefix no
+ * other run in the journal shares, and never shorter than eight characters.
  *
  * @remarks
- * Without it the two commands do not compose: the table was the only place a
- * run id could come from, and it did not print one, so there was no way to
- * name a run.
+ * Without a printed id the two commands do not compose: the table was the only
+ * place a run id could come from, so there was no way to name a run.
  *
- * Eight characters, because that is what a person retypes and it is
- * comfortably unique across any realistic journal — `show` accepts any unique
- * prefix and refuses an ambiguous one, so a collision costs a second attempt
- * rather than the wrong run.
+ * A fixed eight characters was the first answer and it was wrong. Run ids are
+ * UUIDv7, whose leading 48 bits are a millisecond timestamp, so the first eight
+ * hex digits only change about every 65 seconds — two runs a minute apart
+ * printed the same id, and `show --run` with it was refused as ambiguous. The
+ * advertised handle did not work for exactly the runs someone just made.
+ *
+ * So this is git's abbreviated-hash rule: eight characters while that is
+ * enough, longer where it is not. In sorted order the id sharing the longest
+ * prefix with any id is one of its two neighbours, so one sort and one pass
+ * give every id its length. `ids` must be **every** run in the journal, not the
+ * page being printed: a prefix unique within twenty rows can still match a
+ * twenty-first run, and `show` matches against the journal, not the page.
+ * A hyphen never ends an abbreviation — UUID hyphens sit at fixed positions,
+ * so they are always shared and the first differing character is a digit.
  */
-const shortId = (summary: RunSummary): string => summary.id.slice(0, 8);
+const abbreviator = (ids: Iterable<string>): ((id: string) => string) => {
+	const sorted = [...new Set(ids)].sort();
+	const lengths = new Map<string, number>();
+	sorted.forEach((id, i) => {
+		const before = i > 0 ? commonPrefixLength(sorted[i - 1] as string, id) : 0;
+		const after = i < sorted.length - 1 ? commonPrefixLength(id, sorted[i + 1] as string) : 0;
+		lengths.set(id, Math.max(MIN_ID_LENGTH, Math.max(before, after) + 1));
+	});
+	return (id) => id.slice(0, lengths.get(id) ?? MIN_ID_LENGTH);
+};
+
+/**
+ * The {@link abbreviator} for this journal.
+ *
+ * @remarks
+ * The runs about to be printed are folded in alongside the journal's ids, so a
+ * run that lands between the two reads still gets a length rather than the
+ * eight-character fallback.
+ */
+const journalAbbreviator = (journal: SyncJournal["Service"], shown: ReadonlyArray<RunSummary>) =>
+	journal.runIds().pipe(Effect.map((ids) => abbreviator([...ids, ...shown.map((run) => run.id)])));
 
 /**
  * The run table, as a document.
@@ -96,7 +136,7 @@ const shortId = (summary: RunSummary): string => summary.id.slice(0, 8);
  * truncates, so a long group name is worth more than the alignment. Plain for
  * an agent, painted for a person.
  */
-const runTable = (summaries: ReadonlyArray<RunSummary>): Block =>
+const runTable = (summaries: ReadonlyArray<RunSummary>, abbreviate: (id: string) => string): Block =>
 	Doc.table(
 		[
 			{ header: "RUN" },
@@ -113,7 +153,7 @@ const runTable = (summaries: ReadonlyArray<RunSummary>): Block =>
 		summaries.map((summary) => {
 			const outcome = formatOutcome(summary);
 			return [
-				shortId(summary),
+				abbreviate(summary.id),
 				formatWhen(summary.startedAt),
 				[Doc.status(Status.core, outcomeStatus(outcome)), " ", outcome],
 				formatMode(summary),
@@ -158,7 +198,8 @@ export const historyHandler = (input: { readonly limit: number; readonly repo: s
 			return;
 		}
 
-		yield* Doc.print([runTable(summaries)]);
+		const abbreviate = yield* journalAbbreviator(journal, summaries);
+		yield* Doc.print([runTable(summaries, abbreviate)]);
 
 		// Only worth saying when the limit is what stopped the list. Narration
 		// about the table rather than part of it, so it goes to stderr and a
@@ -230,7 +271,7 @@ const PICKER_RUNS = 50;
  * non-interactive one (an agent, CI, a pipe) before reaching here, exactly as a
  * missing required flag would — exit 64, naming `--run`.
  */
-const pickRun = (runs: ReadonlyArray<RunSummary>) =>
+const pickRun = (runs: ReadonlyArray<RunSummary>, abbreviate: (id: string) => string) =>
 	Effect.gen(function* () {
 		return yield* CliUi.prompt(
 			Select.screen({
@@ -240,7 +281,7 @@ const pickRun = (runs: ReadonlyArray<RunSummary>) =>
 					return {
 						// Group names are user-supplied and land in a line this code
 						// builds, not in a document that sanitises itself.
-						label: `${shortId(run)} · ${formatWhen(run.startedAt)} · ${outcome} · ${Fmt.sanitize(run.group ?? "(all)")}`,
+						label: `${abbreviate(run.id)} · ${formatWhen(run.startedAt)} · ${outcome} · ${Fmt.sanitize(run.group ?? "(all)")}`,
 						detail: `${formatMode(run)} · ${run.changes} change${run.changes === 1 ? "" : "s"} · ${formatDuration(run)}`,
 						value: run,
 					};
@@ -315,7 +356,12 @@ export const showHandler = (prefix: string | undefined) =>
 				yield* CliMessage.info("No runs recorded yet. The journal fills in as you sync.");
 				return;
 			}
-			run = yield* pickRun(runs);
+			const abbreviate = yield* journalAbbreviator(journal, runs).pipe(
+				// Best-effort like the run list above: without the journal's ids the
+				// picker still works, labelled with the runs it can see.
+				Effect.orElseSucceed(() => abbreviator(runs.map((r) => r.id))),
+			);
+			run = yield* pickRun(runs, abbreviate);
 		} else {
 			run = yield* matchRun(runs, prefix);
 		}

@@ -4,6 +4,7 @@ import { App } from "@effected/app";
 import { CliLogger } from "@effected/cli";
 import type { CliUiTestSession } from "@effected/cli/ui/testing";
 import { CliUiTest } from "@effected/cli/ui/testing";
+import { Store } from "@effected/store";
 import { Effect, Exit, Fiber, Layer, Option } from "effect";
 import { CliError } from "effect/cli";
 import { showHandler } from "../../src/cli/commands/history.js";
@@ -71,7 +72,7 @@ describe("history show without --run", () => {
 			const frame = yield* picker.plainFrame;
 			// Each choice names the run the way the table does.
 			const second = runs[1] as RunSummary;
-			assert.include(frame, `${second.id.slice(0, 8)} · `);
+			assert.include(frame, `${second.id.slice(0, 8)}`);
 			assert.include(frame, "· success · g");
 			assert.include(frame, "applied · 1 change · ");
 
@@ -82,6 +83,38 @@ describe("history show without --run", () => {
 			assert.include(stdout, `run ${second.id}`);
 			assert.notInclude(stdout, `run ${(runs[0] as RunSummary).id}`);
 			assert.strictEqual(yield* session.mounts, 1);
+		}).pipe(Effect.scoped),
+	);
+
+	it.effect("labels each run with a prefix no other run shares, however close together they ran", () =>
+		Effect.gen(function* () {
+			// UUIDv7 ids minted a moment apart share their leading timestamp digits;
+			// a fixed eight-character label gave both runs the same name.
+			const near = ["0199a1b2-c3d4-7000-8000-000000000001", "0199a1b2-c3d5-7000-8000-000000000002"] as const;
+			const session = yield* CliUiTest.session();
+			const fiber = yield* Effect.forkScoped(
+				Effect.gen(function* () {
+					const journal = yield* SyncJournal;
+					const sql = (yield* Store).client;
+					for (const id of near) {
+						yield* sql`INSERT INTO sync_run (id, started_at, dry_run) VALUES (${id}, ${"2026-10-02T10:00:00.000Z"}, 0)`;
+						yield* journal.finishRun(id, "success");
+					}
+					yield* showHandler(undefined);
+				}).pipe(
+					Effect.orDie,
+					Effect.provide(Journal),
+					Effect.provide(CliLogger.layer()),
+					Effect.provide(session.layer),
+					Effect.provide(presentation({ audience: "human" })),
+				),
+			);
+
+			const frame = yield* (yield* session.next({ contains: "Which run?" })).plainFrame;
+			assert.include(frame, "0199a1b2-c3d4 · ");
+			assert.include(frame, "0199a1b2-c3d5 · ");
+			assert.notInclude(frame, "0199a1b2 · ");
+			yield* Fiber.interrupt(fiber);
 		}).pipe(Effect.scoped),
 	);
 

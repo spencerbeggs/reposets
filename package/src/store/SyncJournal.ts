@@ -103,6 +103,18 @@ export interface SyncJournalShape {
 		readonly limit: number;
 		readonly repo?: string | undefined;
 	}) => Effect.Effect<ReadonlyArray<RunSummary>, SqlError.SqlError>;
+
+	/**
+	 * Every recorded run's id, and nothing else.
+	 *
+	 * @remarks
+	 * What `history` needs to abbreviate an id safely: a prefix is only a
+	 * handle if no *other* run in the journal starts with it, and that is a
+	 * question about every run, not the page being printed. Ids only — no join,
+	 * no aggregate — so it stays cheap however long the journal grows between
+	 * prunes. Unordered: the caller sorts what it needs.
+	 */
+	readonly runIds: () => Effect.Effect<ReadonlyArray<string>, SqlError.SqlError>;
 }
 
 /**
@@ -185,6 +197,9 @@ export class SyncJournal extends Context.Service<SyncJournal, SyncJournalShape>(
 							ORDER BY r.rowid DESC
 							LIMIT ${options.limit}
 						`,
+			runIds: () =>
+				sql<{ readonly id: string }>`SELECT id FROM sync_run`.pipe(Effect.map((rows) => rows.map((row) => row.id))),
+
 			changesFor: (runId) =>
 				sql<ChangeRecord>`
 					SELECT repo, kind, name, action, detail

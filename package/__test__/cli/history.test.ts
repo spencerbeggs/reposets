@@ -2,6 +2,7 @@ import { NodeServices } from "@effect/platform-node";
 import { App } from "@effected/app";
 import type { CliEnvTestOptions } from "@effected/cli";
 import { CliLogger } from "@effected/cli";
+import { Store } from "@effected/store";
 import { Console, Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";
 import { clearHandler, historyHandler, pruneHandler, showHandler } from "../../src/cli/commands/history.js";
@@ -27,7 +28,7 @@ const AppTest = App.layerTest({ namespace: "reposets-history-test", store: { mig
 
 /** Run a handler against a real journal, seeding it first; capture both streams and the exit code. */
 const runFull = (
-	seed: (journal: SyncJournal["Service"]) => Effect.Effect<void, unknown, SyncJournal>,
+	seed: (journal: SyncJournal["Service"]) => Effect.Effect<void, unknown, SyncJournal | Store>,
 	// `historyHandler` carries SqlError; the subcommand handlers do not. Every
 	// handler prints through `Doc.print` / `CliMessage`, so it also reads the
 	// presentation services `runOutcome` provides (an agent audience: plain).
@@ -49,11 +50,44 @@ const runFull = (
 
 /** {@link runFull}, keeping only each line's text. */
 const run = async (
-	seed: (journal: SyncJournal["Service"]) => Effect.Effect<void, unknown, SyncJournal>,
+	seed: (journal: SyncJournal["Service"]) => Effect.Effect<void, unknown, SyncJournal | Store>,
 	handler: Effect.Effect<void, unknown, SyncJournal | PresentationServices>,
 ): Promise<ReadonlyArray<string>> => (await runFull(seed, handler)).lines.map((line) => line.text);
 
 const noSeed = () => Effect.void;
+
+/**
+ * Record finished runs under ids chosen by the test, oldest first.
+ *
+ * @remarks
+ * `startRun` mints a UUIDv7, so two runs in one test share their leading
+ * timestamp digits only *probably*. These tests are about exactly how much two
+ * ids share, so the ids are written straight into `sync_run` instead.
+ */
+const seedIds =
+	(...ids: ReadonlyArray<string>) =>
+	(journal: SyncJournal["Service"]) =>
+		Effect.gen(function* () {
+			const sql = (yield* Store).client;
+			for (const id of ids) {
+				yield* sql`INSERT INTO sync_run (id, started_at, dry_run) VALUES (${id}, ${"2026-10-02T10:00:00.000Z"}, 0)`;
+				yield* journal.finishRun(id, "success");
+			}
+		});
+
+// Three runs minted close together: the first two share every character but
+// the last, the third parts from them at the thirteenth. All three share the
+// eight characters a fixed-width column used to print.
+const NEAR_A = "0199a1b2-c3d4-7000-8000-000000000001";
+const NEAR_B = "0199a1b2-c3d4-7000-8000-000000000002";
+const NEAR_C = "0199a1b2-c3d5-7000-8000-000000000003";
+
+/** The first cell of every table row (not the header), in order. */
+const runCells = (lines: ReadonlyArray<string>): ReadonlyArray<string> =>
+	lines
+		.flatMap((line) => line.split("\n"))
+		.filter((line) => /^[0-9a-f]{8}/.test(line))
+		.map((line) => line.split(/\s+/)[0] as string);
 
 describe("history", () => {
 	it("says the journal is empty rather than printing an empty table", async () => {
@@ -80,6 +114,53 @@ describe("history", () => {
 		// its status glyph — plain text for the agent audience.
 		expect(out).toMatch(/^[0-9a-f]{8}\s+\d{4}-\d{2}-\d{2} \d{2}:\d{2}\s+✓ success\s+applied\s+\(all\)\s+0\s/m);
 		expect(out).not.toContain("\u001b[");
+	});
+
+	it("prints the shortest prefix that tells each run apart from every other run in the journal", async () => {
+		// UUIDv7's leading digits are a millisecond timestamp, so the first eight
+		// change only about every 65 seconds and runs close together used to print
+		// the same id — a handle `show --run` then refused as ambiguous.
+		const lines = await run(seedIds(NEAR_A, NEAR_B, NEAR_C), historyHandler({ limit: 20, repo: undefined }));
+
+		// Newest first. A and B part only at the last character; C parts from
+		// both at the thirteenth.
+		expect(runCells(lines)).toEqual([NEAR_C.slice(0, 13), NEAR_B, NEAR_A]);
+	});
+
+	it("abbreviates against every run in the journal, not only the rows printed", async () => {
+		// One row, but an older run shares all but its last character: eight, or
+		// thirteen, would be unique on the page and ambiguous to `show`.
+		const lines = await run(seedIds(NEAR_A, NEAR_B), historyHandler({ limit: 1, repo: undefined }));
+		expect(runCells(lines)).toEqual([NEAR_B]);
+	});
+
+	it("every printed id resolves to its own run through show --run", async () => {
+		const ids = [NEAR_A, NEAR_B, NEAR_C];
+		const cells = runCells(await run(seedIds(...ids), historyHandler({ limit: 20, repo: undefined })));
+		expect(cells).toHaveLength(3);
+
+		for (const cell of cells) {
+			const outcome = await runFull(seedIds(...ids), showHandler(cell));
+			const target = ids.find((id) => id.startsWith(cell)) as string;
+			expect(outcome.exitCode).toBe(0);
+			expect(on(outcome.lines, "stdout").join("\n")).toContain(`run ${target}`);
+		}
+	});
+
+	it("keeps the column eight wide when ids part early", async () => {
+		const lines = await run(
+			seedIds("0199a1b2-c3d4-7000-8000-000000000001", "0288f0e1-c3d4-7000-8000-000000000002"),
+			historyHandler({ limit: 20, repo: undefined }),
+		);
+		expect(runCells(lines)).toEqual(["0288f0e1", "0199a1b2"]);
+		// Not widened to hold a longer id: the next column starts where an
+		// eight-character one puts it.
+		const table = lines.flatMap((line) => line.split("\n"));
+		const header = table.find((line) => line.startsWith("RUN")) as string;
+		const row = table.find((line) => line.startsWith("0288f0e1")) as string;
+		expect(header.indexOf("WHEN (UTC)")).toBe(row.indexOf("2026-10-02"));
+		expect(row.slice(8, row.indexOf("2026-10-02")).trim()).toBe("");
+		expect(row.indexOf("2026-10-02")).toBeLessThanOrEqual(12);
 	});
 
 	it("reports a failed run's error, not just that it failed", async () => {
