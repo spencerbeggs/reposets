@@ -1,13 +1,15 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { App } from "@effected/app";
+import { AppCache, AppStore } from "@effected/app";
 import type { FailureDetails } from "@effected/cli";
 import { CliAudience, CliRuntime, ConfigIssueRenderer, Fmt } from "@effected/cli";
 import type { ConfigValidationError } from "@effected/config-file";
+import { AppDirs, Xdg } from "@effected/xdg";
 import { Effect, Layer } from "effect";
 import { Command } from "effect/cli";
 import { CredentialsFilesLive } from "../services/ConfigFiles.js";
 import { Invocation } from "../services/Invocation.js";
+import { CACHE_DB_FILENAME, STATE_DB_FILENAME } from "../store/files.js";
 import { migrations } from "../store/migrations.js";
 import { SyncJournalLive } from "../store/SyncJournal.js";
 import { credentialsCommand } from "./commands/credentials.js";
@@ -35,19 +37,53 @@ import { ConfigFlag, ConfigLive } from "./flags.js";
 const VERSION: string = process.env.__PACKAGE_VERSION__ ?? "0.0.0";
 
 /**
- * The application control plane.
+ * The application's directories: XDG resolution and the `reposets` namespace
+ * under it.
  *
  * @remarks
- * Bound once, at module scope. `App.layer` opens both SQLite databases, so a
- * second call would open a second pair with split event streams.
- *
- * Migrations run during layer construction, so a fresh checkout gets its schema
- * on the first command rather than on first write.
+ * Built the way `App.layer` builds its own (`AppDirs.layer` `provideMerge`
+ * `Xdg.layer`), but without the two databases `App.layer` always opens. Every
+ * command can resolve a path through this; resolving one creates nothing —
+ * only an `ensure*` member does, and only the command that writes calls it.
  */
-const AppLive = App.layer({
-	namespace: "reposets",
-	store: { migrations },
-});
+const DirsLive = Layer.provideMerge(AppDirs.layer({ namespace: "reposets" }), Xdg.layer);
+
+/**
+ * The state database, `store.db` under the XDG state directory.
+ *
+ * @remarks
+ * Bound once, at module scope: `AppStore.layer` is a layer-returning function,
+ * and a second call would open a second connection onto the same file with a
+ * second migration ledger.
+ *
+ * It is attached only to the commands that read or write it
+ * ({@link DatabasesLive}, {@link HistoryLive}), not to the platform. When it sat in the
+ * platform, every command — `init`, `list`, `validate`, `nuke` — opened (and so
+ * created) `store.db` as a side effect, and `nuke` deleted the database while
+ * its own process held it open, leaving its `-wal` and `-shm` files behind.
+ * Migrations still run during layer construction, so they now run on the first
+ * command that uses the database rather than on the first command of any kind.
+ */
+const StoreLive = AppStore.layer({ migrations, filename: STATE_DB_FILENAME });
+
+/**
+ * Both databases, for the commands that run the sync engine.
+ *
+ * @remarks
+ * `sync` and `drift` read and write the applied state and memoize GitHub reads
+ * in `cache.db`. The engine builds its own journal over `Store`, so nothing
+ * else is needed here.
+ */
+const DatabasesLive = Layer.mergeAll(StoreLive, AppCache.layer({ filename: CACHE_DB_FILENAME }));
+
+/**
+ * The run journal over the state database, for `history` and its subcommands.
+ *
+ * @remarks
+ * `history` reads only the journal, so it opens `store.db` and never
+ * `cache.db`.
+ */
+const HistoryLive = SyncJournalLive.pipe(Layer.provide(StoreLive));
 
 /**
  * Everything this module reads from `process`, handed down as plain values.
@@ -70,6 +106,11 @@ const InvocationLive = Invocation.layer({ cwd: process.cwd(), version: VERSION }
  * subcommand requirements bubble into the parent's `R` through
  * `withSubcommands`, so one provide covers all of them.
  *
+ * The databases are the deliberate exception. They are provided per command,
+ * to `sync`, `drift` and `history` only, because providing them here would
+ * open both files for every command again — see {@link StoreLive}. A command
+ * that does not name `Store` or `Cache` in its requirements never opens one.
+ *
  * `CliAudience.flags()` adds `--audience`, `--human`, `--agent` and `--ci` to
  * every command. `CliAudience.run` resolves them before core parses, so the
  * audience is known to every prompt, report and failure line the run writes.
@@ -78,34 +119,37 @@ const cli = Command.make("reposets", {}, () => Effect.void).pipe(
 	Command.withDescription("Sync GitHub repository settings across repos from a TOML config"),
 	Command.withSubcommands([
 		validateCommand,
-		syncCommand,
+		syncCommand.pipe(Command.provide(DatabasesLive)),
 		listCommand,
 		doctorCommand,
-		driftCommand,
+		driftCommand.pipe(Command.provide(DatabasesLive)),
 		initCommand,
 		nukeCommand,
-		historyCommand,
+		// Provided after `history`'s own `withSubcommands`, so it wraps the
+		// dispatch and covers `show`, `prune` and `clear` as well.
+		historyCommand.pipe(Command.provide(HistoryLive)),
 		credentialsCommand,
 	]),
 	Command.provide(ConfigLive),
 	Command.provide(CredentialsFilesLive),
-	Command.provide(SyncJournalLive),
 	Command.withGlobalFlags([ConfigFlag]),
 	Command.withSharedFlags(CliAudience.flags()),
 );
 
 /**
- * The platform: Node's services, the application control plane over them, and
+ * The platform: Node's services, the application's directories over them, and
  * the invocation facts.
  *
  * @remarks
  * `provideMerge` rather than `provide`, because commands require the platform
- * services (`FileSystem`, `Path`, `Stdio`) directly as well as through `App`.
+ * services (`FileSystem`, `Path`, `Stdio`) directly as well as through
+ * `AppDirs`, and the per-command database layers need `FileSystem`, `Path` and
+ * `AppDirs` from here. No database is opened at this level.
  * There is no formatter here: under `env`, `CliRuntime.main` installs the
  * colour-aware help formatter itself, closer to the program, and one set here
  * would be shadowed.
  */
-const PlatformLive = Layer.mergeAll(AppLive, InvocationLive).pipe(Layer.provideMerge(NodeServices.layer));
+const PlatformLive = Layer.mergeAll(DirsLive, InvocationLive).pipe(Layer.provideMerge(NodeServices.layer));
 
 /** Whether a failure is a tagged error of a given tag. */
 const isTagged = (error: unknown, tag: string): boolean =>
@@ -132,7 +176,10 @@ const isTagged = (error: unknown, tag: string): boolean =>
  * kit's own status line. A TOML syntax error is a `ConfigCodecError` whose own
  * message is the bare "toml parse failed" — the line and column live on the
  * cause, and printing it is the difference between "your config is broken
- * somewhere" and "1:9, expected ] to close the table header".
+ * somewhere" and a position plus what the parser expected there. The cause
+ * reports a 0-based `line:column`: an unclosed `[groups` header on the first
+ * line reads "ExpectedTableHeaderClose at 0:7 expected ] to close the table
+ * header".
  *
  * Everything else, defects included, is the kit's default report. Lines built
  * here from data are sanitised: the kit keeps a person's escapes, so it cannot

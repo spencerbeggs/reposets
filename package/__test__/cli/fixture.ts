@@ -2,16 +2,15 @@ import { mkdirSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeServices } from "@effect/platform-node";
-import { App } from "@effected/app";
 import { CliExit, CliLogger } from "@effected/cli";
 import type { CliUiTestOptions, CliUiTestScreen, CliUiTestSession } from "@effected/cli/ui/testing";
 import { CliUiTest } from "@effected/cli/ui/testing";
+import { AppDirs, Xdg } from "@effected/xdg";
 import type { Exit, Scope } from "effect";
 import { ConfigProvider, Effect, Fiber, Layer, MutableRef } from "effect";
 import { afterEach, beforeEach } from "vitest";
 import { CredentialsFilesLive, makeConfigFilesLive } from "../../src/services/ConfigFiles.js";
 import { Invocation } from "../../src/services/Invocation.js";
-import { migrations } from "../../src/store/migrations.js";
 import type { PresentationServices } from "../utils/capture.js";
 import { presentation } from "../utils/capture.js";
 
@@ -43,7 +42,15 @@ export const useTempDirs = (): { readonly dir: () => string; readonly home: () =
 	return { dir: () => dir, home: () => home };
 };
 
-const AppLive = App.layer({ namespace: "reposets-ui-test", store: { migrations } });
+/**
+ * The directories only, as the production platform provides them.
+ *
+ * @remarks
+ * No database: `init`, `nuke` and `credentials` never open one in production,
+ * and a fixture that opened `store.db` would hand `nuke` a target it can never
+ * have and make "Nothing to remove" unreachable.
+ */
+const DirsLive = Layer.provideMerge(AppDirs.layer({ namespace: "reposets-ui-test" }), Xdg.layer);
 
 /** Every service the init / nuke / credentials handlers read, over the temp XDG root. */
 export const services = (dir: string, home: string): Layer.Layer<never, unknown, never> => {
@@ -52,13 +59,14 @@ export const services = (dir: string, home: string): Layer.Layer<never, unknown,
 		XDG_CONFIG_HOME: join(home, ".config"),
 		XDG_STATE_HOME: join(home, ".local/state"),
 		XDG_CACHE_HOME: join(home, ".cache"),
+		XDG_DATA_HOME: join(home, ".local/share"),
 	};
 	return Layer.mergeAll(
 		makeConfigFilesLive(undefined),
 		CredentialsFilesLive,
 		Invocation.layer({ cwd: dir, version: "0.0.0-test" }),
 	).pipe(
-		Layer.provideMerge(AppLive),
+		Layer.provideMerge(DirsLive),
 		Layer.provideMerge(NodeServices.layer),
 		Layer.provideMerge(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
 	) as unknown as Layer.Layer<never, unknown, never>;
@@ -68,12 +76,12 @@ export const services = (dir: string, home: string): Layer.Layer<never, unknown,
 export type Handler = Effect.Effect<void, unknown, CliExit | PresentationServices>;
 
 /**
- * Provide a handler's file, store and invocation services.
+ * Provide a handler's file, directory and invocation services.
  *
  * @remarks
  * The cast narrows what is left to the presentation and exit services;
  * {@link services} is typed as providing nothing because `makeConfigFilesLive`
- * and `App.layer` do not name their outputs precisely enough to subtract.
+ * and the directory layers do not name their outputs precisely enough to subtract.
  */
 export const withServices = <E, R>(handler: Effect.Effect<void, E, R>, dir: string, home: string): Handler =>
 	handler.pipe(Effect.provide(services(dir, home))) as unknown as Handler;

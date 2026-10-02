@@ -46,6 +46,9 @@ username = "acme"
 github_token = { env = "GH" }
 `;
 
+/** The sandbox's XDG base-directory variables; reposets namespaces a directory under each. */
+const XDG_HOMES = ["XDG_CONFIG_HOME", "XDG_STATE_HOME", "XDG_CACHE_HOME", "XDG_DATA_HOME"] as const;
+
 /** Write `contents` into the sandbox and return its absolute path. */
 const fixture = (sandbox: Sandbox, name: string, contents: string) =>
 	Effect.gen(function* () {
@@ -213,6 +216,58 @@ describe.skipIf(!BUILT)(`reposets bin (${BUILT ? "built" : `SKIPPED: ${BIN} not 
 					assert.strictEqual(result.exitCode, 0);
 					assert.include(result.stdout, "Valid:");
 					assert.notInclude(result.stdout + result.stderr, "\u001b[");
+				}).pipe(Effect.scoped),
+			30_000,
+		);
+
+		it.effect(
+			"init then nuke --force leaves no reposets file or directory; a second nuke finds nothing",
+			() =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const path = yield* Path.Path;
+					const sandbox = yield* CliTest.sandbox({ path: process.env.PATH ?? "" });
+					const run = (args: ReadonlyArray<string>) =>
+						CliTest.run(BIN, ["--agent", ...args], { sandbox, execPath: process.execPath });
+					const appDirs = XDG_HOMES.map((name) => path.join(sandbox.env[name] ?? "", "reposets"));
+
+					const init = yield* run(["init"]);
+					assert.strictEqual(init.exitCode, 0);
+					// The control: init really wrote into the XDG config directory,
+					// so "nothing left" below is measured against something that existed.
+					const configDir = path.join(sandbox.env.XDG_CONFIG_HOME ?? "", "reposets");
+					assert.isTrue(yield* fs.exists(path.join(configDir, "reposets.config.toml")));
+					assert.isTrue(yield* fs.exists(path.join(configDir, ".gitignore")));
+
+					const nuke = yield* run(["nuke", "--force"]);
+					assert.strictEqual(nuke.exitCode, 0);
+					assert.include(nuke.stdout, "Done. 3 files removed.");
+					for (const dir of appDirs) assert.isFalse(yield* fs.exists(dir), `${dir} should be gone`);
+
+					const again = yield* run(["nuke", "--force"]);
+					assert.strictEqual(again.exitCode, 0);
+					assert.include(again.stdout, "Nothing to remove");
+					for (const dir of appDirs) assert.isFalse(yield* fs.exists(dir), `${dir} should still be gone`);
+				}).pipe(Effect.scoped),
+			60_000,
+		);
+
+		it.effect(
+			"a command that does not sync opens no database: list leaves the state and cache homes empty",
+			() =>
+				Effect.gen(function* () {
+					const fs = yield* FileSystem.FileSystem;
+					const path = yield* Path.Path;
+					const sandbox = yield* CliTest.sandbox({ path: process.env.PATH ?? "" });
+					yield* fixture(sandbox, "reposets.credentials.toml", CREDENTIALS);
+					const file = yield* fixture(sandbox, "valid.toml", VALID_CONFIG);
+					const result = yield* CliTest.run(BIN, ["list", "--config", file], {
+						sandbox,
+						execPath: process.execPath,
+					});
+					assert.strictEqual(result.exitCode, 0);
+					assert.isFalse(yield* fs.exists(path.join(sandbox.env.XDG_STATE_HOME ?? "", "reposets")));
+					assert.isFalse(yield* fs.exists(path.join(sandbox.env.XDG_CACHE_HOME ?? "", "reposets")));
 				}).pipe(Effect.scoped),
 			30_000,
 		);

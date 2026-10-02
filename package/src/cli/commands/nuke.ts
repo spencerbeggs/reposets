@@ -8,6 +8,7 @@ import { Effect, FileSystem, Path } from "effect";
 import { CliError, Command, Flag } from "effect/cli";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
 import { Invocation } from "../../services/Invocation.js";
+import { CACHE_DB_FILENAME, STATE_DB_FILENAME } from "../../store/files.js";
 
 const forceFlag = Flag.Boolean("force").pipe(
 	Flag.withDefault(false),
@@ -18,20 +19,95 @@ const forceFlag = Flag.Boolean("force").pipe(
  * Where a target lives, which is also the section the picker groups it under.
  *
  * @remarks
- * The three are different decisions for a person: a project file belongs to one
- * checkout, a user file to every run on this machine, and the state database is
- * the one thing that cannot be rebuilt. Grouping the picker by them lets someone
- * clear a stale project config while keeping the drift baselines.
+ * The four are different decisions for a person: a project file belongs to one
+ * checkout, a user file to every run on this machine, the state database is
+ * the one thing that cannot be rebuilt, and the cache is the one thing that
+ * costs nothing to lose. Grouping the picker by them lets someone clear a stale
+ * project config, or the cache, while keeping the drift baselines. The cache
+ * has its own section rather than sharing "State" because folding it in would
+ * put the cheapest deletion under the same heading as the only irreversible
+ * one.
  */
-type Location = "project" | "user" | "state";
+type Location = "project" | "user" | "state" | "cache";
 
-/** One thing that would be removed, and what losing it costs. */
+/**
+ * One thing that would be removed, and what losing it costs.
+ *
+ * @remarks
+ * `path` is what the list and the picker show; `paths` is every file removed
+ * for it. They differ only for a database, which is one target but up to four
+ * files — see {@link databaseTarget}.
+ */
 interface Target {
 	readonly path: string;
+	readonly paths: ReadonlyArray<string>;
 	readonly what: string;
+	/** The phrase after the dash in the list: what deleting it costs, or why it is safe. */
 	readonly cost: string;
 	readonly location: Location;
 }
+
+/** A candidate before looking: a target whose files may or may not exist. */
+type Candidate = Omit<Target, "paths">;
+
+/**
+ * The suffixes SQLite gives a database's companion files.
+ *
+ * @remarks
+ * `-wal` and `-shm` in write-ahead-log mode, which is what the store and cache
+ * use; `-journal` in rollback mode. Each is part of the database, not a file
+ * of its own: a `-wal` holds committed transactions not yet folded into the
+ * main file.
+ */
+const SQLITE_COMPANIONS = ["-wal", "-shm", "-journal"] as const;
+
+/**
+ * Whether a regular file exists at a path. A path that cannot be stat'd reads
+ * as absent.
+ */
+const isFile = (fs: FileSystem.FileSystem, file: string): Effect.Effect<boolean> =>
+	fs.stat(file).pipe(
+		Effect.map((info) => info.type === "File"),
+		Effect.orElseSucceed(() => false),
+	);
+
+/**
+ * A database as one target: the main file and whichever companions exist.
+ *
+ * @remarks
+ * Listed once because it is one thing to a person, and removed as a unit
+ * because removing the main file alone strands its `-wal` and `-shm` beside the
+ * fresh database the next sync creates. The target is present when **any** of
+ * the files is, so companions orphaned by an earlier version — which deleted
+ * `store.db` while its own process held it open — are found and cleaned up
+ * too. The row shows the main file's path either way: it is the name a person
+ * recognises.
+ */
+const databaseTarget = (fs: FileSystem.FileSystem, candidate: Candidate): Effect.Effect<Target | undefined> =>
+	Effect.gen(function* () {
+		const paths: Array<string> = [];
+		for (const file of [candidate.path, ...SQLITE_COMPANIONS.map((suffix) => `${candidate.path}${suffix}`)]) {
+			if (yield* isFile(fs, file)) paths.push(file);
+		}
+		return paths.length === 0 ? undefined : { ...candidate, paths };
+	});
+
+/**
+ * Whether a `.gitignore` holds nothing but what `init` writes.
+ *
+ * @remarks
+ * `init` writes the credentials filename, one line, into the directory it
+ * scaffolds. A file with any other non-blank line was written or edited by
+ * someone else, and deleting it would take their rules with it, so it is not a
+ * target. An empty or blank-only file is not one `init` wrote either.
+ */
+const isInitGitignore = (contents: string): boolean => {
+	const lines = contents
+		.split(/\r?\n/)
+		.map((line) => line.trim())
+		.filter((line) => line.length > 0);
+	return lines.length > 0 && lines.every((line) => line === CREDENTIALS_FILENAME);
+};
 
 /**
  * Everything reposets has written to this machine.
@@ -46,6 +122,10 @@ interface Target {
  * file anywhere between the working directory and the filesystem root — because
  * the file a user is thinking of is the one the CLI would load, and that is not
  * always the one in the current directory.
+ *
+ * The `.gitignore` considered is only the one in the user config directory,
+ * where `init` writes it and nobody else is expected to: a project directory's
+ * `.gitignore` belongs to that repository, whatever it contains.
  */
 const findTargets = (
 	fs: FileSystem.FileSystem,
@@ -54,21 +134,21 @@ const findTargets = (
 	from: string,
 ): Effect.Effect<ReadonlyArray<Target>> =>
 	Effect.gen(function* () {
-		const candidates: Array<Target> = [];
+		const files: Array<Candidate> = [];
 
 		let dir = from;
 		for (;;) {
-			candidates.push(
+			files.push(
 				{
 					path: path.join(dir, CONFIG_FILENAME),
 					what: "project config",
-					cost: "your groups and settings",
+					cost: "loses your groups and settings",
 					location: "project",
 				},
 				{
 					path: path.join(dir, CREDENTIALS_FILENAME),
 					what: "project credentials",
-					cost: "token references, not tokens",
+					cost: "loses token references, not tokens",
 					location: "project",
 				},
 			);
@@ -77,38 +157,96 @@ const findTargets = (
 			dir = parent;
 		}
 
-		candidates.push(
+		files.push(
 			{
 				path: path.join(appDirs.dirs.config, CONFIG_FILENAME),
 				what: "user config",
-				cost: "your groups and settings",
+				cost: "loses your groups and settings",
 				location: "user",
 			},
 			{
 				path: path.join(appDirs.dirs.config, CREDENTIALS_FILENAME),
 				what: "user credentials",
-				cost: "token references, not tokens",
+				cost: "loses token references, not tokens",
 				location: "user",
 			},
+		);
+
+		const present: Array<Target> = [];
+		for (const candidate of files) {
+			if (yield* isFile(fs, candidate.path)) present.push({ ...candidate, paths: [candidate.path] });
+		}
+
+		const gitignore = path.join(appDirs.dirs.config, ".gitignore");
+		const contents = yield* fs.readFileString(gitignore).pipe(Effect.option);
+		if (contents._tag === "Some" && isInitGitignore(contents.value)) {
+			present.push({
+				path: gitignore,
+				paths: [gitignore],
+				what: "user .gitignore",
+				cost: "written by init",
+				location: "user",
+			});
+		}
+
+		const databases: ReadonlyArray<Candidate> = [
 			{
-				path: path.join(appDirs.dirs.state, "store.db"),
+				path: path.join(appDirs.dirs.state, STATE_DB_FILENAME),
 				what: "state database",
 				// Said plainly because it is the only irreversible consequence here.
 				// The config files are recoverable from a backup or rewritten by hand;
 				// the applied-state fingerprints cannot be reconstructed, and without
 				// them the next run reports a first sync where a real out-of-band edit
 				// happened.
-				cost: "run history AND the drift baselines — drift detection restarts from nothing",
+				cost: "loses run history AND the drift baselines — drift detection restarts from nothing",
 				location: "state",
 			},
-		);
-
-		const present: Array<Target> = [];
-		for (const candidate of candidates) {
-			const info = yield* fs.stat(candidate.path).pipe(Effect.option);
-			if (info._tag === "Some" && info.value.type === "File") present.push(candidate);
+			{
+				path: path.join(appDirs.dirs.cache, CACHE_DB_FILENAME),
+				what: "cache database",
+				cost: "loses cached GitHub reads — rebuilt on the next sync",
+				location: "cache",
+			},
+		];
+		for (const candidate of databases) {
+			const target = yield* databaseTarget(fs, candidate);
+			if (target !== undefined) present.push(target);
 		}
 		return present;
+	});
+
+/**
+ * Remove each of reposets' own directories that is now empty.
+ *
+ * @remarks
+ * Run only after a confirmed or forced removal, so a run that deleted nothing
+ * leaves the directories as it found them. The directories are never listed as
+ * targets: they are containers, and listing them would ask a person to decide
+ * something that follows from the files. A directory with anything left in it
+ * — a file deselected in the picker, or one reposets did not write — is kept.
+ *
+ * Core's `FileSystem.remove` without `recursive` refuses a directory even when
+ * it is empty (it is Node's `rm`, not `rmdir`), so emptiness is checked with
+ * `readDirectory` first and the removal then passes `recursive`, which on a
+ * directory just seen empty removes only the directory. A directory that cannot
+ * be read or removed is a warning, not a failure: nobody asked for it by name.
+ */
+const removeEmptyDirs = (
+	fs: FileSystem.FileSystem,
+	appDirs: AppDirs["Service"],
+): Effect.Effect<void, never, CliTheme | Audience | TerminalEnv | CliLinks> =>
+	Effect.gen(function* () {
+		const { config, state, cache, data } = appDirs.dirs;
+		for (const dir of new Set([config, state, cache, data])) {
+			const entries = yield* fs.readDirectory(dir).pipe(Effect.option);
+			if (entries._tag === "None" || entries.value.length > 0) continue;
+			const outcome = yield* fs.remove(dir, { recursive: true }).pipe(Effect.result);
+			if (outcome._tag === "Failure") {
+				yield* Effect.logWarning(`could not remove empty directory ${dir} — ${String(outcome.failure)}`);
+				continue;
+			}
+			yield* CliMessage.success(`removed empty directory ${dir}`);
+		}
 	});
 
 const plural = (n: number): string => `${n} file${n === 1 ? "" : "s"}`;
@@ -130,8 +268,8 @@ const targetsDoc = (targets: ReadonlyArray<Target>): Document => [
 				Doc.lines([
 					Doc.file(target.path),
 					target.location === "state"
-						? [`${target.what} — loses `, Doc.text(target.cost, "warning")]
-						: `${target.what} — loses ${target.cost}`,
+						? [`${target.what} — `, Doc.text(target.cost, "warning")]
+						: `${target.what} — ${target.cost}`,
 				]),
 			),
 			{ compact: true },
@@ -153,6 +291,7 @@ const SECTION_TITLES: Record<Location, string> = {
 	project: "Project files",
 	user: "User files",
 	state: "State",
+	cache: "Cache",
 };
 
 /**
@@ -190,7 +329,7 @@ const pickerSections = (
 	targets: ReadonlyArray<Target>,
 	short: (target: Target) => string,
 ): ReadonlyArray<MultiSelectSection<Target>> =>
-	(["project", "user", "state"] as const)
+	(["project", "user", "state", "cache"] as const)
 		.map((location) => ({
 			title: SECTION_TITLES[location],
 			items: targets
@@ -251,16 +390,22 @@ const refusal = (): CliError.UserError =>
  * files and the local database, which is what "leave no trace on this machine"
  * means.
  *
- * It always prints what it found first. Without `--force`, an interactive run
- * then offers the targets as a pre-selected checklist grouped project / user /
- * state, and asks "Delete N files?" defaulting to **no**; deselecting
+ * It always prints what it found first, or "Nothing to remove" when it found
+ * nothing. Without `--force`, an interactive run then offers the targets as a
+ * pre-selected checklist grouped project / user / state / cache, and asks "Delete N files?" defaulting to **no**; deselecting
  * everything or answering no deletes nothing and succeeds. A non-interactive
  * run without `--force` is refused (exit 64) — see {@link refusal}. Whether the
  * run may prompt is `CliInteractive`, decided once by `CliRuntime.main`'s
  * environment (a human audience on a terminal), not by probing stdin here.
  *
- * Each removal is reported as it happens; one that fails is logged on stderr
- * and the run exits 1 after every target has been tried.
+ * Each removal is reported as it happens, a database's companion files each
+ * on their own line; one that fails is logged on stderr and the run exits 1
+ * after every target has been tried. Then the `reposets` directories under the
+ * XDG config, state, cache and data homes are removed if they are now empty —
+ * see {@link removeEmptyDirs}.
+ *
+ * This command never opens a database: the platform provides only the
+ * directories, so the files it deletes are not held open by its own process.
  *
  * @public
  */
@@ -310,14 +455,22 @@ export const nukeHandler = (
 
 		let removed = 0;
 		for (const target of targets) {
-			const outcome = yield* fs.remove(target.path).pipe(Effect.result);
-			if (outcome._tag === "Failure") {
-				yield* Effect.logError(`could not remove ${target.path} — ${String(outcome.failure)}`);
-				continue;
+			// Every file of the target is attempted, main file first, so one that
+			// fails still reports what else did or did not go.
+			let ok = true;
+			for (const file of target.paths) {
+				const outcome = yield* fs.remove(file).pipe(Effect.result);
+				if (outcome._tag === "Failure") {
+					ok = false;
+					yield* Effect.logError(`could not remove ${file} — ${String(outcome.failure)}`);
+					continue;
+				}
+				yield* CliMessage.success(`removed ${file}`);
 			}
-			removed += 1;
-			yield* CliMessage.success(`removed ${target.path}`);
+			if (ok) removed += 1;
 		}
+
+		yield* removeEmptyDirs(fs, appDirs);
 
 		if (removed === targets.length) {
 			yield* CliMessage.success(`Done. ${plural(removed)} removed.`);

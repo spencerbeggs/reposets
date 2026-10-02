@@ -17,19 +17,30 @@ import { interactive, useTempDirs, withServices } from "./fixture.js";
 const temp = useTempDirs();
 
 const projectConfig = (): string => join(temp.dir(), "reposets.config.toml");
-// The fixture's `App.layer` namespace names the XDG subdirectories.
-const userConfig = (): string => join(temp.home(), ".config", "reposets-ui-test", "reposets.config.toml");
-// `App.layer` opens the store as it builds, so the state database is always a target here.
-const stateDb = (): string => join(temp.home(), ".local", "state", "reposets-ui-test", "store.db");
+// The fixture's `AppDirs` namespace names the XDG subdirectories.
+const configDir = (): string => join(temp.home(), ".config", "reposets-ui-test");
+const stateDir = (): string => join(temp.home(), ".local", "state", "reposets-ui-test");
+const cacheDir = (): string => join(temp.home(), ".cache", "reposets-ui-test");
+const userConfig = (): string => join(configDir(), "reposets.config.toml");
+const userGitignore = (): string => join(configDir(), ".gitignore");
+const stateDb = (): string => join(stateDir(), "store.db");
+const cacheDb = (): string => join(cacheDir(), "cache.db");
+
+/** Write a file, creating its directory. */
+const put = (file: string, contents: string): void => {
+	mkdirSync(join(file, ".."), { recursive: true });
+	writeFileSync(file, contents);
+};
 
 /**
- * One project file and one user file; with the state database, three targets
- * in three sections.
+ * One project file, one user file and the state database: three targets in
+ * three sections. The fixture opens no database, so the state database exists
+ * only because this writes it.
  */
 const seed = (): void => {
-	writeFileSync(projectConfig(), "# project\n");
-	mkdirSync(join(temp.home(), ".config", "reposets-ui-test"), { recursive: true });
-	writeFileSync(userConfig(), "# user\n");
+	put(projectConfig(), "# project\n");
+	put(userConfig(), "# user\n");
+	put(stateDb(), "");
 };
 
 const nuke = (force: boolean) => withServices(nukeHandler(force), temp.dir(), temp.home());
@@ -56,6 +67,7 @@ describe("nuke, not interactive", () => {
 	});
 
 	it("says the state database loss cannot be undone when it is a target", async () => {
+		put(stateDb(), "");
 		const outcome = await runOutcome(nuke(false));
 		const out = on(outcome.lines, "stdout").join("\n");
 		assert.include(out, "drift detection restarts from nothing");
@@ -72,6 +84,93 @@ describe("nuke, not interactive", () => {
 		assert.include(out, `removed ${stateDb()}`);
 		assert.include(out, "Done. 3 files removed.");
 		assert.isFalse(existsSync(projectConfig()));
+	});
+});
+
+describe("nuke, what it finds", () => {
+	it("nothing on the machine: says so and exits 0, with or without --force", async () => {
+		for (const force of [true, false]) {
+			const outcome = await runOutcome(nuke(force));
+			assert.strictEqual(outcome.exitCode, 0);
+			const out = on(outcome.lines, "stdout").join("\n");
+			assert.include(out, "Nothing to remove — no reposets files found on this machine.");
+			assert.notInclude(out, "This will delete:");
+		}
+	});
+
+	it("a database and its WAL companions are one target, removed together", async () => {
+		put(cacheDb(), "");
+		put(`${cacheDb()}-wal`, "");
+		put(`${cacheDb()}-shm`, "");
+		const outcome = await runOutcome(nuke(true));
+		assert.strictEqual(outcome.exitCode, 0);
+		const out = on(outcome.lines, "stdout").join("\n");
+		assert.strictEqual(out.split("cache database — ").length - 1, 1);
+		assert.include(out, "loses cached GitHub reads — rebuilt on the next sync");
+		assert.include(out, `removed ${cacheDb()}-wal`);
+		assert.include(out, "Done. 1 file removed.");
+		// The cache is rebuildable, so it carries no irreversible-loss warning.
+		assert.notInclude(out, "cannot be undone");
+		for (const file of [cacheDb(), `${cacheDb()}-wal`, `${cacheDb()}-shm`]) assert.isFalse(existsSync(file));
+	});
+
+	it("companions orphaned without their database are still found and removed", async () => {
+		put(`${stateDb()}-wal`, "");
+		put(`${stateDb()}-shm`, "");
+		const outcome = await runOutcome(nuke(true));
+		assert.strictEqual(outcome.exitCode, 0);
+		const out = on(outcome.lines, "stdout").join("\n");
+		assert.include(out, "state database — ");
+		assert.include(out, "Done. 1 file removed.");
+		assert.isFalse(existsSync(`${stateDb()}-wal`));
+		assert.isFalse(existsSync(`${stateDb()}-shm`));
+	});
+
+	it("removes the user .gitignore when it holds only what init writes", async () => {
+		put(userGitignore(), "\nreposets.credentials.toml\n\n");
+		const outcome = await runOutcome(nuke(true));
+		assert.strictEqual(outcome.exitCode, 0);
+		assert.include(on(outcome.lines, "stdout").join("\n"), "user .gitignore — written by init");
+		assert.isFalse(existsSync(userGitignore()));
+	});
+
+	it("keeps a user .gitignore with any other line, and does not list it", async () => {
+		put(userGitignore(), "reposets.credentials.toml\n*.bak\n");
+		const outcome = await runOutcome(nuke(true));
+		assert.include(on(outcome.lines, "stdout").join("\n"), "Nothing to remove");
+		assert.isTrue(existsSync(userGitignore()));
+	});
+
+	it("never touches a project directory's .gitignore", async () => {
+		seed();
+		put(join(temp.dir(), ".gitignore"), "reposets.credentials.toml\n");
+		await runOutcome(nuke(true));
+		assert.isTrue(existsSync(join(temp.dir(), ".gitignore")));
+	});
+
+	it("removes reposets' directories once empty, and keeps one with anything left in it", async () => {
+		seed();
+		put(cacheDb(), "");
+		put(join(configDir(), "notes.txt"), "mine\n");
+		const outcome = await runOutcome(nuke(true));
+		assert.strictEqual(outcome.exitCode, 0);
+		const out = on(outcome.lines, "stdout").join("\n");
+		assert.include(out, `removed empty directory ${stateDir()}`);
+		assert.isFalse(existsSync(stateDir()));
+		assert.isFalse(existsSync(cacheDir()));
+		// Not a target, and not reposets' to delete: the directory stays with it.
+		assert.isTrue(existsSync(join(configDir(), "notes.txt")));
+		assert.notInclude(out, `removed empty directory ${configDir()}`);
+		// The XDG homes themselves are not reposets' and are never removed.
+		assert.isTrue(existsSync(join(temp.home(), ".local", "state")));
+	});
+
+	it("a refused run leaves empty directories alone", async () => {
+		seed();
+		mkdirSync(cacheDir(), { recursive: true });
+		const outcome = await runOutcome(nuke(false));
+		assert.strictEqual(outcome.exitCode, 64);
+		assert.isTrue(existsSync(cacheDir()));
 	});
 });
 
@@ -110,6 +209,20 @@ describe("nuke, interactive", () => {
 			assert.include(frame, "project config: ./reposets.config.toml");
 			assert.include(frame, "user config: ~/.config/reposets-ui-test/reposets.config.toml");
 			assert.include(frame, "state database: ~/.local/state/reposets-ui-test/store.db");
+			yield* picker.press("escape");
+			yield* run.done;
+		}).pipe(Effect.scoped),
+	);
+
+	it.effect("the cache has its own section, apart from State", () =>
+		Effect.gen(function* () {
+			seed();
+			put(cacheDb(), "");
+			const run = yield* interactive(nuke(false), { columns: 80 });
+			const picker = yield* run.next("Delete which files?");
+			const frame = yield* picker.plainFrame;
+			assert.include(frame, "Cache");
+			assert.include(frame, "cache database: ~/.cache/reposets-ui-test/cache.db");
 			yield* picker.press("escape");
 			yield* run.done;
 		}).pipe(Effect.scoped),

@@ -17,6 +17,7 @@ import {
 import { CredentialResolver, CredentialResolverLive } from "../../services/CredentialResolver.js";
 import { Invocation } from "../../services/Invocation.js";
 import { OP_SERVICE_ACCOUNT_TOKEN, OnePasswordClientLive } from "../../services/OnePasswordClient.js";
+import { STATE_DB_FILENAME } from "../../store/files.js";
 import { ConfigFlag } from "../flags.js";
 
 const KNOWN_CONFIG_KEYS = new Set([
@@ -367,7 +368,7 @@ export const doctorHandler = (configFlag: string | undefined) =>
 				["Version: ", invocation.version],
 				["Config: ", Doc.file(configPath)],
 				["Credentials file: ", ...(Array.isArray(credentialsLine) ? credentialsLine : [credentialsLine])],
-				["State database: ", Doc.file(path.join(appDirs.dirs.state, "store.db"))],
+				["State database: ", Doc.file(path.join(appDirs.dirs.state, STATE_DB_FILENAME))],
 			]),
 		]);
 
