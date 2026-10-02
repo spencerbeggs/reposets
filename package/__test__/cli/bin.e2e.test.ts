@@ -128,8 +128,9 @@ describe.skipIf(!BUILT)(`reposets bin (${BUILT ? "built" : `SKIPPED: ${BIN} not 
 					);
 					assert.strictEqual(result.exitCode, 1);
 					assert.strictEqual(result.stdout, "");
-					assert.include(result.stderr, "unknown key at groups.g.cleanp");
-					assert.include(result.stderr, "Run 'reposets doctor' for suggested spellings.");
+					// The kit draws the issue as a tree of rejected keys; the hint is reposets' own.
+					assert.include(result.stderr, "cleanp: unknown key");
+					assert.strictEqual(result.stderr.split("Run 'reposets doctor' for suggested spellings.").length, 2);
 				}).pipe(Effect.scoped),
 			30_000,
 		);

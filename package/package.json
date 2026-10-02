@@ -62,7 +62,9 @@
 		"@effected/walker": "catalog:effected",
 		"@effected/xdg": "catalog:effected",
 		"blakejs": "^1.2.1",
-		"effect": "catalog:effect"
+		"effect": "catalog:effect",
+		"ink": "catalog:silk",
+		"react": "catalog:silk"
 	},
 	"devDependencies": {
 		"@effect/vitest": "catalog:effect",
@@ -70,6 +72,7 @@
 		"@effected/schemastore-cli": "catalog:effected",
 		"@savvy-web/bundler": "^2.4.20",
 		"@types/node": "catalog:build",
+		"@types/react": "catalog:silk",
 		"typescript": "catalog:build"
 	},
 	"engines": {

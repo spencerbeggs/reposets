@@ -1,5 +1,6 @@
-import { CliExit, CliLogger } from "@effected/cli";
-import { Cause, Console, Effect, Exit, MutableRef } from "effect";
+import type { CliEnvTestOptions } from "@effected/cli";
+import { CliEnv, CliExit, CliLinks, CliLogger } from "@effected/cli";
+import { Cause, Console, Effect, Exit, Layer, MutableRef } from "effect";
 import { CliError } from "effect/cli";
 
 /** One line a program wrote, and the stream it landed on. */
@@ -38,6 +39,15 @@ export const capturingConsole = (): { readonly console: Console.Console; readonl
 	return { console: console_, lines };
 };
 
+/** What `Doc.print`, `CliMessage` and the prompts read from the environment. */
+export type PresentationServices = Layer.Success<ReturnType<typeof presentation>>;
+
+/**
+ * The environment a test fixes: `CliEnv.layerTest`'s answers, plus links off
+ * so a `Doc.file` renders as its path alone.
+ */
+export const presentation = (env: CliEnvTestOptions) => Layer.merge(CliEnv.layerTest(env), CliLinks.layerTest("off"));
+
 /**
  * Run a handler the way `CliRuntime.main` would, capturing both streams.
  *
@@ -49,8 +59,15 @@ export const capturingConsole = (): { readonly console: Console.Console; readonl
  *   `CliRuntime.main`'s `usageExitCode`.
  * - Any other failure is rethrown, so a handler that dies unexpectedly still
  *   fails the test loudly rather than reading as an exit code.
+ * - The presentation environment is fixed with `CliEnv.layerTest`: an agent
+ *   audience by default, so `Doc.print` and `CliMessage` render plain,
+ *   escape-free text and `CliInteractive` is `false` — nothing prompts unless
+ *   a test asks for a human on a terminal through `env`.
  */
-export const runOutcome = async (handler: Effect.Effect<void, unknown, CliExit>): Promise<Outcome> => {
+export const runOutcome = async (
+	handler: Effect.Effect<void, unknown, CliExit | PresentationServices>,
+	env: CliEnvTestOptions = { audience: "agent" },
+): Promise<Outcome> => {
 	const { console: double, lines } = capturingConsole();
 	const program = Effect.gen(function* () {
 		const cell = yield* CliExit;
@@ -66,6 +83,7 @@ export const runOutcome = async (handler: Effect.Effect<void, unknown, CliExit>)
 	const exitCode = await Effect.runPromise(
 		program.pipe(
 			Effect.provide(CliExit.layer),
+			Effect.provide(presentation(env)),
 			Effect.provide(CliLogger.layer()),
 			Effect.provideService(Console.Console, double),
 		),
@@ -74,8 +92,10 @@ export const runOutcome = async (handler: Effect.Effect<void, unknown, CliExit>)
 };
 
 /** {@link runOutcome}, keeping only the lines. */
-export const run = async (handler: Effect.Effect<void, unknown, CliExit>): Promise<ReadonlyArray<Line>> =>
-	(await runOutcome(handler)).lines;
+export const run = async (
+	handler: Effect.Effect<void, unknown, CliExit | PresentationServices>,
+	env?: CliEnvTestOptions,
+): Promise<ReadonlyArray<Line>> => (await runOutcome(handler, env)).lines;
 
 /** Every line's text, joined — for `toContain` assertions that span both streams. */
 export const text = (lines: ReadonlyArray<Line>): string => lines.map((line) => line.text).join("\n");
