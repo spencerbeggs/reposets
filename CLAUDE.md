@@ -64,7 +64,7 @@ There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. E
 
 ## TypeScript
 
-TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround: `effect@4.0.0-rc.118`'s declarations still reference DOM-only types (`TextDecoderOptions` in `Channel.d.ts`, `Transferable` in `rpc/RpcClient.d.ts`) that a Node-only `lib` lacks — remove it once a prerelease ships without them.
+TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround: `effect@4.0.0`'s declarations still reference DOM-only types (`TextDecoderOptions` in `Channel.d.ts`, `Transferable` in `rpc/RpcClient.d.ts`) that a Node-only `lib` lacks — remove it once an `effect` release ships without them.
 
 ## reposets CLI
 

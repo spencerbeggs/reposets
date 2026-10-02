@@ -206,9 +206,15 @@ catalogs:
     '@effected/config-file':
       specifier: ^0.14.0
       version: 0.14.0
+    '@effected/env':
+      specifier: ^0.1.0
+      version: 0.1.0
     '@effected/github':
       specifier: ^0.15.0
       version: 0.15.0
+    '@effected/glob':
+      specifier: ^0.10.0
+      version: 0.10.0
     '@effected/schemastore':
       specifier: ^0.18.0
       version: 0.18.0
@@ -221,6 +227,9 @@ catalogs:
     '@effected/toml':
       specifier: ^0.11.0
       version: 0.11.0
+    '@effected/walker':
+      specifier: ^0.15.0
+      version: 0.15.0
     '@effected/xdg':
       specifier: ^0.9.0
       version: 0.9.0
@@ -267,15 +276,24 @@ importers:
       '@effected/config-file':
         specifier: catalog:effected
         version: 0.14.0(@effected/glob@0.10.0(effect@4.0.0))(@effected/jsonc@0.15.0(effect@4.0.0))(@effected/toml@0.11.0(effect@4.0.0))(@effected/walker@0.15.0(@effected/glob@0.10.0(effect@4.0.0))(effect@4.0.0))(@effected/yaml@0.19.0(effect@4.0.0))(effect@4.0.0)
+      '@effected/env':
+        specifier: catalog:effected
+        version: 0.1.0(effect@4.0.0)
       '@effected/github':
         specifier: catalog:effected
         version: 0.15.0(effect@4.0.0)
+      '@effected/glob':
+        specifier: catalog:effected
+        version: 0.10.0(effect@4.0.0)
       '@effected/store':
         specifier: catalog:effected
         version: 0.12.0(effect@4.0.0)
       '@effected/toml':
         specifier: catalog:effected
         version: 0.11.0(effect@4.0.0)
+      '@effected/walker':
+        specifier: catalog:effected
+        version: 0.15.0(@effected/glob@0.10.0(effect@4.0.0))(effect@4.0.0)
       '@effected/xdg':
         specifier: catalog:effected
         version: 0.9.0(@effected/config-file@0.14.0(@effected/glob@0.10.0(effect@4.0.0))(@effected/jsonc@0.15.0(effect@4.0.0))(@effected/toml@0.11.0(effect@4.0.0))(@effected/walker@0.15.0(@effected/glob@0.10.0(effect@4.0.0))(effect@4.0.0))(@effected/yaml@0.19.0(effect@4.0.0))(effect@4.0.0))(@effected/glob@0.10.0(effect@4.0.0))(@effected/jsonc@0.15.0(effect@4.0.0))(@effected/toml@0.11.0(effect@4.0.0))(@effected/walker@0.15.0(@effected/glob@0.10.0(effect@4.0.0))(effect@4.0.0))(@effected/yaml@0.19.0(effect@4.0.0))(effect@4.0.0)

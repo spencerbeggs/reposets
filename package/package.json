@@ -54,9 +54,12 @@
 		"@effected/app": "catalog:effected",
 		"@effected/cli": "catalog:effected",
 		"@effected/config-file": "catalog:effected",
+		"@effected/env": "catalog:effected",
 		"@effected/github": "catalog:effected",
+		"@effected/glob": "catalog:effected",
 		"@effected/store": "catalog:effected",
 		"@effected/toml": "catalog:effected",
+		"@effected/walker": "catalog:effected",
 		"@effected/xdg": "catalog:effected",
 		"blakejs": "^1.2.1",
 		"effect": "catalog:effect"

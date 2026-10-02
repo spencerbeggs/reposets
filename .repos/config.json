@@ -2,8 +2,8 @@
 	"repos": {
 		"effect": {
 			"url": "https://github.com/Effect-TS/effect",
-			"ref": "effect@4.0.0-rc.118",
-			"purpose": "Effect v4 core pinned to the exact prerelease this repo runs (4.0.0-rc.115); the authority for v4 APIs including effect/unstable/cli, which replaces the dead @effect/cli line",
+			"ref": "effect@4.0.0",
+			"purpose": "Effect v4 core pinned to the stable release this repo runs (effect@4.0.0, the lockfile's resolution); the authority for v4 APIs including effect/cli. Re-pin whenever the lockfile's effect moves to a new 4.x.",
 			"sparse": [
 				"packages/effect/src",
 				"packages/vitest/src"
@@ -11,8 +11,8 @@
 		},
 		"effected": {
 			"url": "https://github.com/spencerbeggs/effected",
-			"ref": "main",
-			"purpose": "The @effected kit source — authority for the packages reposets adopts in the v4 migration (app, config-file, toml, xdg, github, schemastore) plus their transitive deps. Pinned to main pending exact installed versions; re-pin once the migration fixes them.",
+			"ref": "@effected/pnpm-plugin-effect@0.13.0",
+			"purpose": "The @effected kit source at the kit release this repo installs (@effected/pnpm-plugin-effect@0.13.0) — authority for app, store, config-file, toml, xdg, github, schemastore, cli, env and their transitive deps. Re-pin with the catalog plugin.",
 			"sparse": [
 				"packages/app",
 				"packages/store",
@@ -22,7 +22,9 @@
 				"packages/github",
 				"packages/schemastore",
 				"packages/walker",
-				"packages/glob"
+				"packages/glob",
+				"packages/cli",
+				"packages/env"
 			]
 		}
 	}
