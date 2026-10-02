@@ -12,6 +12,10 @@
 * Updated reposets
 * Updated workspace
 * Updated Local state
+* Updated "unchanged" means the file already matches, not that the schema did not change
+* Updated Published JSON schemas for reposets.config.toml and reposets.credentials.toml
+* Updated Running the test suite rewrites the published JSON schemas
+* Added Versioned JSON schemas at the repository root
 
 ## 2026-09-29
 
