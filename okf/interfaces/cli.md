@@ -7,8 +7,8 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T17:48:12Z
-  body_sha256: f4e35312c197c6d7f2e0bcc80f15718485e3e5cde6f67271ea610558fe774a56
+  at: 2026-10-02T19:04:30Z
+  body_sha256: d221daa3d186b8a5fcc530dde86e9657aff7178a06e85010c9e6cc0f43d10a39
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -528,7 +528,7 @@ through `CliExit` rather than by failing. No file under `package/src` sets
 `process.exitCode`. `package/__test__/cli/bin.e2e.test.ts` runs the built
 dev bin and pins these codes and which stream each message lands
 on.[^bin-e2e] The reasoning is in
-[`cli-runtime-via-effected-cli`](../decisions/cli-runtime-via-effected-cli.md).
+[`cli-runtime-main-builds-the-environment`](../decisions/cli-runtime-main-builds-the-environment.md).
 
 [^cli-index]: `package/src/cli/index.ts`
 [^cli-flags]: `package/src/cli/flags.ts`

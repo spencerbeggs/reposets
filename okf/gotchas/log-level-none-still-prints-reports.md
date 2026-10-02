@@ -8,8 +8,8 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, ci, observability, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:49:51Z
-  body_sha256: 319d995901705ef6f3002468396969f7dcca1a9e3f6be92117b8f0f80eba13b9
+  at: 2026-10-02T19:04:30Z
+  body_sha256: 0a06012b662938f0bb801024ce02936aaf118e87523054fb0c3f9f0df1a03e39
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -37,7 +37,7 @@ parsed, or that reposets ignores core's global flags.
 Core applies it by providing `MinimumLogLevel` around the command
 handler, which filters `Effect.log*` calls and nothing
 else.[^core-command] Under
-[cli-runtime-via-effected-cli](../decisions/cli-runtime-via-effected-cli.md),
+[cli-runtime-main-builds-the-environment](../decisions/cli-runtime-main-builds-the-environment.md),
 a command's output is written to stdout without the logger, which
 `--log-level` does not reach. That output includes the whole `SyncLogger`
 report, the `list`, `validate`, `doctor` and `history` documents, and the

@@ -2,7 +2,7 @@
 type: Decision
 title: The CLI runs under @effected/cli's CliRuntime.main
 description: The entrypoint assembles through CliRuntime.main, program output goes to stdout with Console.log and every Effect.log level to stderr, usage mistakes exit 64 and findings exit 1 through CliExit.
-status: stable
+status: deprecated
 supersedes: failures-are-caught-inside-the-effect.md
 tags: [effect, dx, architecture]
 generated:

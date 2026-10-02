@@ -5,8 +5,8 @@ description: How Effect v4 idioms are used consistently across this codebase —
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:49:51Z
-  body_sha256: a6b393a0ba7ddac12ae6fee00d9be4587d53a5d0fdc8364d4d67c5ab5a13ae53
+  at: 2026-10-02T19:04:30Z
+  body_sha256: fa0f96d4e1de4a84e57ad524d7fb82d739f4723be1b945ec58bead84917f6b14
 tags: [effect, architecture]
 ---
 
@@ -63,7 +63,7 @@ End a command by what went wrong, not by setting a code. Fail with
 `CliExit.set(1)` and return when the command ran and found a problem
 (exit 1). Let a config read or decode failure propagate so `main` renders
 it. Never write `process.exitCode`. See
-[`decisions/cli-runtime-via-effected-cli.md`](../decisions/cli-runtime-via-effected-cli.md).
+[`decisions/cli-runtime-main-builds-the-environment.md`](../decisions/cli-runtime-main-builds-the-environment.md).
 
 Read `process` only in `package/src/cli/index.ts`, and there only for the
 working directory and the build-time version. Everything below the
