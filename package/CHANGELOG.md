@@ -1,5 +1,55 @@
 # reposets
 
+## 3.1.0
+
+### Features
+
+#### `REPOSETS_SPANS` environment variable
+
+- Controls the span trail printed on failure reports. Values (case-insensitive):
+
+- `app` (default) — show only reposets' own spans; the CLI kit's internal spans are now hidden
+
+- `all` — show every span, including the kit's internals
+
+- `off` — omit the span trail
+
+```bash
+REPOSETS_SPANS=all reposets sync
+```
+
+### Bug Fixes
+
+#### Credential safety
+
+- `reposets credentials create` masks the reference prompt while a token-looking value is typed or pasted. Real `op://` references and environment variable names stay readable, and once masked the field stays masked until it is cleared.
+- Token detection is stricter: a token embedded inside a value (for example `op://Vault/ghp_…/field`) and a bare 40-character hex legacy GitHub classic token are now refused on both flags and prompts instead of being stored and echoed. Ordinary names such as `devops_team` are still accepted.
+
+#### Output
+
+- `sync` failure lines, including the indented per-repo error lines, now carry a coloured ✗ for people (plain text for agents).
+- Human output piped to a file or another program is no longer wrapped at 80 columns.
+- Sync progress counters pluralise correctly (`1/1 repo`, `1/3 repos`). [#197][#197]
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/app | dependency | updated | ^0.20.0 | ^0.21.1 |
+| @effected/cli | dependency | updated | ^0.11.0 | ^0.12.0 |
+| @effected/config-file | dependency | updated | ^0.14.0 | ^0.14.2 |
+| @effected/github | dependency | updated | ^0.15.0 | ^0.15.1 |
+| @effected/schemastore | dependency | updated | ^0.20.0 | ^0.21.0 |
+| @effected/store | dependency | updated | ^0.12.0 | ^0.13.0 |
+
+[#197][#197]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/spencerbeggs) for their contributions!
+
+[#197]: https://github.com/spencerbeggs/reposets/pull/197
+
 ## 3.0.0
 
 ### Breaking Changes
