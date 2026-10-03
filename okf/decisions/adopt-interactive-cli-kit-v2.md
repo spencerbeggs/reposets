@@ -2,7 +2,7 @@
 type: Decision
 title: Adopt @effected/cli's interactive kit
 description: Output is presented for its audience, a missing input is asked for only when a person can answer it, sync and drift draw a hosted live view whose JSX loads lazily, and findings are failure lines no log level silences.
-status: draft
+status: stable
 supersedes: adopt-interactive-cli-kit.md
 tags: [dx, effect, ci, observability]
 generated:
@@ -28,6 +28,9 @@ sources:
     resource: ../../package/src/cli/views/sync-progress-model.ts
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
+verified:
+  - by: human:spencer
+    at: 2026-10-03T18:13:55Z
 ---
 
 # Adopt @effected/cli's interactive kit

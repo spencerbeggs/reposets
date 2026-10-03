@@ -2,7 +2,7 @@
 type: Decision
 title: CliRuntime.main builds the audience environment over App.layerDirs
 description: The entrypoint runs CliAudience.run under CliRuntime.main with an env block, provides only App.layerDirs and the Invocation at the platform and attaches the databases per command; streams split by purpose, usage exits 64, findings exit 1 through CliExit, a cancelled prompt exits 130, and doctor always exits 0.
-status: draft
+status: stable
 supersedes: cli-runtime-main-builds-the-environment.md
 tags: [effect, dx, architecture]
 generated:
@@ -32,6 +32,9 @@ sources:
     resource: ../../.repos/effect/packages/effect/src/cli/Command.ts
   - id: bin-e2e
     resource: ../../package/__test__/cli/bin.e2e.test.ts
+verified:
+  - by: human:spencer
+    at: 2026-10-03T18:13:54Z
 ---
 
 # CliRuntime.main builds the audience environment over App.layerDirs
