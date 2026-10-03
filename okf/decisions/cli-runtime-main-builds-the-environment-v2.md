@@ -1,21 +1,21 @@
 ---
 type: Decision
-title: CliRuntime.main builds the audience environment over a directories-only platform
-description: The entrypoint runs CliAudience.run under CliRuntime.main with an env block, provides only the XDG directories at the platform and attaches the databases per command; streams split by purpose, usage exits 64, findings exit 1 through CliExit, a cancelled prompt exits 130, and doctor always exits 0.
-status: deprecated
-supersedes: cli-runtime-via-effected-cli.md
+title: CliRuntime.main builds the audience environment over App.layerDirs
+description: The entrypoint runs CliAudience.run under CliRuntime.main with an env block, provides only App.layerDirs and the Invocation at the platform and attaches the databases per command; streams split by purpose, usage exits 64, findings exit 1 through CliExit, a cancelled prompt exits 130, and doctor always exits 0.
+status: draft
+supersedes: cli-runtime-main-builds-the-environment.md
 tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T19:04:30Z
-  body_sha256: f114f72b341f2bcb5ab89ef94d678570d976627fc979e8c12954f146bc249113
+  at: 2026-10-03T18:11:28Z
+  body_sha256: 125d6078b213a379614f2f163dd6616126595508514fb6e8dadacfe893147d4b
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
   - id: effected-cli
-    resource: npm:@effected/cli@0.11.0
+    resource: npm:@effected/cli@0.12.0
   - id: effected-app
-    resource: npm:@effected/app@0.20.0
+    resource: npm:@effected/app@0.21.1
   - id: cli-sync
     resource: ../../package/src/cli/commands/sync.ts
   - id: cli-credentials
@@ -32,12 +32,9 @@ sources:
     resource: ../../.repos/effect/packages/effect/src/cli/Command.ts
   - id: bin-e2e
     resource: ../../package/__test__/cli/bin.e2e.test.ts
-verified:
-  - by: human:spencer
-    at: 2026-10-02T19:04:46Z
 ---
 
-# CliRuntime.main builds the audience environment over a directories-only platform
+# CliRuntime.main builds the audience environment over App.layerDirs
 
 ## Decision
 
@@ -53,6 +50,7 @@ NodeRuntime.runMain(
     env: {
       audienceEnvVar: "REPOSETS_AUDIENCE",
       log: { envVar: "REPOSETS_LOG_LEVEL" },
+      spansEnvVar: "REPOSETS_SPANS",
       stderrIsTerminal: Effect.sync(() => process.stderr.isTTY === true),
     },
     render,
@@ -67,16 +65,21 @@ which adds `--audience`, `--human`, `--agent` and `--ci`, and
 `main` builds the audience, terminal, theme, links and the `CliInteractive`
 decision once, installs `CliLog` as the logger set (diagnostics opt in
 through `REPOSETS_LOG_LEVEL`) and installs the colour-aware help formatter.
-The logger is outermost, the platform is provided inside failure reporting
-so a layer-build failure renders as one line, and `CliExit` is provided
-fresh.[^effected-cli]
+`REPOSETS_SPANS` (`app`, the default, `all` or `off`) decides which spans
+the failure report's `in: …` trail names: `app` leaves out the kit's and
+Effect's own. The logger is outermost, the platform is provided inside
+failure reporting so a layer-build failure renders as one line, and
+`CliExit` is provided fresh.[^cli-index][^effected-cli]
 
-`PlatformLive` is only the XDG directories (`AppDirs` over `Xdg`) and the
-`Invocation` layer over `NodeServices.layer`. The databases are not on the
-platform: `StoreLive` and `AppCache.layer` are bound once at module scope
-and attached with `Command.provide` to `sync` and `drift`, and the journal
-over `StoreLive` to `history`. Every other command runs without opening a
-database file.[^cli-index][^effected-app]
+`PlatformLive` is only the XDG directories and the `Invocation` layer over
+`NodeServices.layer`. The directories are
+`App.layerDirs({ namespace: "reposets" })`, the directories half of
+`App.layer` (`AppDirs` over `Xdg`) without the two databases `App.layer`
+always opens. The databases are not on the platform: `StoreLive` and
+`AppCache.layer` are bound once at module scope and attached with
+`Command.provide` to `sync` and `drift`, and the journal over `StoreLive`
+to `history`. Every other command runs without opening a database
+file.[^cli-index][^effected-app]
 
 `render` hands a defect, and any failure it does not recognise, to the kit's
 default report. For a `ConfigValidationError` it keeps the default report,
@@ -93,8 +96,10 @@ Six rules follow from it:
    outcome is a `CliMessage`, success and info on stdout and warning and
    failure on stderr, and no log level silences it. Every `Effect.log*`
    level is a diagnostic on stderr.[^effected-cli] `SyncLogger`'s report
-   lines are stdout output; its per-resource failures are
-   `Effect.logError`.[^sync-logger]
+   lines are stdout output; its per-resource failures and its closing
+   `Sync complete with N errors:` header are `CliLog.status` lines, log
+   records at `Error` on stderr with the status glyph painted for a person
+   and bare for an agent.[^sync-logger]
 2. **A usage mistake exits 64.** A handler refuses a bad invocation by
    failing with `CliError.UserError`, and `main` maps it, like a parse
    error, to its default `usageExitCode` of 64. With
@@ -117,33 +122,35 @@ Six rules follow from it:
    through `render` with its fallback code, 1. No file under
    `package/src` sets `process.exitCode`.[^cli-index]
 
-`--log-level` is core's own filter and reaches the handler's `Effect.log*`
-calls only.[^core-command] It does not reach `Console.log` or `Doc.print`
-output, `CliMessage` lines, the usage-error text, or the escaped-failure
-report.
+`--log-level` is core's own filter and reaches the handler's log records
+only, `CliLog.status` lines included.[^core-command] It does not reach
+`Console.log` or `Doc.print` output, `CliMessage` lines, the usage-error
+text, or the escaped-failure report.
 
 ## Context
 
 This supersedes
-[cli-runtime-via-effected-cli](cli-runtime-via-effected-cli.md), whose
-five exit and stream rules carry over unchanged here; what changed is the
-assembly. Adopting the interactive kit moved the logger, formatter and
-environment into `main`'s `env`
-([adopt-interactive-cli-kit](adopt-interactive-cli-kit.md)), and the
-platform stopped carrying `App.layer`, because `App.layer` opens the state
-and cache databases for every command: `nuke` was deleting `store.db` while
-its own process held it open, which orphaned the file's `-wal` and `-shm`
-beside the next run's fresh database.[^effected-app][^cli-nuke] The e2e
-suite runs the built dev bin and pins each rule above by exit code and by
-which stream carries which text.[^bin-e2e]
+[cli-runtime-main-builds-the-environment](cli-runtime-main-builds-the-environment.md),
+whose platform and six rules carry over unchanged; the kit now ships the
+directories-only layer that decision composed by hand, and `main` gained
+the span-trail setting. That decision in turn superseded
+[cli-runtime-via-effected-cli](cli-runtime-via-effected-cli.md). Adopting
+the interactive kit moved the logger, formatter and environment into
+`main`'s `env` ([adopt-interactive-cli-kit-v2](adopt-interactive-cli-kit-v2.md)),
+and the platform stopped carrying `App.layer`, because `App.layer` opens
+the state and cache databases for every command: `nuke` was deleting
+`store.db` while its own process held it open, which orphaned the file's
+`-wal` and `-shm` beside the next run's fresh database.[^cli-index][^cli-nuke]
+The e2e suite runs the built dev bin and pins each rule above by exit code
+and by which stream carries which text.[^bin-e2e]
 
 ## Alternatives rejected
 
 - **`App.layer` on the platform.** It is the kit's one-call control plane,
   but it opens and migrates both SQLite files for every command, including
   ones that never touch state. That made `nuke` delete an open database and
-  every read-only command create one. The kit has no directories-only
-  layer yet, so the entrypoint composes `AppDirs` over `Xdg` itself.
+  every read-only command create one. `App.layerDirs` is the same
+  directories without them.[^effected-app]
 - **Keeping `CliColor.formatterLayer()` and `CliLogger.layer()` on the
   platform.** Under `env`, `main` installs its own formatter closer to the
   program and `CliLog` owns the logger set, so both would be shadowed or
@@ -153,13 +160,13 @@ which stream carries which text.[^bin-e2e]
   not a fallback prompt or the failure report, which core resolves before
   the handler runs. `CliAudience.run` resolves the audience before parsing.
 - **`doctor` exiting 1 on a failed check, and `usageExitCode: 1`.** Both
-  rejected for the reasons the superseded decision records: `doctor` is a
+  rejected for the reasons the superseded decisions record: `doctor` is a
   report and `validate` the gate, and a CI job must be able to tell a
   broken invocation from a real finding.
 
 [^cli-index]: `package/src/cli/index.ts`
-[^effected-cli]: npm:@effected/cli@0.11.0
-[^effected-app]: npm:@effected/app@0.20.0
+[^effected-cli]: npm:@effected/cli@0.12.0
+[^effected-app]: npm:@effected/app@0.21.1
 [^cli-sync]: `package/src/cli/commands/sync.ts`
 [^cli-credentials]: `package/src/cli/commands/credentials.ts`
 [^cli-nuke]: `package/src/cli/commands/nuke.ts`

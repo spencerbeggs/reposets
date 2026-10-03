@@ -5,8 +5,8 @@ description: How Effect v4 idioms are used consistently across this codebase —
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:04:28Z
-  body_sha256: f4e492908ea9c872d1fee3c1a47014d44142af9929435a52432250f4db8a2293
+  at: 2026-10-03T18:11:28Z
+  body_sha256: f8b76cbd1952700323ae471827b0652030aa0214d7e8777bb6d538b61b7ed78d
 tags: [effect, architecture]
 ---
 
@@ -48,7 +48,7 @@ it as a route to stdout. Never call `console.log` or `process.stdout.write`
 directly: `CliLogger`, `CliTest` and the live view's `logConsole` all read
 the `Console` off the fiber, and a direct write bypasses the routing a test
 captures and tears a live view's frame. See
-[`decisions/adopt-interactive-cli-kit.md`](../decisions/adopt-interactive-cli-kit.md).
+[`decisions/adopt-interactive-cli-kit-v2.md`](../decisions/adopt-interactive-cli-kit-v2.md).
 
 Ask a question only behind `CliInteractive`, and give every prompt a
 non-interactive answer: refuse with `CliError.UserError` naming the flag
@@ -65,7 +65,7 @@ End a command by what went wrong, not by setting a code. Fail with
 `CliExit.set(1)` and return when the command ran and found a problem
 (exit 1). Let a config read or decode failure propagate so `main` renders
 it. Never write `process.exitCode`. See
-[`decisions/cli-runtime-main-builds-the-environment.md`](../decisions/cli-runtime-main-builds-the-environment.md).
+[`decisions/cli-runtime-main-builds-the-environment-v2.md`](../decisions/cli-runtime-main-builds-the-environment-v2.md).
 
 Read `process` only in `package/src/cli/index.ts`, and there only for the
 working directory and the build-time version. Everything below the

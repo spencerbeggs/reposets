@@ -10,7 +10,7 @@ A first-turn shortlist:
 
 - `okf/modules/reposets.md` — the one workspace package: CLI, sync engine, phases, services
 - `okf/interfaces/cli.md` — the command tree, flags, prompts, output channels, and exit-code promises
-- `okf/decisions/adopt-interactive-cli-kit.md` — audience-aware output, prompts with non-interactive answers, the sync live view
+- `okf/decisions/adopt-interactive-cli-kit-v2.md` — audience-aware output, prompts with non-interactive answers, the sync live view
 - `okf/interfaces/config-file.md` — `reposets.config.toml`'s shape
 - `okf/interfaces/credentials-file.md` — `reposets.credentials.toml`'s shape
 - `okf/conventions/*` — imports, code style, Effect patterns, commits

@@ -1,5 +1,11 @@
 # Log
 
+## 2026-10-03
+
+* Updated A token pasted into a credentials name prompt is visible until Enter
+* Updated CliUiTest.session shows neither a cleared frame nor the lines above a live view
+* Updated workspace
+
 ## 2026-10-02
 
 * Updated --log-level none still prints the report

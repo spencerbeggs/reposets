@@ -7,8 +7,8 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:04:28Z
-  body_sha256: 3d7fb560199700dc52e3988de4482cdead03f1cbd35006e3591ec3c0467b3f57
+  at: 2026-10-03T18:11:28Z
+  body_sha256: 7eac5329923100a48b61163a6f7165a8750b4355ba2eae140d7e9c64d251ee82
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -63,7 +63,7 @@ on the root command via `Command.withSubcommands`. It runs the tree through
 `CliRuntime.main`, which owns failure reporting, the logger, the audience
 and the exit code.[^cli-index][^effected-cli] How output is drawn for each
 audience, and when a command may ask a question, is
-[adopt-interactive-cli-kit](../decisions/adopt-interactive-cli-kit.md). For the full flag and argument
+[adopt-interactive-cli-kit-v2](../decisions/adopt-interactive-cli-kit-v2.md). For the full flag and argument
 reference, see [`docs/02-commands.md`](../../docs/02-commands.md).[^commands-doc]
 
 ## Command tree
@@ -541,7 +541,7 @@ through `CliExit` rather than by failing. No file under `package/src` sets
 `process.exitCode`. `package/__test__/cli/bin.e2e.test.ts` runs the built
 dev bin and pins these codes and which stream each message lands
 on.[^bin-e2e] The reasoning is in
-[`cli-runtime-main-builds-the-environment`](../decisions/cli-runtime-main-builds-the-environment.md).
+[`cli-runtime-main-builds-the-environment-v2`](../decisions/cli-runtime-main-builds-the-environment-v2.md).
 
 [^cli-index]: `package/src/cli/index.ts`
 [^cli-flags]: `package/src/cli/flags.ts`

@@ -7,8 +7,8 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:04:28Z
-  body_sha256: 90fa0f7ff39c3112c8bd7c3d9a4efbe25c01a96eec3b269b0ea46f27bb98dd2b
+  at: 2026-10-03T18:11:28Z
+  body_sha256: b760ec2d98c8cc35a86bf4b0ccb9daebdc99083fe380ec8928e2ce589f426d57
 tags: [architecture, effect, github]
 ---
 
@@ -32,8 +32,8 @@ terminal, theme and `CliInteractive` environment, provides the platform
 layer inside failure reporting, and turns a usage error, a finding recorded
 with `CliExit`, a cancelled prompt, or an escaped failure into the exit
 code — see
-[cli-runtime-main-builds-the-environment](../decisions/cli-runtime-main-builds-the-environment.md)
-and [adopt-interactive-cli-kit](../decisions/adopt-interactive-cli-kit.md).
+[cli-runtime-main-builds-the-environment-v2](../decisions/cli-runtime-main-builds-the-environment-v2.md)
+and [adopt-interactive-cli-kit-v2](../decisions/adopt-interactive-cli-kit-v2.md).
 
 `reposets sync` (`package/src/cli/commands/sync.ts`) loads the config and
 credentials files, checks for dangling section references and unknown
