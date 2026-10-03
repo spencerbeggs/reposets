@@ -53,18 +53,48 @@ const orgFlag = Flag.String("org").pipe(
 const SECRET_PREFIXES = ["ghp_", "gho_", "ghu_", "ghs_", "ghr_", "github_pat_", "ops_", "sk-", "xoxb-"];
 
 /**
+ * A token embedded anywhere in a value — `op://v/ghp_…` — rather than leading it.
+ *
+ * @remarks
+ * A prefix only counts at a word boundary and followed by a token-like body:
+ * a run of at least 20 letters and digits for the GitHub and 1Password
+ * prefixes (a `ghp_` token's body is 36), digits for a Slack bot token. Both
+ * conditions keep names out: `devops_team` has no boundary before `ops_`, and
+ * `op://Vault/ops_deploy_credentials/field` has no unbroken 20-character run
+ * after it. `sk-` is deliberately absent — too common inside ordinary words to
+ * mean anything away from the start of a value.
+ */
+const EMBEDDED_SECRET = /(?:^|[^A-Za-z0-9])(?:(?:gh[pousr]_|github_pat_|ops_)[A-Za-z0-9]{20}|xoxb-[0-9]{6})/;
+
+/**
+ * A GitHub classic token from before prefixes: exactly 40 hex digits.
+ *
+ * @remarks
+ * It carries no prefix and is under the length rule, and one that begins with
+ * a letter is also a valid environment-variable name, so without this it is
+ * accepted by `--env` and printed back in the confirmation line.
+ */
+const LEGACY_GITHUB_TOKEN = /^[0-9a-f]{40}$/i;
+
+/**
  * Whether a value looks like a pasted token rather than a reference or a name.
  *
  * @remarks
- * A known token prefix, or anything longer than 60 characters. The length rule
- * catches the tokens that carry no recognisable prefix, but it never applies to
- * an `op://` value: that is a 1Password reference by construction, none of the
- * token prefixes begins that way, and a real reference crosses 60 characters
- * easily once a vault or item name has spaces in it
- * (`op://Engineering Shared Vault/GitHub Production Deploy Token/credential`).
+ * A known token prefix at the start, a token embedded anywhere
+ * ({@link EMBEDDED_SECRET}), a pre-prefix GitHub token
+ * ({@link LEGACY_GITHUB_TOKEN}), or anything longer than 60 characters. The
+ * length rule catches the tokens that carry no recognisable prefix, but it
+ * never applies to an `op://` value: that is a 1Password reference by
+ * construction, none of the token prefixes begins that way, and a real
+ * reference crosses 60 characters easily once a vault or item name has spaces
+ * in it (`op://Engineering Shared Vault/GitHub Production Deploy Token/credential`).
+ * A token pasted *into* a reference is still caught, by the embedded rule.
  */
 const looksLikeSecret = (value: string): boolean =>
-	SECRET_PREFIXES.some((prefix) => value.startsWith(prefix)) || (!value.startsWith("op://") && value.length > 60);
+	SECRET_PREFIXES.some((prefix) => value.startsWith(prefix)) ||
+	EMBEDDED_SECRET.test(value) ||
+	LEGACY_GITHUB_TOKEN.test(value) ||
+	(!value.startsWith("op://") && value.length > 60);
 
 /**
  * The explanation for a flag value {@link looksLikeSecret} catches — in any
@@ -227,8 +257,18 @@ const validName =
  * profile key, an owner or a reference, or reaches the confirmation line. The
  * text prompts' frames are cleared when they close, so a token typed and then
  * abandoned is not left in the terminal's scrollback; the accepted answers are
- * recorded in the confirmation line instead. While a value is being typed it
- * is visible — the kit's `TextInput` has no masked mode.
+ * recorded in the confirmation line instead. The reference prompt — the one
+ * field a token is most likely to be pasted into — is masked by the same rule
+ * `validate` refuses on (`mask: looksLikeSecret`), so what is hidden is exactly
+ * what is refused. The kit latches the mask once the rule answers true, until
+ * the field is emptied, so editing a pasted token's prefix away never unmasks
+ * the rest; a paste is masked from its first frame, and a token typed by hand
+ * shows at most its public prefix (`ghp`) before the mask trips. A real
+ * `op://` reference or variable name stays readable while it is typed.
+ * `validate` sees the real text and refuses a token with a message that never
+ * quotes it. The reference itself is echoed in the confirmation line, which is
+ * where a typo in it shows. The name prompts are not masked: a name is read back as
+ * it is typed.
  *
  * `op_service_account_token` is likewise not accepted: it comes from the
  * environment, so there is nothing to write here.
@@ -344,12 +384,13 @@ export const createHandler = (input: {
 								}),
 								MISSING_REFERENCE,
 							);
-							// Cleared on close: see the remarks on why.
+							// Masked while typed and cleared on close: see the remarks on why.
 							const reference = yield* ask(
 								TextInput.screen({
 									message: kind === "op" ? "1Password reference" : "Environment variable name",
 									placeholder: kind === "op" ? "op://Vault/item/field" : "REPOSETS_GITHUB_TOKEN",
 									validate: validateReference(kind),
+									mask: looksLikeSecret,
 								}),
 								MISSING_REFERENCE,
 								{ clear: true },

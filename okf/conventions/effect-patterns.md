@@ -5,8 +5,8 @@ description: How Effect v4 idioms are used consistently across this codebase —
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T19:04:30Z
-  body_sha256: fa0f96d4e1de4a84e57ad524d7fb82d739f4723be1b945ec58bead84917f6b14
+  at: 2026-10-03T18:11:28Z
+  body_sha256: f8b76cbd1952700323ae471827b0652030aa0214d7e8777bb6d538b61b7ed78d
 tags: [effect, architecture]
 ---
 
@@ -48,22 +48,24 @@ it as a route to stdout. Never call `console.log` or `process.stdout.write`
 directly: `CliLogger`, `CliTest` and the live view's `logConsole` all read
 the `Console` off the fiber, and a direct write bypasses the routing a test
 captures and tears a live view's frame. See
-[`decisions/adopt-interactive-cli-kit.md`](../decisions/adopt-interactive-cli-kit.md).
+[`decisions/adopt-interactive-cli-kit-v2.md`](../decisions/adopt-interactive-cli-kit-v2.md).
 
 Ask a question only behind `CliInteractive`, and give every prompt a
 non-interactive answer: refuse with `CliError.UserError` naming the flag
 that answers it, or take the default the command always took. Never probe
 stdin or `TERM` yourself. Leave the kit's `Cancelled` to propagate, so
 `CliRuntime.main` prints its one line and exits 130. Keep JSX in
-`package/src/cli/views/` and import a view dynamically on the path that
-draws it, so a run that draws nothing never loads React or Ink.
+`package/src/cli/views/` and load it through `CliUi.lazyView` from a
+JSX-free module, so a run that draws nothing never loads React or Ink;
+keep that JSX-free module apart from any module the JSX imports, or the
+lazy import is an import cycle.
 
 End a command by what went wrong, not by setting a code. Fail with
 `CliError.UserError` when the invocation was wrong (exit 64), and call
 `CliExit.set(1)` and return when the command ran and found a problem
 (exit 1). Let a config read or decode failure propagate so `main` renders
 it. Never write `process.exitCode`. See
-[`decisions/cli-runtime-main-builds-the-environment.md`](../decisions/cli-runtime-main-builds-the-environment.md).
+[`decisions/cli-runtime-main-builds-the-environment-v2.md`](../decisions/cli-runtime-main-builds-the-environment-v2.md).
 
 Read `process` only in `package/src/cli/index.ts`, and there only for the
 working directory and the build-time version. Everything below the
@@ -94,7 +96,7 @@ scattered across phases. `SyncEngine` and every phase describe *what*
 happened; `SyncLogger` decides how to say it, and that split is what let the
 four verbosity tiers collapse to one output plus a `debug` flag without
 touching a single phase. `SyncLogger` streams its report lines with
-`Console.log` on stdout and its failures with `Effect.logError` on stderr,
+`Console.log` on stdout and its failures with `CliLog.status` on stderr,
 and publishes a `SyncEvent` beside each line when a live view is drawn.
 
 Keep a resolved credential as `Redacted.Redacted<string>` end to end, and

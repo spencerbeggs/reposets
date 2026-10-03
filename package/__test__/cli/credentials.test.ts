@@ -5,6 +5,7 @@ import { CliUiTest } from "@effected/cli/ui/testing";
 import { Console, Effect, Exit, Option } from "effect";
 import { createHandler, deleteHandler, listHandler } from "../../src/cli/commands/credentials.js";
 import { on, runOutcome } from "../utils/capture.js";
+import type { InteractiveRun } from "./fixture.js";
 import { interactive, useTempDirs, withServices } from "./fixture.js";
 
 /**
@@ -17,6 +18,12 @@ import { interactive, useTempDirs, withServices } from "./fixture.js";
 const temp = useTempDirs();
 
 const SECRET = "ghp_ACTUAL_TOKEN_VALUE_9f3a2b";
+/** What follows `SECRET`'s public prefix: the part that must never be drawn. */
+const TAIL = SECRET.slice("ghp_".length);
+
+/** Every byte and every view the session offers, so a leak on any of them fails. */
+const views = (run: InteractiveRun) =>
+	Effect.all([run.session.written, run.session.stdoutWritten, run.session.stderrWritten, run.session.transcript]);
 
 const credentialsFile = (): string => join(temp.dir(), "reposets.credentials.toml");
 
@@ -106,6 +113,63 @@ describe("credentials create accepts a long 1Password reference", () => {
 			yield* ref.press("enter");
 			assert.deepStrictEqual(yield* run.done, Exit.succeed(0));
 			assert.include(yield* run.session.stdout, "Created profile 'p'");
+		}).pipe(Effect.scoped),
+	);
+});
+
+/** A real-shaped token: the `ghp_` prefix and a 36-character alphanumeric body. */
+const BARE_TOKEN = `ghp_${"A1b2C3d4E5".repeat(3)}f6G7h8`;
+/** A pre-prefix GitHub classic token that is also a valid environment-variable name. */
+const LEGACY_TOKEN = `a${"0123456789abcdef".repeat(2)}0123456`;
+
+describe("credentials create catches a token wherever it sits, without catching names", () => {
+	const refused = async (input: Partial<CreateInput>, value: string): Promise<void> => {
+		const outcome = await runOutcome(create({ profile: "p", username: "u", ...input }));
+		assert.strictEqual(outcome.exitCode, 64);
+		assert.notInclude(outcome.lines.map((line) => line.text).join("\n"), value);
+		assert.isFalse(existsSync(xdgCredentialsFile()));
+	};
+
+	const accepted = async (input: Partial<CreateInput>, value: string): Promise<void> => {
+		const outcome = await runOutcome(create({ profile: "p", username: "u", ...input }));
+		assert.strictEqual(outcome.exitCode, 0);
+		assert.include(readFileSync(xdgCredentialsFile(), "utf8"), value);
+	};
+
+	it("by flag: a token pasted inside a 1Password reference is refused", async () => {
+		assert.strictEqual(BARE_TOKEN.length, 40);
+		const reference = `op://Private/${BARE_TOKEN}/credential`;
+		await refused({ op: reference }, BARE_TOKEN);
+	});
+
+	it("by flag: a 40-hex classic token is refused as an environment variable name", async () => {
+		assert.strictEqual(LEGACY_TOKEN.length, 40);
+		await refused({ env: LEGACY_TOKEN }, LEGACY_TOKEN);
+	});
+
+	it("by flag: a prefix inside an ordinary name is not a token", async () => {
+		await accepted({ profile: "devops_team", env: "DEVOPS_TOKEN" }, "devops_team");
+		await accepted({ profile: "desk-tool", op: "op://Vault/ops_deploy_credentials/field" }, "ops_deploy_credentials");
+	});
+
+	it.effect("at the prompt: a token pasted after a typed op:// prefix is masked and refused", () =>
+		Effect.gen(function* () {
+			const run = yield* interactive(create({ profile: "p", username: "u" }), {
+				columns: 400,
+				renderPath: "production",
+			});
+			yield* (yield* run.next("Where is the GitHub token?")).press("enter");
+			const ref = yield* run.next("1Password reference");
+			yield* ref.type("op://v/");
+			yield* ref.chunk({ char: BARE_TOKEN });
+			yield* ref.press("enter");
+			assert.include(yield* run.session.transcript, "That looks like a token, not a reference — enter where it lives.");
+			for (const frame of [yield* run.session.written, yield* run.session.transcript]) {
+				assert.notInclude(frame, BARE_TOKEN);
+			}
+			yield* ref.press("escape");
+			assert.deepStrictEqual(CliUiTest.cancelReason(yield* run.done), Option.some("escape"));
+			assert.isFalse(existsSync(credentialsFile()));
 		}).pipe(Effect.scoped),
 	);
 });
@@ -217,36 +281,153 @@ describe("credentials create, interactive", () => {
 });
 
 /**
- * A `TextInput` shows what is typed, so a token pasted into the reference
- * prompt is on screen while it is there. What the command controls: it is
- * refused with the flag path's explanation and never written to either stream
- * or the file. (The prompt's frame is also cleared when it closes, which the
- * harness cannot show — see the note in the test.)
+ * The reference prompt is masked, so a token pasted into it is never drawn —
+ * not in any frame the terminal was sent, on either stream, not in what stays
+ * on it. `validate`
+ * still gets the real text, so the token is refused with the flag path's
+ * explanation and never written to either stream or the file.
+ *
+ * Every test here renders on the production path, as a real terminal does,
+ * so `written` is every byte the terminal received and `clear: true` is
+ * observable in `transcript`.
  */
 describe("credentials create never echoes a secret pasted into the prompt", () => {
+	const production = { columns: 400, renderPath: "production" } as const;
+
 	for (const kind of ["1Password reference", "Environment variable name"] as const) {
-		it.effect(`${kind}: refused in the screen, never printed, never stored`, () =>
+		it.effect(`${kind}: a pasted token is masked in every frame, refused, never printed, never stored`, () =>
 			Effect.gen(function* () {
-				const run = yield* interactive(create({ profile: "p", username: "u" }));
+				const run = yield* interactive(create({ profile: "p", username: "u" }), production);
 				const source = yield* run.next("Where is the GitHub token?");
 				yield* kind === "1Password reference" ? source.press("enter") : source.press("down", "enter");
 				const ref = yield* run.next(kind);
-				yield* ref.type(SECRET);
+				// A paste: the whole token in one write.
+				yield* ref.chunk({ char: SECRET });
 				yield* ref.press("enter");
-				const shown = yield* ref.plainFrame;
-				assert.include(shown, "That looks like a token, not a reference — enter where it lives.");
+				// `validate` saw the real text and refused it.
+				assert.include(
+					yield* run.session.transcript,
+					"That looks like a token, not a reference — enter where it lives.",
+				);
+				// …while the frames drew only the mask: never the token, nor a
+				// prefix of it long enough to identify it.
+				const written = yield* run.session.written;
+				assert.include(written, "•".repeat(SECRET.length));
+				for (const frame of [
+					written,
+					yield* run.session.stdoutWritten,
+					yield* run.session.stderrWritten,
+					yield* run.session.transcript,
+				]) {
+					assert.notInclude(frame, SECRET);
+					assert.notInclude(frame, "ghp_");
+				}
 				yield* ref.press("escape");
 				assert.deepStrictEqual(CliUiTest.cancelReason(yield* run.done), Option.some("escape"));
 
+				assert.notInclude(yield* run.session.written, "ghp_");
 				assert.notInclude(yield* run.session.stdout, SECRET);
 				assert.notInclude(yield* run.session.stderr, SECRET);
 				assert.isFalse(existsSync(credentialsFile()));
-				// The prompt is mounted with `clear: true`, so its frame is erased on
-				// close. `CliUiTest` renders in Ink's debug mode, where `clear` does
-				// nothing, so that half is not observable here.
 			}).pipe(Effect.scoped),
 		);
 	}
+
+	it.effect("a token typed by hand shows at most its public prefix before the mask trips", () =>
+		Effect.gen(function* () {
+			const run = yield* interactive(create({ profile: "p", username: "u" }), production);
+			yield* (yield* run.next("Where is the GitHub token?")).press("enter");
+			const ref = yield* run.next("1Password reference");
+			yield* ref.type(SECRET);
+			// `g`, `gh`, `ghp` are drawn before the rule recognises `ghp_`; from
+			// there on the whole value is masked, so nothing past the prefix is.
+			const written = yield* run.session.written;
+			assert.notInclude(written, "ghp_");
+			assert.notInclude(written, TAIL);
+			assert.include(written, "•".repeat(SECRET.length));
+			yield* ref.press("escape");
+			yield* run.done;
+		}).pipe(Effect.scoped),
+	);
+
+	for (const [kind, select, reference] of [
+		["1Password reference", ["enter"], "op://Private/github/token"],
+		["Environment variable name", ["down", "enter"], "ACME_TOKEN"],
+	] as const) {
+		it.effect(`${kind}: deleting a pasted token's prefix does not unmask the rest`, () =>
+			Effect.gen(function* () {
+				const run = yield* interactive(create({ profile: "p", username: "u" }), production);
+				yield* (yield* run.next("Where is the GitHub token?")).press(...select);
+				const ref = yield* run.next(kind);
+				yield* ref.chunk({ char: SECRET });
+				// "hp_ACTUAL…", then "ACTUAL…": no prefix left for the rule to see.
+				yield* ref.press("home", "delete");
+				yield* ref.press("delete", "delete", "delete");
+				for (const view of yield* views(run)) {
+					assert.notInclude(view, TAIL);
+					assert.notInclude(view, "hp_ACTUAL");
+				}
+				yield* ref.press("escape");
+				yield* run.done;
+			}).pipe(Effect.scoped),
+		);
+
+		it.effect(`${kind}: emptying the field releases the mask`, () =>
+			Effect.gen(function* () {
+				const run = yield* interactive(create({ profile: "p", username: "u" }), production);
+				yield* (yield* run.next("Where is the GitHub token?")).press(...select);
+				const ref = yield* run.next(kind);
+				yield* ref.chunk({ char: SECRET });
+				yield* ref.press(...Array.from({ length: SECRET.length }, () => "backspace" as const));
+				yield* ref.type(reference);
+				assert.include(yield* run.session.written, reference);
+				yield* ref.press("enter");
+				assert.deepStrictEqual(yield* run.done, Exit.succeed(0));
+				assert.notInclude(yield* run.session.written, TAIL);
+			}).pipe(Effect.scoped),
+		);
+
+		it.effect(`${kind}: a real reference stays readable while typed`, () =>
+			Effect.gen(function* () {
+				const run = yield* interactive(create({ profile: "p", username: "u" }), production);
+				yield* (yield* run.next("Where is the GitHub token?")).press(...select);
+				const ref = yield* run.next(kind);
+				yield* ref.type(reference);
+				assert.include(yield* run.session.written, reference);
+				assert.notInclude(yield* run.session.written, "•");
+				yield* ref.press("enter");
+				assert.deepStrictEqual(yield* run.done, Exit.succeed(0));
+			}).pipe(Effect.scoped),
+		);
+	}
+
+	it.effect("the frame detector can fail: an unmasked prompt's typed text does reach `written`", () =>
+		Effect.gen(function* () {
+			const run = yield* interactive(create({ username: "u", env: "ACME_TOKEN" }), production);
+			const name = yield* run.next("Profile name");
+			yield* name.type("visible_name");
+			assert.include(yield* run.session.written, "visible_name");
+			yield* name.press("escape");
+			yield* run.done;
+		}).pipe(Effect.scoped),
+	);
+
+	it.effect("a cleared prompt leaves nothing on the terminal, though it was drawn", () =>
+		Effect.gen(function* () {
+			const run = yield* interactive(create({ profile: "p", username: "u" }), production);
+			yield* (yield* run.next("Where is the GitHub token?")).press("down", "enter");
+			const ref = yield* run.next("Environment variable name");
+			yield* ref.type("ACME_TOKEN");
+			yield* ref.press("enter");
+			assert.deepStrictEqual(yield* run.done, Exit.succeed(0));
+			// Drawn: the terminal was sent the prompt.
+			assert.include(yield* run.session.written, "Environment variable name");
+			// Cleared: what stays on the terminal does not hold it.
+			assert.notInclude(yield* run.session.transcript, "Environment variable name");
+			// The accepted answer is recorded in the confirmation instead.
+			assert.include(yield* run.session.stdout, "github_token: env ACME_TOKEN");
+		}).pipe(Effect.scoped),
+	);
 
 	it.effect("the leak detector can fail: a program's write does reach the session's stdout", () =>
 		Effect.gen(function* () {

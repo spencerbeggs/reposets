@@ -10,7 +10,7 @@ A first-turn shortlist:
 
 - `okf/modules/reposets.md` — the one workspace package: CLI, sync engine, phases, services
 - `okf/interfaces/cli.md` — the command tree, flags, prompts, output channels, and exit-code promises
-- `okf/decisions/adopt-interactive-cli-kit.md` — audience-aware output, prompts with non-interactive answers, the sync live view
+- `okf/decisions/adopt-interactive-cli-kit-v2.md` — audience-aware output, prompts with non-interactive answers, the sync live view
 - `okf/interfaces/config-file.md` — `reposets.config.toml`'s shape
 - `okf/interfaces/credentials-file.md` — `reposets.credentials.toml`'s shape
 - `okf/conventions/*` — imports, code style, Effect patterns, commits
@@ -19,14 +19,13 @@ A first-turn shortlist:
 - `okf/gotchas/pnpm-exec-runs-the-dev-build.md` — why a source change looks invisible until rebuilt
 - `okf/gotchas/nul-bytes-hide-from-grep.md` — why a plain `grep` can silently miss a match in the store
 - `okf/gotchas/log-level-none-still-prints-reports.md` — why `--log-level none` does not silence a report
-- `okf/gotchas/ui-test-session-hides-clear-and-log-lines.md` — why a prompt or live-view test cannot see `clear` or the lines above the frame
 
 ## Commands
 
 ```bash
 pnpm run build         # turbo build:dev + build:prod (schema:build runs first)
-pnpm run typecheck     # turbo types:check across workspaces
-pnpm run types:check   # tsc --noEmit at the repo root
+pnpm run typecheck     # turbo types:check across workspaces — the one that checks package/src and package/__test__
+pnpm run types:check   # tsc --noEmit at the repo root: root-level files only (vitest config, lib/configs), none of package/
 pnpm exec reposets     # run the CLI from the dev build (node_modules/reposets -> package/dist/dev/pkg)
 pnpm run test          # vitest run; coverage is always on
 pnpm run test:watch

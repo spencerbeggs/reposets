@@ -101,8 +101,6 @@ export const isSyncRunStart = (event: SyncEvent): boolean => event._tag === "Run
  */
 export const isSyncRunEnd = (event: SyncEvent): boolean => event._tag === "RunEnded";
 
-const noun = (n: number, one: string, many: string): string => (n === 1 ? one : many);
-
 /**
  * The run's counts as one document block: `Dry run: 2/3 repos, 4 changes, 1
  * drifted, 0 errors`.
@@ -113,6 +111,10 @@ const noun = (n: number, one: string, many: string): string => (n === 1 ? one : 
  * byte for byte alike. Every counter shows at zero: `0 errors` is the line a
  * reader looks for, and a counter that vanishes at zero makes the line change
  * shape between runs.
+ *
+ * Plurals are the kit's `{ one, other }` labels. A counter shown as a share
+ * of the headline's total — `repos` — agrees with that total (`0/1 repo`,
+ * `1/3 repos`); every other counter agrees with its own count.
  *
  * @public
  */
@@ -126,20 +128,20 @@ export const syncSummaryBlock = (state: Omit<SyncProgressState, "current" | "fin
 		counters: [
 			Doc.counter(Status.core, "success", {
 				key: "repos",
-				label: noun(state.total, "repo", "repos"),
+				label: { one: "repo", other: "repos" },
 				n: state.repos,
 				showZero: true,
 			}),
 			Doc.counter(Status.core, "info", {
 				key: "changes",
-				label: noun(state.changes, "change", "changes"),
+				label: { one: "change", other: "changes" },
 				n: state.changes,
 				showZero: true,
 			}),
 			Doc.counter(Status.core, "warning", { key: "drifted", label: "drifted", n: state.drifted, showZero: true }),
 			Doc.counter(Status.core, "failure", {
 				key: "errors",
-				label: noun(state.errors, "error", "errors"),
+				label: { one: "error", other: "errors" },
 				n: state.errors,
 				showZero: true,
 			}),

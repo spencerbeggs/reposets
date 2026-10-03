@@ -35,6 +35,7 @@ import { allPhases } from "../../sync/phases/index.js";
 import { SyncEngine, SyncEngineLive } from "../../sync/SyncEngine.js";
 import type { SyncProgressState } from "../views/sync-progress-model.js";
 import { syncSummaryBlock } from "../views/sync-progress-model.js";
+import { syncProgressView } from "../views/sync-progress-view.js";
 
 const isPhaseName = (value: string): value is PhaseName => (PHASE_NAMES as ReadonlyArray<string>).includes(value);
 
@@ -180,7 +181,7 @@ export const runUnderSyncView = <A, E, R>(
  * nothing tears the frame. The view's committed final frame is the summary.
  *
  * Anyone else — a pipe, an agent, CI — gets no view and no React load: the
- * view module is imported dynamically on the drawing path only. The same
+ * view's `render` is a `CliUi.lazyView`, and this path never mounts it. The same
  * summary block is printed statically with `Doc.print` instead.
  *
  * **Findings are failures, not diagnostics.** "No config found", a dangling
@@ -424,15 +425,10 @@ export const syncHandler = (input: {
 			}).pipe(Effect.provide(sharedLayer));
 		};
 
-		// The view module is imported first, on this path alone: `render` is
-		// synchronous and cannot load it lazily, and a run that draws nothing
-		// must never load React.
-		const runWithView = Effect.promise(() => import("../views/sync-progress.js")).pipe(
-			Effect.flatMap(({ syncProgressView }) => runUnderSyncView(syncProgressView, runSync)),
-		);
-
+		// The view's JSX module loads only when the view first draws
+		// (`CliUi.lazyView`), and a run that draws nothing never mounts it.
 		const interactive = yield* CliInteractive;
-		const report = interactive ? yield* runWithView : yield* runSync(undefined);
+		const report = interactive ? yield* runUnderSyncView(syncProgressView, runSync) : yield* runSync(undefined);
 
 		// Without a view the summary has not been drawn yet: print the same block
 		// the view's final frame shows, statically.

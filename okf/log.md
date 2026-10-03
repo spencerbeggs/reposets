@@ -1,5 +1,11 @@
 # Log
 
+## 2026-10-03
+
+* Updated A token pasted into a credentials name prompt is visible until Enter
+* Updated CliUiTest.session shows neither a cleared frame nor the lines above a live view
+* Updated workspace
+
 ## 2026-10-02
 
 * Updated --log-level none still prints the report
@@ -16,6 +22,7 @@
 * Updated Published JSON schemas for reposets.config.toml and reposets.credentials.toml
 * Updated Running the test suite rewrites the published JSON schemas
 * Added Versioned JSON schemas at the repository root
+* Added CliRuntime.main builds the audience environment over a directories-only platform
 
 ## 2026-09-29
 

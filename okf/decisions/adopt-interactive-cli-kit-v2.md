@@ -1,18 +1,19 @@
 ---
 type: Decision
 title: Adopt @effected/cli's interactive kit
-description: Output is presented for its audience, a missing input is asked for only when a person can answer it, sync and drift draw a hosted live view, and findings are failure lines no log level silences.
-status: deprecated
+description: Output is presented for its audience, a missing input is asked for only when a person can answer it, sync and drift draw a hosted live view whose JSX loads lazily, and findings are failure lines no log level silences.
+status: stable
+supersedes: adopt-interactive-cli-kit.md
 tags: [dx, effect, ci, observability]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T15:49:51Z
-  body_sha256: e30e5a28280bc0f8dff6b82be0c3bdcc0f62fa326a8ce79708fe7d594cfe65b5
+  at: 2026-10-03T18:11:28Z
+  body_sha256: b3d5a48488d0b2cd0ec0b733f7e2a690e18041509aba333ec29398cf79d2b279
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
   - id: effected-cli
-    resource: npm:@effected/cli@0.11.0
+    resource: npm:@effected/cli@0.12.0
   - id: cli-sync
     resource: ../../package/src/cli/commands/sync.ts
   - id: cli-nuke
@@ -21,21 +22,23 @@ sources:
     resource: ../../package/src/cli/commands/credentials.ts
   - id: sync-progress
     resource: ../../package/src/cli/views/sync-progress.tsx
+  - id: sync-progress-view
+    resource: ../../package/src/cli/views/sync-progress-view.ts
   - id: sync-progress-model
     resource: ../../package/src/cli/views/sync-progress-model.ts
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
 verified:
   - by: human:spencer
-    at: 2026-10-02T17:14:23Z
+    at: 2026-10-03T18:13:55Z
 ---
 
 # Adopt @effected/cli's interactive kit
 
 ## Decision
 
-The CLI adopts the whole of `@effected/cli` 0.11.0's presentation layer,
-not only its runtime. Four parts follow from it.
+The CLI adopts the whole of `@effected/cli`'s presentation layer, not only
+its runtime. Four parts follow from it.
 
 1. **Output is presented for its audience.** The root command takes
    `CliAudience.flags()` (`--audience`, `--human`, `--agent`, `--ci`) as
@@ -46,6 +49,9 @@ not only its runtime. Four parts follow from it.
    `Doc.print`: plain for an agent, ANSI for a person, `::group::` blocks
    under GitHub Actions. One-line outcomes are `CliMessage` lines with a
    status glyph. An agent never receives an escape.[^effected-cli]
+   `SyncLogger` holds no audience rule of its own: its stdout glyphs are
+   painted through `CliTheme.forAudience`, and its failure glyphs by
+   `CliLog.status`, which applies the same rule.[^sync-logger]
 2. **A missing input is asked for only when a person can answer it.**
    `CliInteractive` is true only for a human audience with a terminal on
    both stdin and stdout and a `TERM` that is not `dumb`. When it is
@@ -61,41 +67,49 @@ not only its runtime. Four parts follow from it.
    `CliUi.live` in `hosted` mode folds them into a redrawing footer. The
    report scrolls above it through the view's `logConsole`, and the
    committed final frame is the summary. A run that cannot draw mounts no
-   view and loads neither React nor Ink: the view module is imported
-   dynamically on the drawing path only, and the same summary block is
-   printed statically instead.[^cli-sync][^sync-progress][^sync-progress-model][^sync-logger]
+   view and loads neither React nor Ink: the view's `render` is a
+   `CliUi.lazyView`, so the JSX module is imported only when a run first
+   draws, and the same summary block is printed statically
+   instead.[^cli-sync][^sync-progress-view][^sync-progress][^sync-progress-model][^sync-logger]
 4. **Findings are failure lines, not diagnostics.** "No config found", "No
    groups configured", a dangling reference, `validate`'s `Invalid:` and
    `doctor`'s early stops are `CliMessage.failure` lines on stderr, which
    `--log-level` does not filter. Per-resource sync errors stay
-   `Effect.logError`.[^cli-sync]
+   diagnostics: `CliLog.status` lines, log records at `Error` on stderr
+   that `--log-level` filters, with a glyph painted for a
+   person.[^cli-sync][^sync-logger]
 
 The exit-code contract and the stream split of
-[cli-runtime-via-effected-cli](cli-runtime-via-effected-cli.md) are
-unchanged; this decision adds 130 and decides how output is drawn inside
-that contract. The interface is
+[cli-runtime-main-builds-the-environment-v2](cli-runtime-main-builds-the-environment-v2.md)
+are unchanged; this decision adds 130 and decides how output is drawn
+inside that contract. The interface is
 [`interfaces/cli.md`](../interfaces/cli.md).
 
 ## Context
 
-Before this, every command printed plain `Console.log` lines whoever was
-reading, `nuke` was the only command that asked anything, and it asked
-through core's `Prompt.Confirm` after checking `Stdio.stdinIsTerminal`
-itself. A finding such as "No config found" was an `Effect.logError`
-diagnostic, so `--log-level none` turned a run that did nothing into a
-silent exit 1. The rule that a destructive command must never proceed
-because nobody was there to answer already existed for `nuke`; the kit
-lets every command apply it the same way, through one `CliInteractive`
-answer instead of a per-command terminal probe.
+This supersedes [adopt-interactive-cli-kit](adopt-interactive-cli-kit.md),
+whose four parts carry over; the view now loads through the kit's
+`CliUi.lazyView` rather than a hand-written dynamic import, and sync's
+failure lines through `CliLog.status` rather than a bare
+`Effect.logError`. Before the kit, every command printed plain
+`Console.log` lines whoever was reading, `nuke` was the only command that
+asked anything, and it asked through core's `Prompt.Confirm` after checking
+`Stdio.stdinIsTerminal` itself. A finding such as "No config found" was an
+`Effect.logError` diagnostic, so `--log-level none` turned a run that did
+nothing into a silent exit 1. The rule that a destructive command must
+never proceed because nobody was there to answer already existed for
+`nuke`; the kit lets every command apply it the same way, through one
+`CliInteractive` answer instead of a per-command terminal probe.
 
 ## Alternatives rejected
 
 - **An owned live view that loads React on every run.** Mounting the view
   unconditionally and letting it print nothing would have been simpler to
   wire. It was rejected because a CI run or an agent would load React and
-  Ink for a view nobody sees. Hosted mode plus a dynamic import keeps the
-  non-interactive path free of both, and the static summary is the same
-  `syncSummaryBlock` the view's final frame draws.[^sync-progress-model]
+  Ink for a view nobody sees. Hosted mode plus a lazily loaded `render`
+  keeps the non-interactive path free of both, and the static summary is
+  the same `syncSummaryBlock` the view's final frame
+  draws.[^sync-progress-model]
 - **Keeping `Effect.logError` for findings.** It kept the diagnostics
   channel uniform, but a finding is the reason a run exited 1. Letting
   `--log-level none` drop it leaves an exit code with no explanation.
@@ -109,10 +123,11 @@ answer instead of a per-command terminal probe.
   same gate.[^cli-nuke]
 
 [^cli-index]: `package/src/cli/index.ts`
-[^effected-cli]: npm:@effected/cli@0.11.0
+[^effected-cli]: npm:@effected/cli@0.12.0
 [^cli-sync]: `package/src/cli/commands/sync.ts`
 [^cli-nuke]: `package/src/cli/commands/nuke.ts`
 [^cli-credentials]: `package/src/cli/commands/credentials.ts`
 [^sync-progress]: `package/src/cli/views/sync-progress.tsx`
+[^sync-progress-view]: `package/src/cli/views/sync-progress-view.ts`
 [^sync-progress-model]: `package/src/cli/views/sync-progress-model.ts`
 [^sync-logger]: `package/src/services/SyncLogger.ts`

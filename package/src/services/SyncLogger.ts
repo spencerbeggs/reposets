@@ -1,5 +1,5 @@
 import type { CoreStatusName } from "@effected/cli";
-import { CliTheme, Fmt, Status } from "@effected/cli";
+import { CliLog, CliTheme, Fmt, Status } from "@effected/cli";
 import { Audience } from "@effected/env";
 import { Console, Context, Effect, Layer, PubSub, Ref } from "effect";
 import type { Decision } from "../sync/decide.js";
@@ -200,8 +200,11 @@ function pluralize(resource: string, count: number): string {
  * vocabulary: a change made is `success`, a dry run's `would …` is `info`, a
  * deletion and a drift are `warning`, a failure is `failure`, a skip is `skip`.
  * The glyph is painted for a person; an agent gets it unpainted and the text
- * plain, exactly as `CliMessage` does it. A failure's glyph is never painted:
- * it goes through the logger, which strips every escape a program logs. Headers
+ * plain, through `CliTheme.forAudience` — the rule `CliMessage` paints by. The
+ * failure lines with a glyph — the per-repository `error` line, at the action
+ * lines' indent, and the closing `Sync complete with N errors:` header — go
+ * through `CliLog.status`, which paints its glyph the same way on the log
+ * channel (the logger strips every escape a program logs itself). Headers
  * (`group:`, `repo:`) take none — they are structure, not outcomes. The glyph
  * sits after the indent and before the padded verb, so the verbs still line
  * up with each other.
@@ -251,25 +254,27 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 			const publish = (event: SyncEvent): Effect.Effect<void> =>
 				events === undefined ? Effect.void : PubSub.publish(events, event);
 
-			/**
-			 * A status glyph for a report line on stdout: painted for a person,
-			 * plain for an agent — who never gets an escape, whatever the terminal
-			 * could do.
-			 */
-			const mark = (status: CoreStatusName): string =>
-				audience.kind === "agent" ? Status.core.glyph(status, theme.glyphs) : theme.status(Status.core, status);
+			/** stdout's theme as this run's audience sees it: unpainted for an agent. */
+			const stdoutTheme = CliTheme.forAudience(theme.forStream("stdout"), audience.kind);
+
+			/** A status glyph for a report line on stdout. */
+			const mark = (status: CoreStatusName): string => stdoutTheme.status(Status.core, status);
 
 			/**
-			 * A status glyph for a failure line, never painted.
+			 * A failure status line, glyph painted for a person, `indent` spaces in.
 			 *
 			 * @remarks
-			 * Failures go through `Effect.logError`, and the kit's logger sanitises
-			 * every line a program logs — escapes included — so a painted glyph
-			 * would arrive as the bare glyph anyway. Painting it here would only be
-			 * a promise the logger does not keep. The glyph itself survives, and in
-			 * the ASCII set it is the word `[FAIL]`.
+			 * `CliLog.status` logs at `Error` (the status's rank), so the line goes
+			 * where `Effect.logError` goes — stderr — and its text is sanitised. The
+			 * theme and audience this layer was built with are provided, so the
+			 * glyph follows the same audience the stdout lines do. In the ASCII set
+			 * the glyph is the word `[FAIL]`.
 			 */
-			const failureMark = Status.core.glyph("failure", theme.forStream("stderr").glyphs);
+			const emitFailure = (text: string, indent = 0): Effect.Effect<void> =>
+				CliLog.status(Status.core, "failure", text, { indent }).pipe(
+					Effect.provideService(CliTheme, theme),
+					Effect.provideService(Audience, audience),
+				);
 
 			// Every line interpolates config and API text — repository names,
 			// resource names, a GitHub error message — so each is sanitised before
@@ -385,7 +390,7 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 						const repo = yield* Ref.get(currentRepo);
 						// Recorded as well as printed, so `finish` can account for them.
 						yield* Ref.update(errors, (errs) => [...errs, { repo, context, message }]);
-						yield* emitError(`    ${failureMark} ${Fmt.sanitize(`error   ${context}: ${message}`)}`);
+						yield* emitFailure(`error   ${context}: ${message}`, 4);
 						yield* publish({ _tag: "Error", repo, context, message });
 					}),
 
@@ -398,9 +403,7 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 							// The whole closing block follows the run's outcome to one
 							// stream: splitting the header from the list it introduces
 							// would interleave badly under any redirection.
-							yield* emitError(
-								`${failureMark} Sync complete with ${errs.length} ${errs.length === 1 ? "error" : "errors"}:`,
-							);
+							yield* emitFailure(`Sync complete with ${errs.length} ${errs.length === 1 ? "error" : "errors"}:`);
 							for (const err of errs) {
 								// A run-level failure — an unmatched `--repo`, say — belongs to
 								// no repository, and prefixing it with an empty slug reads as a

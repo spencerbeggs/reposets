@@ -7,8 +7,8 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T19:01:19Z
-  body_sha256: e809ea6051dd4e0344323e042ace61813b48596addf1cdb9c96ae650d727d813
+  at: 2026-10-03T18:04:28Z
+  body_sha256: 891efdf43c54c4dfd11f1f6edaf8585c1acc25bd4af42d1196ddf9284c5da68b
 tags: [architecture, dx, deps]
 ---
 
@@ -84,7 +84,12 @@ script). There are no project references: the root `tsconfig.json` extends
 `@savvy-web/silk/tsconfig/node/root.json`, and `package/tsconfig.json`
 extends `@savvy-web/bundler/tsconfig/ecma.json`. Both set
 `"jsx": "react-jsx"` for the one JSX module,
-`package/src/cli/views/sync-progress.tsx`. `effect` resolves to
+`package/src/cli/views/sync-progress.tsx`. Each `include` set is
+resolved against its own `tsconfig.json`'s directory, so the root's
+`types:check` checks only the root's own files (`vitest.config.ts`,
+`vitest.setup.ts`, `lib/configs/`) and none of `package/`; `package/src`
+and `package/__test__` are checked by the package's `types:check`, which
+`pnpm run typecheck` runs through Turbo. `effect` resolves to
 `4.0.0` (`pnpm-lock.yaml`; the `@effected/pnpm-plugin-effect` catalog
 gives it `^4.0.0`), and the root `tsconfig.json`'s `skipLibCheck: true`
 exists solely to route around declaration files in that release that

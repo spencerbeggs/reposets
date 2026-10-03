@@ -7,8 +7,8 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T19:04:30Z
-  body_sha256: a7ea86baf415b49c652dd071dab97c16a05af9f26e8699efae83400d0186e818
+  at: 2026-10-03T18:11:28Z
+  body_sha256: b760ec2d98c8cc35a86bf4b0ccb9daebdc99083fe380ec8928e2ce589f426d57
 tags: [architecture, effect, github]
 ---
 
@@ -16,8 +16,8 @@ tags: [architecture, effect, github]
 
 ## Service graph
 
-`package/src/cli/index.ts` provides the XDG directories (`Xdg` and
-`AppDirs`, composed as `App.layer` composes them) in the platform layer, and
+`package/src/cli/index.ts` provides the XDG directories (`App.layerDirs`,
+the directories half of `App.layer`) in the platform layer, and
 `ConfigLive` and `CredentialsFilesLive` once at the root command — subcommand
 requirements bubble up into the root command's `R` through
 `Command.withSubcommands`, so one `Command.provide` per service covers every
@@ -32,8 +32,8 @@ terminal, theme and `CliInteractive` environment, provides the platform
 layer inside failure reporting, and turns a usage error, a finding recorded
 with `CliExit`, a cancelled prompt, or an escaped failure into the exit
 code — see
-[cli-runtime-main-builds-the-environment](../decisions/cli-runtime-main-builds-the-environment.md)
-and [adopt-interactive-cli-kit](../decisions/adopt-interactive-cli-kit.md).
+[cli-runtime-main-builds-the-environment-v2](../decisions/cli-runtime-main-builds-the-environment-v2.md)
+and [adopt-interactive-cli-kit-v2](../decisions/adopt-interactive-cli-kit-v2.md).
 
 `reposets sync` (`package/src/cli/commands/sync.ts`) loads the config and
 credentials files, checks for dangling section references and unknown
@@ -54,7 +54,8 @@ The layer graph is assembled at three levels, and the split between them is
 load-bearing rather than a style choice:
 
 1. **Root entrypoint** (`package/src/cli/index.ts`) — `PlatformLive`
-   (the `Xdg`/`AppDirs` directories and the `Invocation` layer over
+   (`App.layerDirs({ namespace: "reposets" })`, which provides `Xdg` and
+   `AppDirs`, and the `Invocation` layer over
    `NodeServices.layer`) handed to `CliRuntime.main`, which adds
    `CliLogger.layer()` outermost and, from its `env` option, the audience,
    terminal, theme, `CliInteractive` and the colour-aware help formatter,
@@ -219,13 +220,17 @@ into the verbose detail, and it is worded as an observation about a person
 emitted even when nothing was written, since the tool having no work to do
 does not mean the human's out-of-band edit should stay unreported. The report
 is the command's output, so every line is `Console.log` on stdout; failures
-are `Effect.logError` on stderr. `--log-level` therefore filters the
-failures and never the report — see
+— the per-repository `error` line and the closing `Sync complete with N
+errors:` header — are `CliLog.status` records at `Error` on stderr.
+`--log-level` therefore filters the failures and never the report — see
 [log-level-none-still-prints-reports](../gotchas/log-level-none-still-prints-reports.md).
 Every action line leads with a status glyph from the kit's core
 vocabulary, painted for a person and plain for an agent, so the layer
-requires `CliTheme` and `Audience`. Every line is sanitised before it is
-written, because it interpolates config and API text.
+requires `CliTheme` and `Audience`. The stdout glyphs are painted through
+`CliTheme.forAudience`, and `CliLog.status` paints the failure glyph by the
+same rule, with the layer's own theme and audience provided to it, so the
+service holds no audience rule of its own. Every line is sanitised before
+it is written, because it interpolates config and API text.
 
 `SyncLoggerLive` takes an optional `events` `PubSub<SyncEvent>`. When it
 is given, every hook publishes an event beside the line it prints, so a
@@ -243,11 +248,15 @@ the redrawing footer without this service knowing a view exists.
 The live view of an interactive `sync` or `drift`, split in two so the
 non-interactive path never loads React. `sync-progress-model.ts` holds no
 JSX: the progress state, the reducer that folds `SyncEvent`s into it, and
-`syncSummaryBlock`, the one summary both paths draw. `sync-progress.tsx`
-is the only module with JSX; it holds the footer component and
-`syncProgressView`, the `CliUi.live` options in `hosted` mode, and
-`sync.ts` imports it dynamically on the drawing path alone. Command
-modules contain no JSX. `package/tsconfig.json` and the root
+`syncSummaryBlock`, the one summary both paths draw; its counters take the
+kit's `{ one, other }` plural labels. `sync-progress.tsx` is the only
+module with JSX; it holds the footer component and its `render` function.
+`sync-progress-view.ts` holds `syncProgressView`, the `CliUi.live` options
+in `hosted` mode, whose `render` is a `CliUi.lazyView` that imports the JSX
+module only when a run first draws, so importing `sync.ts` loads neither
+React nor Ink. It is a module of its own because the JSX module imports the
+model, and a lazy import back into the model would still be an import
+cycle Biome's `noImportCycles` reports. Command modules contain no JSX. `package/tsconfig.json` and the root
 `tsconfig.json` set `"jsx": "react-jsx"` for it, and `ink` and `react` are
 runtime dependencies that load only when a screen or the live view mounts.
 `selectedRepoCount` in `sync.ts` computes the view's denominator up front
@@ -270,10 +279,13 @@ codes and stream placement. `@effect/vitest` is a devDependency for that
 suite, and `package/__test__/utils/capture.ts` provides a capturing `Console`
 and the agent audience, so unit tests assert plain, deterministic text and
 which stream a line landed on through the same `CliLogger` routing the bin
-uses. Prompt flows are driven with `CliUiTest.session` from
-`@effected/cli/ui/testing`, and the live view on
-`package/__test__/utils/terminal.ts`'s in-memory terminal — see
-[ui-test-session-hides-clear-and-log-lines](../gotchas/ui-test-session-hides-clear-and-log-lines.md).
+uses. Prompt flows and the handler's live view are driven with
+`CliUiTest.session` from `@effected/cli/ui/testing`, whose `transcript`,
+`written`, and per-stream `stdoutWritten`/`stderrWritten` and
+`stdoutTranscript`/`stderrTranscript` hold every line written above a live
+frame as well as the frame. A test that must see a prompt's `clear: true`
+take effect renders with `renderPath: "production"`; the default debug
+path ignores `clear`.
 
 ## Phase-by-phase decisions
 

@@ -8,8 +8,8 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, ci, observability, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T19:04:30Z
-  body_sha256: 0a06012b662938f0bb801024ce02936aaf118e87523054fb0c3f9f0df1a03e39
+  at: 2026-10-03T18:11:28Z
+  body_sha256: 7f18adabfb0614a16c7e17075c8ca98a6b04281ae9d37e12aade196788e43958
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -37,12 +37,12 @@ parsed, or that reposets ignores core's global flags.
 Core applies it by providing `MinimumLogLevel` around the command
 handler, which filters `Effect.log*` calls and nothing
 else.[^core-command] Under
-[cli-runtime-main-builds-the-environment](../decisions/cli-runtime-main-builds-the-environment.md),
+[cli-runtime-main-builds-the-environment-v2](../decisions/cli-runtime-main-builds-the-environment-v2.md),
 a command's output is written to stdout without the logger, which
 `--log-level` does not reach. That output includes the whole `SyncLogger`
 report, the `list`, `validate`, `doctor` and `history` documents, and the
 `nuke` target list.[^sync-logger] Under
-[adopt-interactive-cli-kit](../decisions/adopt-interactive-cli-kit.md),
+[adopt-interactive-cli-kit-v2](../decisions/adopt-interactive-cli-kit-v2.md),
 a finding that exits 1 is a `CliMessage.failure` line on stderr, not a
 log call, so it prints too: "No config found", "No groups configured",
 the dangling-reference block, `validate`'s `✗ Invalid:` and `doctor`'s

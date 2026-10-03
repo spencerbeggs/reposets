@@ -1,17 +1,9 @@
 import { Fmt } from "@effected/cli";
-import type { LiveOptions } from "@effected/cli/ui";
 import { DocView, Styled, useGlyphs } from "@effected/cli/ui";
 import { Box, Text } from "ink";
 import type { ReactElement } from "react";
-import type { SyncEvent } from "../../services/SyncLogger.js";
 import type { SyncProgressState } from "./sync-progress-model.js";
-import {
-	initialSyncProgress,
-	isSyncRunEnd,
-	isSyncRunStart,
-	reduceSyncProgress,
-	syncSummaryBlock,
-} from "./sync-progress-model.js";
+import { syncSummaryBlock } from "./sync-progress-model.js";
 
 /**
  * The redrawing footer of an interactive `sync` or `drift`.
@@ -44,26 +36,15 @@ const SyncProgress = (props: { readonly state: SyncProgressState; readonly frame
 };
 
 /**
- * The sync progress view: every `CliUi.live` option but `events`.
+ * The sync progress view's `render`.
  *
  * @remarks
- * Defined once and exported so the handler and its test drive the same value —
- * a test that rebuilt the options would exercise a copy. `hosted` because a
- * run that cannot draw (a pipe, an agent, CI) has its own closing output — the
- * static summary `sync` prints — so the view must print nothing there; the
- * handler does not mount it on such a run in the first place.
- *
- * This module is the only one that holds JSX, and `sync` imports it
- * dynamically on the drawing path alone, so a non-interactive run never loads
- * React or Ink.
+ * This module is the only one that holds JSX. It is loaded through
+ * `CliUi.lazyView` by `syncProgressView` in `sync-progress-view.ts`, so only
+ * a run that draws it ever loads React or Ink.
  *
  * @public
  */
-export const syncProgressView: Omit<LiveOptions<SyncEvent, SyncProgressState>, "events"> = {
-	initial: initialSyncProgress,
-	reduce: reduceSyncProgress,
-	render: (state, frame) => <SyncProgress state={state} frame={frame} />,
-	isStart: isSyncRunStart,
-	isTerminal: isSyncRunEnd,
-	mode: "hosted",
-};
+export const syncProgressRender = (state: SyncProgressState, frame: number): ReactElement => (
+	<SyncProgress state={state} frame={frame} />
+);
