@@ -7,15 +7,15 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T19:04:30Z
-  body_sha256: d221daa3d186b8a5fcc530dde86e9657aff7178a06e85010c9e6cc0f43d10a39
+  at: 2026-10-03T18:04:28Z
+  body_sha256: 3d7fb560199700dc52e3988de4482cdead03f1cbd35006e3591ec3c0467b3f57
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
   - id: cli-flags
     resource: ../../package/src/cli/flags.ts
   - id: effected-cli
-    resource: npm:@effected/cli@0.11.0
+    resource: npm:@effected/cli@0.12.0
   - id: effected-env
     resource: npm:@effected/env
   - id: invocation
@@ -125,6 +125,7 @@ Passing more than one is a usage error, exit 64.[^cli-index][^effected-cli]
 | :--- | :--- |
 | `REPOSETS_AUDIENCE` | `human`, `agent` or `ci`. Overrides audience detection; an audience flag still wins. An unrecognised value is warned about once and ignored. |
 | `REPOSETS_LOG_LEVEL` | Opts into the kit's diagnostics: pretty lines for a person, NDJSON for an agent or CI. |
+| `REPOSETS_SPANS` | `app`, `all` or `off`, case-insensitive: which spans the `in: …` trail of a failure report names. Unset is `app`, reposets' own spans only, leaving out the kit's and Effect's; `all` names every span; `off` drops the trail. Any other value is warned about once and the default applies. |
 | `FORCE_COLOR`, `NO_COLOR`, `NODE_DISABLE_COLORS`, `TERM` | Colour follows Node's rules: `FORCE_COLOR` beats `NO_COLOR`, and `NODE_DISABLE_COLORS` or `TERM=dumb` turns colour off. `TERM=dumb` also makes the run non-interactive. |
 | `OP_SERVICE_ACCOUNT_TOKEN` | Read when a `1Password` reference is resolved, never stored. See [`interfaces/credentials-file.md`](credentials-file.md). |
 
@@ -141,9 +142,9 @@ exception: `sync` and `drift` are each given `store.db` and `cache.db`, and
 per-command `Command.provide`. History's provide wraps its own
 `withSubcommands`, so it covers `show`, `prune` and `clear`. No other
 command opens, and so creates, either file. The platform layer handed to
-`CliRuntime.main` supplies Node's services, the directories (`Xdg` and
-`AppDirs`, built as `App.layer` builds them, without its databases) and
-the `Invocation` service. `main`'s `env` option builds the
+`CliRuntime.main` supplies Node's services, the directories
+(`App.layerDirs`, the directories half of `App.layer`, without its
+databases) and the `Invocation` service. `main`'s `env` option builds the
 rest: the audience, the terminal facts (stdin and stdout from core's
 `Stdio`, stderr from `process.stderr.isTTY`), the theme, `CliInteractive`
 and the colour-aware help formatter. `Invocation` carries the working
@@ -156,7 +157,10 @@ directory and the version. Environment variables are read through Effect's
 The audience decides how output is drawn. A `human` gets colour and glyphs
 when the stream supports them. An `agent` gets the same text with the
 glyphs unpainted and never an escape sequence. A `ci` run under GitHub
-Actions gets each `Doc` report folded into a `::group::` block.[^effected-cli]
+Actions gets each `Doc` report folded into a `::group::` block. Only a
+person writing to a terminal gets output laid out to a width, the
+terminal's; an agent, CI, and a person whose stdout is a pipe or a file
+get lines unwrapped.[^effected-cli]
 
 Whether a run may ask a question is `CliInteractive`, decided once by
 `CliRuntime.main`: true only for a `human` audience with a terminal on
@@ -222,8 +226,11 @@ Three kinds of write reach the terminal, and each has fixed rules:
 The `SyncLogger` report streams line by line to stdout rather than as one
 document. Each action line leads with a status glyph after its indent: `✓`
 applied or synced, `ℹ` a dry run's `would …`, `⚠` a deletion, a cleanup or
-a drift, `↷` a skip, and `✗` an error. An error line goes through the
-logger, which strips escapes, so its glyph is never painted. A clean run
+a drift, `↷` a skip, and `✗` an error. An error line, and the closing
+`Sync complete with N errors:` header, go through the kit's
+`CliLog.status`: a log record at `Error`, so on stderr and filtered by
+`--log-level` like any diagnostic, but with its glyph painted for a person
+and bare for an agent, the same audience rule as the stdout lines. A clean run
 ends `✓ Sync complete!` on stdout; one with errors ends `✗ Sync complete
 with N errors:` and the list, on stderr.[^sync-logger]
 `reposets drift > report.txt` captures the report and leaves failures on
@@ -459,14 +466,20 @@ and `--org`, an `--op` that does not start with `op://`, and a profile
 that already exists are refused with exit 64 even on a terminal, since no
 question resolves them.[^cli-credentials]
 
-The command refuses anything token-shaped, by prefix or by length, in
-every flag (`--profile`, `--username`, `--org`, `--op`, `--env`) and every
-typed answer, and never repeats the value. A refused flag exits 64 with
+The command refuses anything token-shaped in every flag (`--profile`,
+`--username`, `--org`, `--op`, `--env`) and every typed answer, and never
+repeats the value. Token-shaped means a known token prefix at the start
+(`ghp_`, `github_pat_`, `ops_`, `sk-`, `xoxb-` and the other GitHub
+prefixes); a GitHub, 1Password or Slack token prefix anywhere after a word
+boundary and followed by a token-like body, so `op://v/ghp_…` is caught; a
+bare 40-hex-digit legacy GitHub token; or anything longer than 60
+characters that does not start with `op://`. A refused flag exits 64 with
 nothing written. A refused answer is rejected inside the prompt with `That
 looks like a token, not a name. It was not stored.` or `That looks like a
 token, not a reference — enter where it lives.`, and each text prompt's
-frame is cleared when it closes. A value being typed is visible until it is
-submitted: see
+frame is cleared when it closes. The reference prompt is masked by the same
+rule while it is typed; the name prompts are not, so a token pasted into
+one is visible until it is submitted: see
 [`limitations/text-input-shows-a-pasted-token.md`](../limitations/text-input-shows-a-pasted-token.md).[^cli-credentials]
 
 `credentials list` prints one `[name]` section per profile with its owner
@@ -543,7 +556,7 @@ on.[^bin-e2e] The reasoning is in
 [^cli-credentials]: `package/src/cli/commands/credentials.ts`
 [^sync-logger]: `package/src/services/SyncLogger.ts`
 [^commands-doc]: `docs/02-commands.md`
-[^effected-cli]: npm:@effected/cli@0.11.0
+[^effected-cli]: npm:@effected/cli@0.12.0
 [^effected-env]: npm:@effected/env
 [^sync-progress]: `package/src/cli/views/sync-progress.tsx`
 [^sync-progress-model]: `package/src/cli/views/sync-progress-model.ts`

@@ -16,6 +16,7 @@
 * Updated Published JSON schemas for reposets.config.toml and reposets.credentials.toml
 * Updated Running the test suite rewrites the published JSON schemas
 * Added Versioned JSON schemas at the repository root
+* Added CliRuntime.main builds the audience environment over a directories-only platform
 
 ## 2026-09-29
 

@@ -2,9 +2,9 @@ import { assert, describe, it } from "@effect/vitest";
 import { CliEnv, CliLogger, Render } from "@effected/cli";
 import { CliUiTest } from "@effected/cli/ui/testing";
 import { Console, Effect, Layer, PubSub } from "effect";
-import { syncProgressView } from "../../src/cli/views/sync-progress.js";
 import type { SyncProgressState } from "../../src/cli/views/sync-progress-model.js";
 import { initialSyncProgress, reduceSyncProgress, syncSummaryBlock } from "../../src/cli/views/sync-progress-model.js";
+import { syncProgressView } from "../../src/cli/views/sync-progress-view.js";
 import type { SyncEvent, SyncLoggerShape } from "../../src/services/SyncLogger.js";
 import { SyncLogger, SyncLoggerLive } from "../../src/services/SyncLogger.js";
 import { capturingConsole } from "../utils/capture.js";
@@ -79,6 +79,22 @@ describe("syncSummaryBlock", () => {
 		assert.strictEqual(
 			agentPlain({ dryRun: false, total: 1, repos: 1, changes: 1, drifted: 1, errors: 1 }),
 			"Sync: 1/1 repo, 1 change, 1 drifted, 1 error",
+		);
+	});
+
+	it("agrees the repos noun with the denominator, not the count", () => {
+		// A share's noun agrees with its total, not its count: never `1/3 repo`.
+		assert.strictEqual(
+			agentPlain({ dryRun: false, total: 3, repos: 1, changes: 2, drifted: 0, errors: 0 }),
+			"Sync: 1/3 repos, 2 changes, 0 drifted, 0 errors",
+		);
+		assert.strictEqual(
+			agentPlain({ dryRun: false, total: 1, repos: 1, changes: 0, drifted: 0, errors: 0 }),
+			"Sync: 1/1 repo, 0 changes, 0 drifted, 0 errors",
+		);
+		assert.strictEqual(
+			agentPlain({ dryRun: true, total: 1, repos: 0, changes: 0, drifted: 0, errors: 0 }),
+			"Dry run: 0/1 repo, 0 changes, 0 drifted, 0 errors",
 		);
 	});
 });
@@ -264,13 +280,13 @@ describe("SyncLogger theming", () => {
 		}),
 	);
 
-	it.effect("paints the glyph, and only the glyph, for a person — except on a logged failure", () =>
+	it.effect("paints the glyph, and only the glyph, for a person — the logged failure line too", () =>
 		Effect.gen(function* () {
 			const lines = yield* linesFor("human", false);
-			for (const line of lines.slice(0, 3)) assert.include(line, "\u001b[");
-			// The logger sanitises what a program logs, so a painted failure glyph
-			// could never survive it; the line is the agent's line exactly.
-			assert.notInclude(lines[3], "\u001b[");
+			assert.lengthOf(lines, 4);
+			// The failure line goes through `CliLog.status`, whose glyph the logger
+			// trusts, so it is painted like the report lines on stdout.
+			for (const line of lines) assert.include(line, "\u001b[");
 			// The text after the glyph stays plain: strip escapes and it is the agent's line.
 			const plain = lines.map((line) => line.replace(SGR, ""));
 			assert.deepStrictEqual(plain, yield* linesFor("agent", false));

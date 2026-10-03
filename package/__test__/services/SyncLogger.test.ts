@@ -1,3 +1,4 @@
+import type { CliEnvTestOptions } from "@effected/cli";
 import { CliEnv, CliLogger } from "@effected/cli";
 import { Console, Effect } from "effect";
 import { describe, expect, it } from "vitest";
@@ -26,12 +27,13 @@ import { capturingConsole } from "../utils/capture.js";
 const captureStreams = async (
 	config: { dryRun: boolean; debug: boolean },
 	program: Effect.Effect<void, never, SyncLogger>,
+	env: CliEnvTestOptions = { audience: "agent" },
 ): Promise<ReadonlyArray<{ readonly stream: "stdout" | "stderr"; readonly line: string }>> => {
 	const { console: double, lines } = capturingConsole();
 	await Effect.runPromise(
 		program.pipe(
 			Effect.provide(SyncLoggerLive(config)),
-			Effect.provide(CliEnv.layerTest({ audience: "agent" })),
+			Effect.provide(CliEnv.layerTest(env)),
 			Effect.provide(CliLogger.layer()),
 			Effect.provideService(Console.Console, double),
 		),
@@ -477,5 +479,54 @@ describe("settingsApplied names what it sent", () => {
 		);
 
 		expect(lines[0]).toContain("7 fields: a, b, c, d, e, …");
+	});
+});
+
+describe("status glyphs follow the audience", () => {
+	// Built from its code so the source holds no control character.
+	const ESC = String.fromCharCode(27);
+	const failingRun = withLogger((l) =>
+		Effect.gen(function* () {
+			yield* l.repoStart("owner", "repo");
+			yield* l.syncOperation("sync", "secret", "API_KEY");
+			yield* l.syncError("settings", "403 Forbidden");
+			yield* l.finish();
+		}),
+	);
+	const closing = (entries: ReadonlyArray<{ readonly stream: string; readonly line: string }>) =>
+		entries.find((e) => e.line.includes("Sync complete with 1 error:"));
+
+	it("paints the closing failure glyph for a person, on stderr", async () => {
+		const entries = await captureStreams({ dryRun: false, debug: false }, failingRun, {
+			audience: "human",
+			tty: true,
+			color: "truecolor",
+		});
+
+		const line = closing(entries);
+		expect(line?.stream).toBe("stderr");
+		// The glyph arrives wrapped in its colour, not bare.
+		expect(line?.line).toMatch(new RegExp(`^${ESC}\\[[0-9;]+m✗${ESC}\\[39m Sync complete with 1 error:$`));
+		// The indented per-repository failure line keeps its indent, glyph painted.
+		const repoLine = entries.find((e) => e.line.includes("403 Forbidden") && e.line.includes("error   settings"));
+		expect(repoLine?.stream).toBe("stderr");
+		expect(repoLine?.line).toMatch(new RegExp(`^    ${ESC}\\[[0-9;]+m✗${ESC}\\[39m error   settings: 403 Forbidden$`));
+		// The stdout report glyph is painted for the same person.
+		const action = entries.find((e) => e.line.includes("API_KEY"));
+		expect(action?.line).toContain(`${ESC}[`);
+	});
+
+	it("leaves every glyph bare for an agent on the same terminal", async () => {
+		const entries = await captureStreams({ dryRun: false, debug: false }, failingRun, {
+			audience: "agent",
+			tty: true,
+			color: "truecolor",
+		});
+
+		expect(closing(entries)?.line).toBe("✗ Sync complete with 1 error:");
+		const repoLine = entries.find((e) => e.line.includes("error   settings"));
+		expect(repoLine).toEqual({ stream: "stderr", line: "    ✗ error   settings: 403 Forbidden" });
+		expect(closing(entries)?.stream).toBe("stderr");
+		for (const entry of entries) expect(entry.line).not.toContain(ESC);
 	});
 });

@@ -1,10 +1,9 @@
 #!/usr/bin/env node
 import { NodeRuntime, NodeServices } from "@effect/platform-node";
-import { AppCache, AppStore } from "@effected/app";
+import { App, AppCache, AppStore } from "@effected/app";
 import type { FailureDetails } from "@effected/cli";
 import { CliAudience, CliRuntime, ConfigIssueRenderer, Fmt } from "@effected/cli";
 import type { ConfigValidationError } from "@effected/config-file";
-import { AppDirs, Xdg } from "@effected/xdg";
 import { Effect, Layer } from "effect";
 import { Command } from "effect/cli";
 import { CredentialsFilesLive } from "../services/ConfigFiles.js";
@@ -41,12 +40,12 @@ const VERSION: string = process.env.__PACKAGE_VERSION__ ?? "0.0.0";
  * under it.
  *
  * @remarks
- * Built the way `App.layer` builds its own (`AppDirs.layer` `provideMerge`
- * `Xdg.layer`), but without the two databases `App.layer` always opens. Every
- * command can resolve a path through this; resolving one creates nothing —
- * only an `ensure*` member does, and only the command that writes calls it.
+ * `App.layerDirs` is the directories half of `App.layer`, without the two
+ * databases `App.layer` always opens. Every command can resolve a path through
+ * this; resolving one creates nothing — only an `ensure*` member does, and only
+ * the command that writes calls it.
  */
-const DirsLive = Layer.provideMerge(AppDirs.layer({ namespace: "reposets" }), Xdg.layer);
+const DirsLive = App.layerDirs({ namespace: "reposets" });
 
 /**
  * The state database, `store.db` under the XDG state directory.
@@ -209,6 +208,9 @@ NodeRuntime.runMain(
 			audienceEnvVar: "REPOSETS_AUDIENCE",
 			// Opt-in diagnostics: pretty for a person, NDJSON for an agent or CI.
 			log: { envVar: "REPOSETS_LOG_LEVEL" },
+			// Opt-in failure trail: `all` names the kit's and Effect's spans too,
+			// `off` drops the trail; unset is `app`, reposets' own spans only.
+			spansEnvVar: "REPOSETS_SPANS",
 			// Core's `Stdio` reports stdout only; stderr is painted by its own answer.
 			stderrIsTerminal: Effect.sync(() => process.stderr.isTTY === true),
 		},

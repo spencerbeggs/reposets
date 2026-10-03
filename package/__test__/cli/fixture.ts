@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { CliExit, CliLogger } from "@effected/cli";
-import type { CliUiTestOptions, CliUiTestScreen, CliUiTestSession } from "@effected/cli/ui/testing";
+import type { CliUiTestScreen, CliUiTestSession, CliUiTestSessionOptions } from "@effected/cli/ui/testing";
 import { CliUiTest } from "@effected/cli/ui/testing";
 import { AppDirs, Xdg } from "@effected/xdg";
 import type { Exit, Scope } from "effect";
@@ -111,7 +111,7 @@ export const interactive = (
 	// Wide by default: temp-directory paths are long, and a widget truncates a
 	// row to the terminal, so at 80 columns a path assertion would test the
 	// truncation rather than the handler.
-	options: CliUiTestOptions = { columns: 400 },
+	options: CliUiTestSessionOptions = { columns: 400 },
 ): Effect.Effect<InteractiveRun, never, Scope.Scope> =>
 	Effect.gen(function* () {
 		const session = yield* CliUiTest.session(options);

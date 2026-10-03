@@ -52,13 +52,23 @@ Pressing Esc, `q` or Ctrl-C at any prompt cancels the command. It prints `cancel
 
 ### Colour and glyphs
 
-Colour follows Node's rules: `NO_COLOR` turns it off, `FORCE_COLOR` turns it on and beats `NO_COLOR`, and `NODE_DISABLE_COLORS` or `TERM=dumb` turn it off. Output piped to a file carries no escapes.
+Colour follows Node's rules: `NO_COLOR` turns it off, `FORCE_COLOR` turns it on and beats `NO_COLOR`, and `NODE_DISABLE_COLORS` or `TERM=dumb` turn it off. Output piped to a file carries no escapes and is not wrapped to a width; only a terminal's own width wraps lines.
 
 Status lines lead with a glyph: `✓` success, `ℹ` information, `⚠` a warning, `↷` a skip and `✗` a failure. Success and information lines go to stdout, warnings and failures to stderr. Under `TERM=dumb` the glyphs become ASCII words — `[ok]`, `[info]`, `[warn]`, `[skip]`, `[FAIL]`.
 
 ### Diagnostics
 
 `REPOSETS_LOG_LEVEL` turns on reposets' extra diagnostics, at the level it names — `debug`, for example. It is unset, and those diagnostics are off, by default. A person gets readable lines; an agent or a CI job gets NDJSON, one JSON object per line. `--log-level` wins when both are given.
+
+When a command fails, the failure report can end with an `in: …` line naming the spans the failure passed through. `REPOSETS_SPANS` decides which spans that line names: `app`, the default, names only reposets' own; `all` adds the CLI kit's and Effect's, which is useful when filing a bug (`REPOSETS_SPANS=all reposets sync`); `off` drops the line. The value is case-insensitive, and anything else is reported once on stderr and the default applies.
+
+### Environment variables
+
+| Variable | Values | Default | Description |
+| :------- | :----- | :------ | :---------- |
+| `REPOSETS_AUDIENCE` | `human`, `agent`, `ci` | detected | Who the output is for; an audience flag beats it. See [Audience](#audience). |
+| `REPOSETS_LOG_LEVEL` | a log level, such as `debug` | unset (off) | Turns on extra diagnostics; `--log-level` beats it. See [Diagnostics](#diagnostics). |
+| `REPOSETS_SPANS` | `app`, `all`, `off` | `app` | Which spans a failure report's `in: …` line names. |
 
 ## sync
 
@@ -650,7 +660,9 @@ reposets credentials create --profile personal --username your-username --env gh
 #   That looks like a credential value, not a reference. This command stores references only — pass --op "op://Vault/item/field" or --env VAR_NAME. Value not echoed.
 ```
 
-At a prompt the same check says `That looks like a token, not a name. It was not stored.` or `That looks like a token, not a reference — enter where it lives.` One caveat: the prompt does not mask what you type, so a pasted value is visible until you press Enter, after which the refusal and the cleared prompt remove it.
+At a prompt the same check says `That looks like a token, not a name. It was not stored.` or `That looks like a token, not a reference — enter where it lives.` The reference prompt hides a token as soon as one appears in the field, so a pasted token is never drawn, while a real `op://` reference or variable name stays readable as you type it. The name prompts are not masked: a token pasted into one is visible until you press Enter, after which the refusal and the cleared prompt remove it.
+
+A value counts as a token when it starts with a known token prefix such as `ghp_`, `github_pat_` or `ops_`, contains a GitHub, 1Password or Slack token after a word boundary (so `op://Vault/ghp_…` is refused too), is a 40-character hexadecimal legacy GitHub token, or is longer than 60 characters without starting with `op://`.
 
 The other refusals, all exit `64` and none echoing the value:
 

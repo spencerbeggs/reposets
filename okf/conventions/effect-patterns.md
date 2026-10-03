@@ -5,8 +5,8 @@ description: How Effect v4 idioms are used consistently across this codebase —
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T19:04:30Z
-  body_sha256: fa0f96d4e1de4a84e57ad524d7fb82d739f4723be1b945ec58bead84917f6b14
+  at: 2026-10-03T18:04:28Z
+  body_sha256: f4e492908ea9c872d1fee3c1a47014d44142af9929435a52432250f4db8a2293
 tags: [effect, architecture]
 ---
 
@@ -55,8 +55,10 @@ non-interactive answer: refuse with `CliError.UserError` naming the flag
 that answers it, or take the default the command always took. Never probe
 stdin or `TERM` yourself. Leave the kit's `Cancelled` to propagate, so
 `CliRuntime.main` prints its one line and exits 130. Keep JSX in
-`package/src/cli/views/` and import a view dynamically on the path that
-draws it, so a run that draws nothing never loads React or Ink.
+`package/src/cli/views/` and load it through `CliUi.lazyView` from a
+JSX-free module, so a run that draws nothing never loads React or Ink;
+keep that JSX-free module apart from any module the JSX imports, or the
+lazy import is an import cycle.
 
 End a command by what went wrong, not by setting a code. Fail with
 `CliError.UserError` when the invocation was wrong (exit 64), and call
@@ -94,7 +96,7 @@ scattered across phases. `SyncEngine` and every phase describe *what*
 happened; `SyncLogger` decides how to say it, and that split is what let the
 four verbosity tiers collapse to one output plus a `debug` flag without
 touching a single phase. `SyncLogger` streams its report lines with
-`Console.log` on stdout and its failures with `Effect.logError` on stderr,
+`Console.log` on stdout and its failures with `CliLog.status` on stderr,
 and publishes a `SyncEvent` beside each line when a live view is drawn.
 
 Keep a resolved credential as `Redacted.Redacted<string>` end to end, and
