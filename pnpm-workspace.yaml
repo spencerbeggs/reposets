@@ -5,4 +5,5 @@ configDependencies:
   "@effected/pnpm-plugin-effect": 0.13.4
   "@savvy-web/pnpm-plugin-silk": 0.47.0
 minimumReleaseAgeExclude:
-  - "@rolldown/binding-openharmony-arm64@1.2.8"
+  - "@effected/pnpm-plugin-effect"
+  - "@savvy-web/pnpm-plugin-silk"
