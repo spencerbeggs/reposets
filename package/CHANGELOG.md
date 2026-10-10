@@ -1,5 +1,24 @@
 # reposets
 
+## 3.1.3
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/cli | dependency | updated | ^0.15.0 | ^0.16.1 |
+| @effected/env | dependency | updated | ^0.1.0 | ^0.1.1 |
+| @effected/github | dependency | updated | ^0.15.1 | ^0.17.0 |
+| @effected/schemastore | dependency | updated | ^0.21.3 | ^0.21.4 |
+
+[#205][#205]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contributions!
+
+[#205]: https://github.com/spencerbeggs/reposets/pull/205
+
 ## 3.1.2
 
 ### Dependencies
