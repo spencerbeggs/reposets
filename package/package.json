@@ -70,7 +70,7 @@
 	"devDependencies": {
 		"@effect/vitest": "catalog:effect",
 		"@effected/schemastore-cli": "catalog:effected",
-		"@savvy-web/bundler": "^2.5.0",
+		"@savvy-web/bundler": "^2.5.1",
 		"@types/node": "catalog:build",
 		"@types/react": "catalog:silk",
 		"typescript": "catalog:build"
