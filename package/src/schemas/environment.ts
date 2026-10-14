@@ -10,7 +10,7 @@ const ReviewerTypeSchema = Schema.Literals(["User", "Team"]).annotate({
 
 const ReviewerSchema = Schema.Struct({
 	type: ReviewerTypeSchema,
-	id: Schema.Int.annotate({
+	id: Schema.Natural.annotate({
 		title: "Reviewer ID",
 		description: "The numeric GitHub ID of the user or team",
 	}),

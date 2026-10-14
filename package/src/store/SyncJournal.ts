@@ -144,7 +144,7 @@ export class SyncJournal extends Context.Service<SyncJournal, SyncJournalShape>(
 					// runs in one millisecond is a test-loop shape rather than a
 					// real one, but `history` must be deterministic regardless —
 					// it orders by rowid, which is insertion order and exact.
-					const id = yield* crypto.randomUUIDv7;
+					const id = yield* crypto.randomUUIDv7();
 					const startedAt = yield* DateTime.now;
 
 					yield* sql`
