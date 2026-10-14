@@ -49,7 +49,7 @@ const BypassModeSchema = Schema.Literals(["always", "pull_request", "exempt"]).a
  */
 export const BypassActorSchema = Schema.Struct({
 	actor_id: Schema.optional(
-		Schema.Union([Schema.Int, ResolvedRefSchema]).annotate({
+		Schema.Union([Schema.Natural, ResolvedRefSchema]).annotate({
 			title: "Actor ID",
 			description: "The ID of the actor, or a { resolved } reference to a credential label.",
 		}),
@@ -116,12 +116,12 @@ const RequiredReviewerSchema = Schema.Struct({
 		title: "File patterns",
 		description: "File patterns this reviewer must approve (fnmatch syntax)",
 	}),
-	minimum_approvals: Schema.Int.annotate({
+	minimum_approvals: Schema.Int.check(Schema.isBetween({ minimum: 0, maximum: 10 })).annotate({
 		title: "Minimum approvals",
-		description: "Minimum approvals required from this team (0 = optional)",
+		description: "Minimum approvals required from this team (0-10, 0 = optional)",
 	}),
 	reviewer: Schema.Struct({
-		id: Schema.Int.annotate({ title: "Team ID", description: "Team ID" }),
+		id: Schema.Natural.annotate({ title: "Team ID", description: "Team ID" }),
 		type: Schema.Literal("Team"),
 	}).annotate({ title: "Reviewer team" }),
 });
@@ -132,7 +132,7 @@ const StatusCheckSchema = Schema.Struct({
 		description: "The status check context name that must be present on the commit",
 	}),
 	integration_id: Schema.optional(
-		Schema.Union([Schema.Int, ResolvedRefSchema]).annotate({
+		Schema.Union([Schema.Natural, ResolvedRefSchema]).annotate({
 			title: "Integration ID",
 			description: "The integration ID, or a { resolved } reference to a credential label",
 		}),
@@ -142,7 +142,7 @@ const StatusCheckSchema = Schema.Struct({
 const WorkflowFileSchema = Schema.Struct({
 	path: Schema.String.annotate({ title: "Workflow path", description: "Path to the workflow file" }),
 	ref: Schema.optional(Schema.String.annotate({ title: "Ref", description: "Branch or tag of the workflow file" })),
-	repository_id: Schema.Union([Schema.Int, ResolvedRefSchema]).annotate({
+	repository_id: Schema.Union([Schema.Natural, ResolvedRefSchema]).annotate({
 		title: "Repository ID",
 		description: "Repository ID, or a { resolved } reference to a credential label",
 	}),
@@ -238,7 +238,7 @@ const StatusChecksShorthandSchema = Schema.Struct({
 		}),
 	),
 	default_integration_id: Schema.optional(
-		Schema.Union([Schema.Int, ResolvedRefSchema]).annotate({
+		Schema.Union([Schema.Natural, ResolvedRefSchema]).annotate({
 			title: "Default integration ID",
 			description: "Default integration ID applied to all checks that do not specify one",
 		}),
