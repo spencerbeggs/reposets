@@ -1,5 +1,6 @@
 import { AppConfig } from "@effected/app";
-import { ConfigFile, ConfigResolver, TomlCodec } from "@effected/config-file";
+import { ConfigFile, ConfigResolver } from "@effected/config-file";
+import { TomlCodec } from "@effected/config-file/toml";
 import type { AppDirs, Xdg } from "@effected/xdg";
 import { Data, Effect, FileSystem, Layer, Path } from "effect";
 import type { Config } from "../schemas/config.js";
