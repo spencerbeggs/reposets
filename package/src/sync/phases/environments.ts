@@ -1,3 +1,4 @@
+import { Fmt } from "@effected/cli";
 import type { Repo } from "@effected/github";
 import { DeploymentEnvironment } from "@effected/github";
 import { Effect, Option } from "effect";
@@ -92,9 +93,7 @@ export const environmentsPhase = Effect.gen(function* () {
 				if (!ctx.dryRun) {
 					const failure = yield* environments.upsert(name, desired as unknown as Record<string, unknown>).pipe(
 						Effect.as(Option.none<string>()),
-						Effect.catch((error: { readonly message?: string }) =>
-							Effect.succeed(Option.some(error.message ?? String(error))),
-						),
+						Effect.catch((error) => Effect.succeed(Option.some(Fmt.describe(error)))),
 					);
 
 					if (Option.isSome(failure)) {

@@ -1,4 +1,4 @@
-import { App } from "@effected/app";
+import { AppTest } from "@effected/app/testing";
 import { Cache } from "@effected/store";
 import { DateTime, Duration, Effect, Layer } from "effect";
 import { TestClock } from "effect/testing";
@@ -6,13 +6,13 @@ import { describe, expect, it } from "vitest";
 import { RepoCache, RepoCacheLive } from "../../src/store/RepoCache.js";
 
 /**
- * `App.layerTest` gives `:memory:` databases with `R = never`, so these run
+ * `AppTest.layer` gives `:memory:` databases with `R = never`, so these run
  * with no filesystem and no temp directories.
  */
-const AppTest = App.layerTest({ namespace: "reposets-repocache-test" });
+const TestApp = AppTest.layer({ namespace: "reposets-repocache-test" });
 
 /** `RepoCache` plus the ambient `Cache` the assertions read through. */
-const layers = Layer.provideMerge(RepoCacheLive, AppTest);
+const layers = Layer.provideMerge(RepoCacheLive, TestApp);
 
 const run = <A>(program: Effect.Effect<A, unknown, RepoCache | Cache>): Promise<A> =>
 	Effect.runPromise(program.pipe(Effect.provide(layers)) as Effect.Effect<A>);

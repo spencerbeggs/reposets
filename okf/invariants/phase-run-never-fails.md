@@ -6,9 +6,11 @@ resource: ../../package/src/sync/phase.ts
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: c63a53a3d08fb8412df8e86e1d0a1ad21c7c10c5608c3614711ee1cea6e0ea13
+  at: 2026-10-27T16:42:53Z
 tags: [architecture, effect]
+integrity:
+  generated:
+    body: 90305eaa7de13c61
 ---
 
 # Phase.run never fails
@@ -29,8 +31,8 @@ repository's rejected ruleset must never stop the nineteen after it.
 `attempt` (`package/src/sync/phase.ts:180-191`) is the helper every phase
 uses to get there: it takes a fallible `Effect.Effect<A, E, R>`, maps a
 success to `{ value }`, and catches any failure into
-`{ error: { context, message } }` — reading `error.message` when the failure
-is an `Error` and falling back to `String(error)` otherwise, so a
+`{ error: { context, message } }` — rendering the failure with
+`Fmt.describe`, which reads a `message` when there is one, so a
 `GitHubError`'s own words survive into the record rather than being replaced
 by a generic message. The result type,
 `Effect.Effect<{ value: A } | { error: ... }, never, R>`, has already

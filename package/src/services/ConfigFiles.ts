@@ -7,6 +7,7 @@ import type { Config } from "../schemas/config.js";
 import { ConfigSchema } from "../schemas/config.js";
 import type { Credentials } from "../schemas/credentials.js";
 import { CredentialsSchema } from "../schemas/credentials.js";
+import { Invocation } from "./Invocation.js";
 
 /**
  * The config file's fixed name, in every tier of the resolver chain.
@@ -87,19 +88,27 @@ const STRICT_KEYS = {
  * `AppConfig.layer` appends its own XDG tier after the resolvers given here, so
  * the upward walk wins and the XDG fallback comes free.
  *
+ * The walk starts at {@link Invocation}'s `cwd`, never the process's own:
+ * `upwardWalk` defaults to `process.cwd()` when given no `cwd`, which made
+ * config discovery the one reader of `process` below the entrypoint.
+ *
  * @public
  */
 export const CredentialsFilesLive: Layer.Layer<
 	ReposetsCredentialsFile,
 	never,
-	FileSystem.FileSystem | Path.Path | AppDirs | Xdg
-> = AppConfig.layer(ReposetsCredentialsFile, {
-	filename: CREDENTIALS_FILENAME,
-	schema: CredentialsSchema,
-	codec: TomlCodec,
-	resolvers: [ConfigResolver.upwardWalk({ filename: CREDENTIALS_FILENAME })],
-	parseOptions: STRICT_KEYS,
-});
+	FileSystem.FileSystem | Path.Path | AppDirs | Xdg | Invocation
+> = Layer.unwrap(
+	Effect.map(Invocation, ({ cwd }) =>
+		AppConfig.layer(ReposetsCredentialsFile, {
+			filename: CREDENTIALS_FILENAME,
+			schema: CredentialsSchema,
+			codec: TomlCodec,
+			resolvers: [ConfigResolver.upwardWalk({ filename: CREDENTIALS_FILENAME, cwd })],
+			parseOptions: STRICT_KEYS,
+		}),
+	),
+);
 
 /**
  * Raised when `--config` names a path that does not exist.
@@ -170,20 +179,27 @@ export class ConfigFlagMissingConfig extends Data.TaggedError("ConfigFlagMissing
  * A directory is checked for the config file by existence only, not decoded:
  * a file that is present but invalid must still resolve, so `doctor` can
  * diagnose it and a command can report its decode error against the right path.
+ *
+ * Everything relative is taken against {@link Invocation}'s `cwd`: the upward
+ * walk starts there, and a relative `--config` is resolved there before it is
+ * checked, so a test that hands a command another directory moves both.
  */
 const resolversFor = (
-	configFlag: string | undefined,
+	flag: string | undefined,
 ): Effect.Effect<
 	ReadonlyArray<ConfigResolver<FileSystem.FileSystem | Path.Path>>,
 	ConfigFlagNotFound | ConfigFlagMissingConfig,
-	FileSystem.FileSystem | Path.Path
+	FileSystem.FileSystem | Path.Path | Invocation
 > =>
 	Effect.gen(function* () {
-		if (configFlag === undefined) {
-			return [ConfigResolver.upwardWalk({ filename: CONFIG_FILENAME })];
+		const { cwd } = yield* Invocation;
+		if (flag === undefined) {
+			return [ConfigResolver.upwardWalk({ filename: CONFIG_FILENAME, cwd })];
 		}
 
 		const fs = yield* FileSystem.FileSystem;
+		const path = yield* Path.Path;
+		const configFlag = path.resolve(cwd, flag);
 		const info = yield* fs.stat(configFlag).pipe(Effect.option);
 
 		if (info._tag === "None") {
@@ -194,7 +210,6 @@ const resolversFor = (
 			return [ConfigResolver.explicitPath(configFlag)];
 		}
 
-		const path = yield* Path.Path;
 		const hasConfig = yield* fs.exists(path.join(configFlag, CONFIG_FILENAME)).pipe(Effect.orElseSucceed(() => false));
 		if (!hasConfig) {
 			return yield* new ConfigFlagMissingConfig({ dir: configFlag, filename: CONFIG_FILENAME });
@@ -217,7 +232,7 @@ export const makeConfigFilesLive = (
 ): Layer.Layer<
 	ReposetsConfigFile,
 	ConfigFlagNotFound | ConfigFlagMissingConfig,
-	FileSystem.FileSystem | Path.Path | AppDirs | Xdg
+	FileSystem.FileSystem | Path.Path | AppDirs | Xdg | Invocation
 > =>
 	Layer.unwrap(
 		Effect.map(resolversFor(configFlag), (resolvers) =>

@@ -7,9 +7,11 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:11:28Z
-  body_sha256: b760ec2d98c8cc35a86bf4b0ccb9daebdc99083fe380ec8928e2ce589f426d57
+  at: 2026-10-27T16:42:53Z
 tags: [architecture, effect, github]
+integrity:
+  generated:
+    body: 1ee1618fbfd375e1
 ---
 
 # reposets (package)
@@ -139,11 +141,10 @@ bin. Whether the run may prompt is not here either: every command asks
 the terminal. The version has to be
 threaded down from `index.ts` because the bundler substitutes only the
 literal `process.env.__PACKAGE_VERSION__` spelling, not a destructured
-`env.__PACKAGE_VERSION__`. Config discovery is the one place the process
-cwd still leaks in, through `@effected/config-file`'s
-`ConfigResolver.upwardWalk`, which is why
-`package/__test__/cli/commands.test.ts` still calls `process.chdir` — a
-known follow-up.
+`env.__PACKAGE_VERSION__`. Config discovery reads the working directory
+from `Invocation` too: `ConfigResolver.upwardWalk` is given its `cwd`, and
+a relative `--config` is resolved against it, so no test moves the
+process's cwd.
 
 ### ConfigFiles (`package/src/services/ConfigFiles.ts`)
 

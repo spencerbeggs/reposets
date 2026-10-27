@@ -1,5 +1,15 @@
 # Log
 
+## 2026-10-27
+
+* Updated --config replaces the upward walk
+* Updated A Layer memoizes per provide, not by const identity
+* Updated CliRuntime.main builds the audience environment over App.layerDirs
+* Updated Effect patterns
+* Updated Phase.run never fails
+* Updated The reposets command line
+* Updated reposets
+
 ## 2026-10-03
 
 * Updated A token pasted into a credentials name prompt is visible until Enter

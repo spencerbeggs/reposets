@@ -1,6 +1,4 @@
-import { readFileSync } from "node:fs";
-import { isAbsolute, resolve as resolvePath } from "node:path";
-import { Config, Context, Data, Effect, Layer, Option, Redacted } from "effect";
+import { Config, Context, Data, Effect, FileSystem, Layer, Option, Path, Redacted } from "effect";
 import type { CredentialProfile, CredentialSourceSchema } from "../schemas/credentials.js";
 import { OnePasswordClient } from "./OnePasswordClient.js";
 
@@ -97,25 +95,27 @@ const fromEnv = (label: string, variable: string): Effect.Effect<Redacted.Redact
 		),
 	);
 
-/** Read a file, failing in terms of its path. */
+/**
+ * Read a file, failing in terms of its path.
+ *
+ * @remarks
+ * Through core's `FileSystem`, so a test reads from a seeded in-memory volume
+ * rather than the disk. A relative path resolves against `basePath`. The
+ * failure reason is the `PlatformError` message — `NotFound:
+ * FileSystem.readFile (/abs/path)` — which names the path and never the
+ * contents.
+ */
 const fromFile = (
+	fs: FileSystem.FileSystem,
+	path: Path.Path,
 	label: string,
 	filePath: string,
 	basePath: string,
 ): Effect.Effect<Redacted.Redacted<string>, ResolveError> =>
-	Effect.try({
-		try: () => {
-			const fullPath = isAbsolute(filePath) ? filePath : resolvePath(basePath, filePath);
-			return Redacted.make(readFileSync(fullPath, "utf-8").trim(), { label });
-		},
-		catch: (error) =>
-			// The fs error names the path, never the contents.
-			new ResolveError({
-				label,
-				source: "file",
-				reason: error instanceof Error ? error.message : String(error),
-			}),
-	});
+	fs.readFileString(path.isAbsolute(filePath) ? filePath : path.resolve(basePath, filePath)).pipe(
+		Effect.map((text) => Redacted.make(text.trim(), { label })),
+		Effect.mapError((error) => new ResolveError({ label, source: "file", reason: error.message })),
+	);
 
 /**
  * Turns the references in a credential profile into usable values.
@@ -148,6 +148,11 @@ export class CredentialResolver extends Context.Service<CredentialResolver, Cred
 	{
 		make: Effect.gen(function* () {
 			const onePassword = yield* OnePasswordClient;
+			// Resolved once: the platform's file system and path service are
+			// stable for the life of the layer, and the shape's methods stay
+			// requirement-free.
+			const fs = yield* FileSystem.FileSystem;
+			const path = yield* Path.Path;
 
 			/** One `op://` reference, with 1Password's failure restated in this service's terms. */
 			const fromOnePassword = (
@@ -184,7 +189,7 @@ export class CredentialResolver extends Context.Service<CredentialResolver, Cred
 							resolved.set(label, yield* fromEnv(label, variable));
 						}
 						for (const [label, filePath] of Object.entries(section.file ?? {})) {
-							resolved.set(label, yield* fromFile(label, filePath, basePath));
+							resolved.set(label, yield* fromFile(fs, path, label, filePath, basePath));
 						}
 						// `value` was missing here, so every inline label resolved to
 						// nothing and its consumers were told the label "is not defined
@@ -209,11 +214,13 @@ export class CredentialResolver extends Context.Service<CredentialResolver, Cred
 ) {}
 
 /**
- * Live resolver, over the ambient {@link OnePasswordClient}.
+ * Live resolver, over the ambient {@link OnePasswordClient} and the platform's
+ * `FileSystem` and `Path`.
  *
  * @public
  */
-export const CredentialResolverLive: Layer.Layer<CredentialResolver, never, OnePasswordClient> = Layer.effect(
+export const CredentialResolverLive: Layer.Layer<
 	CredentialResolver,
-	CredentialResolver.make,
-);
+	never,
+	OnePasswordClient | FileSystem.FileSystem | Path.Path
+> = Layer.effect(CredentialResolver, CredentialResolver.make);

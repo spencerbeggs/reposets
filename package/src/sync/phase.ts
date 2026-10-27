@@ -1,3 +1,4 @@
+import { Fmt } from "@effected/cli";
 import type { OwnerType, Repo } from "@effected/github";
 import type { Redacted } from "effect";
 import { Effect } from "effect";
@@ -183,9 +184,9 @@ export const attempt = <A, E, R>(
 ): Effect.Effect<{ readonly value: A } | { readonly error: PhaseResult["errors"][number] }, never, R> =>
 	effect.pipe(
 		Effect.map((value) => ({ value })),
-		Effect.catch((error: E) =>
+		Effect.catch((error) =>
 			Effect.succeed({
-				error: { context, message: error instanceof Error ? error.message : String(error) },
+				error: { context, message: Fmt.describe(error) },
 			}),
 		),
 	);

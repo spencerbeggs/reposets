@@ -118,7 +118,33 @@ describe.skipIf(!BUILT)(`reposets bin (${BUILT ? "built" : `SKIPPED: ${BIN} not 
 					const result = yield* reposets(["sync", "--only", "nonsense"]);
 					assert.strictEqual(result.exitCode, 64);
 					assert.strictEqual(result.stdout, "");
-					assert.strictEqual(result.stderr.split("Unknown phase name(s): nonsense").length - 1, 1);
+					// Refused by the parser (`Flag.Literals`), which names the choices.
+					assert.strictEqual(result.stderr.split('Invalid value for flag --only: "nonsense"').length - 1, 1);
+					assert.include(result.stderr, '"settings"');
+				}).pipe(Effect.scoped),
+			30_000,
+		);
+
+		it.effect(
+			"validate on a config with a TOML syntax error: exit 1, the file, line and column on stderr",
+			() =>
+				Effect.gen(function* () {
+					let file = "";
+					const result = yield* reposets(["validate"], (sandbox) =>
+						Effect.map(fixture(sandbox, "broken.toml", "[groups\n"), (written) => {
+							file = written;
+							return ["--config", written];
+						}),
+					);
+					assert.strictEqual(result.exitCode, 1);
+					assert.strictEqual(result.stdout, "");
+					// The codec's own message is the bare "toml parse failed"; `render`
+					// adds the file and the parser's 1-based position from the cause.
+					assert.include(
+						result.stderr,
+						`${file}: TOML parse failed with 1 error: ExpectedTableHeaderClose at 1:8 expected ] to close the table header`,
+					);
+					assert.notInclude(result.stderr, "TomlParseError:");
 				}).pipe(Effect.scoped),
 			30_000,
 		);

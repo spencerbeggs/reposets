@@ -4,12 +4,11 @@ import { App, AppCache, AppStore } from "@effected/app";
 import type { FailureDetails } from "@effected/cli";
 import { CliAudience, CliRuntime, ConfigIssueRenderer, Fmt } from "@effected/cli";
 import type { ConfigValidationError } from "@effected/config-file";
-import { Effect, Layer } from "effect";
+import { Effect, Layer, Predicate } from "effect";
 import { Command } from "effect/cli";
 import { CredentialsFilesLive } from "../services/ConfigFiles.js";
 import { Invocation } from "../services/Invocation.js";
-import { CACHE_DB_FILENAME, STATE_DB_FILENAME } from "../store/files.js";
-import { migrations } from "../store/migrations.js";
+import { CACHE_OPTIONS, STORE_OPTIONS } from "../store/files.js";
 import { SyncJournalLive } from "../store/SyncJournal.js";
 import { credentialsCommand } from "./commands/credentials.js";
 import { doctorCommand } from "./commands/doctor.js";
@@ -63,7 +62,7 @@ const DirsLive = App.layerDirs({ namespace: "reposets" });
  * Migrations still run during layer construction, so they now run on the first
  * command that uses the database rather than on the first command of any kind.
  */
-const StoreLive = AppStore.layer({ migrations, filename: STATE_DB_FILENAME });
+const StoreLive = AppStore.layer(STORE_OPTIONS);
 
 /**
  * Both databases, for the commands that run the sync engine.
@@ -73,7 +72,7 @@ const StoreLive = AppStore.layer({ migrations, filename: STATE_DB_FILENAME });
  * in `cache.db`. The engine builds its own journal over `Store`, so nothing
  * else is needed here.
  */
-const DatabasesLive = Layer.mergeAll(StoreLive, AppCache.layer({ filename: CACHE_DB_FILENAME }));
+const DatabasesLive = Layer.mergeAll(StoreLive, AppCache.layer(CACHE_OPTIONS));
 
 /**
  * The run journal over the state database, for `history` and its subcommands.
@@ -150,10 +149,6 @@ const cli = Command.make("reposets", {}, () => Effect.void).pipe(
  */
 const PlatformLive = Layer.mergeAll(DirsLive, InvocationLive).pipe(Layer.provideMerge(NodeServices.layer));
 
-/** Whether a failure is a tagged error of a given tag. */
-const isTagged = (error: unknown, tag: string): boolean =>
-	typeof error === "object" && error !== null && "_tag" in error && (error as { _tag: unknown })._tag === tag;
-
 /**
  * Render a failure that escaped a command, one line at a time, to stderr.
  *
@@ -175,10 +170,18 @@ const isTagged = (error: unknown, tag: string): boolean =>
  * kit's own status line. A TOML syntax error is a `ConfigCodecError` whose own
  * message is the bare "toml parse failed" — the line and column live on the
  * cause, and printing it is the difference between "your config is broken
- * somewhere" and a position plus what the parser expected there. The cause
- * reports a 0-based `line:column`: an unclosed `[groups` header on the first
- * line reads "ExpectedTableHeaderClose at 0:7 expected ] to close the table
+ * somewhere" and a position plus what the parser expected there. The cause is
+ * read with `Fmt.causeMessage`, the whole `cause` chain's messages without
+ * the `TomlParseError:` prefix `String` would add, and falls back to
+ * `Fmt.describe` when nothing along the chain has a message. The parser
+ * reports a 1-based `line:column`: an unclosed `[groups` header on the first
+ * line reads "ExpectedTableHeaderClose at 1:8 expected ] to close the table
  * header".
+ *
+ * When the failure names a file — `ConfigCodecError.path`, which
+ * `ConfigFile`'s read pipeline fills in and which its `message` deliberately
+ * leaves out — the cause line is prefixed with it, so a syntax error says
+ * which of the discovered files it is in.
  *
  * Everything else, defects included, is the kit's default report. Lines built
  * here from data are sanitised: the kit keeps a person's escapes, so it cannot
@@ -186,7 +189,7 @@ const isTagged = (error: unknown, tag: string): boolean =>
  */
 const render = (error: unknown, details: FailureDetails): ReadonlyArray<string> => {
 	if (details.isDefect) return details.defaultLines;
-	if (isTagged(error, "ConfigValidationError")) {
+	if (Predicate.isTagged(error, "ConfigValidationError")) {
 		const misspelled = ConfigIssueRenderer.render(error as ConfigValidationError).some((line) =>
 			line.startsWith("unknown key"),
 		);
@@ -194,8 +197,10 @@ const render = (error: unknown, details: FailureDetails): ReadonlyArray<string> 
 			? [...details.defaultLines, "Run 'reposets doctor' for suggested spellings."]
 			: details.defaultLines;
 	}
-	if (typeof error === "object" && error !== null && "cause" in error && error.cause !== undefined) {
-		return [...details.defaultLines, `  ${Fmt.sanitize(String(error.cause))}`];
+	if (Predicate.hasProperty(error, "cause") && error.cause !== undefined) {
+		const cause = Fmt.causeMessage(error.cause) ?? Fmt.describe(error.cause);
+		const where = Predicate.hasProperty(error, "path") && Predicate.isString(error.path) ? `${error.path}: ` : "";
+		return [...details.defaultLines, `  ${Fmt.sanitize(`${where}${cause}`)}`];
 	}
 	return details.defaultLines;
 };
@@ -211,8 +216,6 @@ NodeRuntime.runMain(
 			// Opt-in failure trail: `all` names the kit's and Effect's spans too,
 			// `off` drops the trail; unset is `app`, reposets' own spans only.
 			spansEnvVar: "REPOSETS_SPANS",
-			// Core's `Stdio` reports stdout only; stderr is painted by its own answer.
-			stderrIsTerminal: Effect.sync(() => process.stderr.isTTY === true),
 		},
 		render,
 		helpOnUsageError: "stderr",

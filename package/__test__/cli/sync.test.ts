@@ -1,13 +1,10 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { NodeServices } from "@effect/platform-node";
-import { App } from "@effected/app";
+import { NodeCrypto } from "@effect/platform-node";
+import { AppTest } from "@effected/app/testing";
 import type { CliTheme } from "@effected/cli";
 import { CliExit, CliLogger } from "@effected/cli";
 import { CliUiTest } from "@effected/cli/ui/testing";
 import { Cause, ConfigProvider, Console, Effect, Exit, Layer, MutableRef, PubSub } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { describe, expect, it } from "vitest";
 import { runUnderSyncView, selectedRepoCount, syncHandler } from "../../src/cli/commands/sync.js";
 import { syncProgressView } from "../../src/cli/views/sync-progress-view.js";
 import { CredentialsFilesLive, makeConfigFilesLive } from "../../src/services/ConfigFiles.js";
@@ -22,55 +19,41 @@ import { on, presentation, runOutcome } from "../utils/capture.js";
  * finishes and summarises — which is every path a summary can take.
  */
 
-let dir: string;
-let home: string;
+/** The working directory the run is invoked in, on the in-memory volume. */
+const CWD = "/work";
 
-beforeEach(() => {
-	dir = join(tmpdir(), `reposets-sync-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-	home = join(dir, "home");
-	mkdirSync(home, { recursive: true });
-	writeFileSync(
-		join(dir, "reposets.config.toml"),
-		`[settings.defaults]
+const CONFIG = `[settings.defaults]
 has_issues = true
 
 [groups.mine]
 repos = ["one", "two"]
 credentials = "missing"
 settings = ["defaults"]
-`,
-	);
-	writeFileSync(
-		join(dir, "reposets.credentials.toml"),
-		`[profiles.default]\nusername = "acme"\ngithub_token = { env = "GH" }\n`,
-	);
-});
+`;
 
-afterEach(() => {
-	rmSync(dir, { recursive: true, force: true });
-});
+const CREDENTIALS = `[profiles.default]\nusername = "acme"\ngithub_token = { env = "GH" }\n`;
 
-const services = (): Layer.Layer<never, unknown, never> =>
-	Layer.mergeAll(
-		makeConfigFilesLive(join(dir, "reposets.config.toml")),
-		CredentialsFilesLive,
-		Invocation.layer({ cwd: dir, version: "0.0.0-test" }),
-	).pipe(
-		Layer.provideMerge(App.layer({ namespace: "reposets-sync-test", store: { migrations } })),
-		Layer.provideMerge(NodeServices.layer),
+/**
+ * Every service the handler needs, hermetically: `AppTest.layer` seeds both
+ * files onto an in-memory volume beside `:memory:` databases, `Invocation`
+ * names the working directory, and an empty `ConfigProvider` keeps the
+ * developer's own environment out. `Crypto` mints the run id.
+ */
+const services = () =>
+	Layer.mergeAll(makeConfigFilesLive(`${CWD}/reposets.config.toml`), CredentialsFilesLive).pipe(
+		Layer.provideMerge(Invocation.layer({ cwd: CWD, version: "0.0.0-test" })),
 		Layer.provideMerge(
-			ConfigProvider.layer(
-				ConfigProvider.fromEnv({
-					env: {
-						HOME: home,
-						XDG_CONFIG_HOME: join(home, ".config"),
-						XDG_STATE_HOME: join(home, ".local/state"),
-						XDG_CACHE_HOME: join(home, ".cache"),
-					},
+			Layer.mergeAll(
+				AppTest.layer({
+					namespace: "reposets-sync-test",
+					store: { migrations },
+					files: { [`${CWD}/reposets.config.toml`]: CONFIG, [`${CWD}/reposets.credentials.toml`]: CREDENTIALS },
 				}),
+				NodeCrypto.layer,
 			),
 		),
-	) as unknown as Layer.Layer<never, unknown, never>;
+		Layer.provideMerge(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))),
+	);
 
 const sync = (dryRun: boolean) =>
 	syncHandler({

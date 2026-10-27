@@ -5,9 +5,11 @@ description: How Effect v4 idioms are used consistently across this codebase —
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:11:28Z
-  body_sha256: f8b76cbd1952700323ae471827b0652030aa0214d7e8777bb6d538b61b7ed78d
+  at: 2026-10-27T16:42:53Z
 tags: [effect, architecture]
+integrity:
+  generated:
+    body: 4fcb31a7a3fb27e0
 ---
 
 # Effect patterns
@@ -73,11 +75,11 @@ entrypoint gets those two from the `Invocation` service
 (`package/src/services/Invocation.ts`), and asks `CliInteractive` whether
 it may prompt. Do not import `node:process` in a command or service.
 Tests hand a command a different directory through `Invocation.layer(...)`
-instead of calling `process.chdir`. The one exception today is config
-discovery, where `@effected/config-file`'s `ConfigResolver.upwardWalk`
-reads the process cwd itself. That is why
-`package/__test__/cli/commands.test.ts` still calls `process.chdir`, and it
-is a known follow-up.
+instead of calling `process.chdir`. Config discovery is no exception:
+`ConfigFiles.ts` passes `Invocation`'s `cwd` to
+`ConfigResolver.upwardWalk({ filename, cwd })` (which otherwise defaults to
+the process cwd) and resolves a relative `--config` against it, so no test
+calls `process.chdir`.
 
 Read an environment variable through `Config`, as
 `Config.option(Config.String(name))`, never through `process.env`.
@@ -114,11 +116,24 @@ plaintext, because it greps: a codebase-wide search for it enumerates every
 place a secret is permitted to exist unwrapped, which is the property
 `Redacted` exists to make checkable.
 
-Wrap I/O in `Effect.try`/`Effect.tryPromise`, never a bare `try`/`catch` or an
-un-lifted Promise. `CredentialResolver.ts:94` uses `Effect.try` for a
-synchronous file read; `OnePasswordClient.ts:96` uses `Effect.tryPromise` for
-the SDK call. Each `catch` maps to the tagged error the surrounding service
-already defines, never to a raw `Error` re-thrown.
+Read and write files through core's `FileSystem` and `Path`, never `node:fs`
+or `node:path`: `CredentialResolver` resolves both at layer construction for
+its `[resolve].file` entries, and the secrets and variables phases hand them
+to `resolveGroups` for `{ file }` groups, so a test seeds an in-memory
+`@effected/memfs` volume instead of writing to disk. Wrap a foreign API that
+throws or returns a Promise in `Effect.try`/`Effect.tryPromise`, never a bare
+`try`/`catch` or an un-lifted Promise; `OnePasswordClient.ts` uses
+`Effect.tryPromise` for the SDK call. Each `catch` maps to the tagged error
+the surrounding service already defines, never to a raw `Error` re-thrown.
+
+Turn a foreign failure into text with `Fmt.describe` from `@effected/cli`
+(its message, or a safe rendering of anything else), never
+`error instanceof Error ? error.message : String(error)` or
+`error.message ?? String(error)`. Read an error's `cause` chain with
+`Fmt.causeMessage`. Pass data you do not control through `Fmt.sanitize`
+before it reaches a terminal. Count nouns with `Fmt.plural`, never a
+`=== 1 ? "" : "s"` ternary or a `(s)` suffix, and format a duration with
+`Fmt.duration`.
 
 Provide layers at the entrypoint (`package/src/cli/index.ts`) and inside a
 per-command handler (`package/src/cli/commands/sync.ts`'s `sharedLayer` and

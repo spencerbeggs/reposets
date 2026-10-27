@@ -1,5 +1,5 @@
 import { NodeServices } from "@effect/platform-node";
-import { App } from "@effected/app";
+import { AppTest } from "@effected/app/testing";
 import type { CliEnvTestOptions } from "@effected/cli";
 import { CliLogger } from "@effected/cli";
 import { Store } from "@effected/store";
@@ -21,10 +21,10 @@ import { capturingConsole, on, presentation, runOutcome } from "../utils/capture
  * column-width and ordering logic pass while producing nonsense.
  */
 
-// `App.layerTest` is hermetic — fixed synthetic XDG paths and `:memory:`
+// `AppTest.layer` is hermetic — fixed synthetic XDG paths and `:memory:`
 // databases — so no environment variable or temp directory is involved, and
 // nothing here touches `process.env`.
-const AppTest = App.layerTest({ namespace: "reposets-history-test", store: { migrations } });
+const TestApp = AppTest.layer({ namespace: "reposets-history-test", store: { migrations } });
 
 /** Run a handler against a real journal, seeding it first; capture both streams and the exit code. */
 const runFull = (
@@ -43,7 +43,7 @@ const runFull = (
 	return runOutcome(
 		program.pipe(
 			// `Crypto` is required: run ids are UUIDv7.
-			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(AppTest, NodeServices.layer))),
+			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(TestApp, NodeServices.layer))),
 		) as Effect.Effect<void, unknown, PresentationServices>,
 	);
 };
@@ -370,7 +370,7 @@ describe("history output by audience", () => {
 			};
 			return { agent: yield* render({ audience: "agent" }), person: yield* render(human) };
 		}).pipe(
-			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(AppTest, NodeServices.layer))),
+			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(TestApp, NodeServices.layer))),
 			Effect.runPromise,
 		);
 

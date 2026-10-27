@@ -1,14 +1,16 @@
+import { AppCache, AppStore } from "@effected/app";
 import type { Cancelled, CliLinks, CliTheme, Document } from "@effected/cli";
-import { CliExit, CliInteractive, CliMessage, Doc } from "@effected/cli";
+import { CliExit, CliInteractive, CliMessage, Doc, Fmt } from "@effected/cli";
 import type { MultiSelectSection } from "@effected/cli/ui";
 import { CliUi, Confirm, MultiSelect } from "@effected/cli/ui";
 import type { Audience, TerminalEnv } from "@effected/env";
+import { Walker } from "@effected/walker";
 import { AppDirs, Xdg } from "@effected/xdg";
 import { Effect, FileSystem, Path } from "effect";
 import { CliError, Command, Flag } from "effect/cli";
 import { CONFIG_FILENAME, CREDENTIALS_FILENAME } from "../../services/ConfigFiles.js";
 import { Invocation } from "../../services/Invocation.js";
-import { CACHE_DB_FILENAME, STATE_DB_FILENAME } from "../../store/files.js";
+import { CACHE_OPTIONS, STORE_OPTIONS } from "../../store/files.js";
 
 const forceFlag = Flag.Boolean("force").pipe(
 	Flag.withDefault(false),
@@ -132,12 +134,14 @@ const findTargets = (
 	path: Path.Path,
 	appDirs: AppDirs["Service"],
 	from: string,
-): Effect.Effect<ReadonlyArray<Target>> =>
+): Effect.Effect<ReadonlyArray<Target>, never, AppDirs | Path.Path> =>
 	Effect.gen(function* () {
 		const files: Array<Candidate> = [];
 
-		let dir = from;
-		for (;;) {
+		// Every directory from the working directory to the root, start included —
+		// the chain `upwardWalk` probes.
+		const chain = yield* Walker.ascend(from);
+		for (const dir of chain) {
 			files.push(
 				{
 					path: path.join(dir, CONFIG_FILENAME),
@@ -152,9 +156,6 @@ const findTargets = (
 					location: "project",
 				},
 			);
-			const parent = path.dirname(dir);
-			if (parent === dir) break;
-			dir = parent;
 		}
 
 		files.push(
@@ -191,7 +192,7 @@ const findTargets = (
 
 		const databases: ReadonlyArray<Candidate> = [
 			{
-				path: path.join(appDirs.dirs.state, STATE_DB_FILENAME),
+				path: yield* AppStore.location(STORE_OPTIONS),
 				what: "state database",
 				// Said plainly because it is the only irreversible consequence here.
 				// The config files are recoverable from a backup or rewritten by hand;
@@ -202,7 +203,7 @@ const findTargets = (
 				location: "state",
 			},
 			{
-				path: path.join(appDirs.dirs.cache, CACHE_DB_FILENAME),
+				path: yield* AppCache.location(CACHE_OPTIONS),
 				what: "cache database",
 				cost: "loses cached GitHub reads — rebuilt on the next sync",
 				location: "cache",
@@ -242,14 +243,12 @@ const removeEmptyDirs = (
 			if (entries._tag === "None" || entries.value.length > 0) continue;
 			const outcome = yield* fs.remove(dir, { recursive: true }).pipe(Effect.result);
 			if (outcome._tag === "Failure") {
-				yield* Effect.logWarning(`could not remove empty directory ${dir} — ${String(outcome.failure)}`);
+				yield* Effect.logWarning(`could not remove empty directory ${dir} — ${Fmt.describe(outcome.failure)}`);
 				continue;
 			}
 			yield* CliMessage.success(`removed empty directory ${dir}`);
 		}
 	});
-
-const plural = (n: number): string => `${n} file${n === 1 ? "" : "s"}`;
 
 /**
  * How many files a set of targets removes.
@@ -376,7 +375,9 @@ const choose = (
 			MultiSelect.screen({ message: "Delete which files?", sections: pickerSections(targets, short) }),
 		);
 		if (chosen.length === 0) return [];
-		const { confirmed } = yield* CliUi.run(Confirm.screen({ message: `Delete ${plural(fileCount(chosen))}?` }));
+		const { confirmed } = yield* CliUi.run(
+			Confirm.screen({ message: `Delete ${Fmt.plural(fileCount(chosen), "file")}?` }),
+		);
 		return confirmed ? chosen : [];
 	}).pipe(Effect.catchTag("NotInteractive", () => Effect.fail(refusal())));
 
@@ -472,7 +473,7 @@ export const nukeHandler = (
 			for (const file of target.paths) {
 				const outcome = yield* fs.remove(file).pipe(Effect.result);
 				if (outcome._tag === "Failure") {
-					yield* Effect.logError(`could not remove ${file} — ${String(outcome.failure)}`);
+					yield* Effect.logError(`could not remove ${file} — ${Fmt.describe(outcome.failure)}`);
 					continue;
 				}
 				yield* CliMessage.success(`removed ${file}`);
@@ -483,12 +484,12 @@ export const nukeHandler = (
 		yield* removeEmptyDirs(fs, appDirs);
 
 		if (removed === total) {
-			yield* CliMessage.success(`Done. ${plural(removed)} removed.`);
+			yield* CliMessage.success(`Done. ${Fmt.plural(removed, "file")} removed.`);
 		} else {
 			// A file left behind is a real failure — the user asked for it gone —
 			// so the run exits 1, after every target has been attempted and
 			// reported.
-			yield* CliMessage.failure(`Removed ${removed} of ${plural(total)}; the failures are listed above.`);
+			yield* CliMessage.failure(`Removed ${removed} of ${Fmt.plural(total, "file")}; the failures are listed above.`);
 			yield* CliExit.set(1);
 		}
 	});

@@ -69,6 +69,7 @@
 	},
 	"devDependencies": {
 		"@effect/vitest": "catalog:effect",
+		"@effected/memfs": "catalog:effected",
 		"@effected/schemastore-cli": "catalog:effected",
 		"@savvy-web/bundler": "^2.6.3",
 		"@types/node": "catalog:build",

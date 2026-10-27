@@ -1,8 +1,6 @@
-import { mkdirSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
+import { MemoryFileSystem } from "@effected/memfs";
 import { ConfigProvider, Effect, Exit, Layer, Redacted } from "effect";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import type { CredentialProfile } from "../../src/schemas/credentials.js";
 import { CredentialResolver, CredentialResolverLive } from "../../src/services/CredentialResolver.js";
 import { OnePasswordClient } from "../../src/services/OnePasswordClient.js";
@@ -15,16 +13,27 @@ import { OnePasswordClient } from "../../src/services/OnePasswordClient.js";
  * because the things they asserted are gone.
  */
 
-let tempDir: string;
+/** The base path `file` entries resolve against, on the in-memory volume. */
+const BASE = "/project";
+
+/**
+ * The files the next resolver build sees, seeded into a fresh memfs volume.
+ *
+ * @remarks
+ * Every build of `layerWith` re-seeds from this record, so a test plants its
+ * files before it resolves. An unseeded path is honestly absent: memfs fails
+ * it as `NotFound`, the same failure the disk gives.
+ */
+let files: Record<string, string>;
 
 beforeEach(() => {
-	tempDir = join(tmpdir(), `reposets-cr-test-${Date.now()}-${Math.random().toString(36).slice(2)}`);
-	mkdirSync(tempDir, { recursive: true });
+	files = {};
 });
 
-afterEach(() => {
-	rmSync(tempDir, { recursive: true, force: true });
-});
+/** Plant a file beside {@link BASE}. */
+const put = (name: string, contents: string): void => {
+	files[`${BASE}/${name}`] = contents;
+};
 
 /**
  * The resolver over a stubbed 1Password client and an explicit environment.
@@ -44,9 +53,10 @@ const layerWith = (
 	// RUNS, in the caller's fiber, so the provider must reach the caller — a
 	// provider hidden inside the layer would be invisible to it, and the reads
 	// would fall back to the real process environment.
-	Layer.provide(CredentialResolverLive, OnePasswordClient.layerTest(opStubs)).pipe(
-		Layer.provideMerge(ConfigProvider.layer(ConfigProvider.fromEnv({ env: { ...env } }))),
-	);
+	Layer.provide(
+		CredentialResolverLive,
+		Layer.mergeAll(OnePasswordClient.layerTest(opStubs), MemoryFileSystem.layerWithPath({ ...files })),
+	).pipe(Layer.provideMerge(ConfigProvider.layer(ConfigProvider.fromEnv({ env: { ...env } }))));
 
 const resolveAll = (
 	profile: CredentialProfile,
@@ -54,7 +64,7 @@ const resolveAll = (
 	env: Readonly<Record<string, string>> = {},
 ): Promise<Exit.Exit<ReadonlyMap<string, Redacted.Redacted<string>>, unknown>> =>
 	Effect.runPromiseExit(
-		Effect.flatMap(CredentialResolver, (r) => r.resolveAll(profile, tempDir)).pipe(
+		Effect.flatMap(CredentialResolver, (r) => r.resolveAll(profile, BASE)).pipe(
 			Effect.provide(layerWith(opStubs, env)),
 		),
 	);
@@ -111,7 +121,7 @@ describe("resolveAll", () => {
 		// A profile using all four at once, because the defect was an omission in
 		// a list and only a case that exercises the whole list can catch the next
 		// one.
-		writeFileSync(join(tempDir, "cert.pem"), "CERTBYTES");
+		put("cert.pem", "CERTBYTES");
 		const exit = await resolveAll(
 			{
 				username: "tester",
@@ -146,7 +156,7 @@ describe("resolveAll", () => {
 	});
 
 	it("resolves file entries relative to the base path", async () => {
-		writeFileSync(join(tempDir, "secret.txt"), "file-value");
+		put("secret.txt", "file-value");
 		const exit = await resolveAll({
 			username: "tester",
 			github_token: { env: "GH" },
@@ -156,7 +166,7 @@ describe("resolveAll", () => {
 	});
 
 	it("trims trailing whitespace from file entries", async () => {
-		writeFileSync(join(tempDir, "secret.txt"), "file-value\n\n");
+		put("secret.txt", "file-value\n\n");
 		const exit = await resolveAll({
 			username: "tester",
 			github_token: { env: "GH" },
@@ -166,7 +176,7 @@ describe("resolveAll", () => {
 	});
 
 	it("merges all three sub-groups", async () => {
-		writeFileSync(join(tempDir, "cert.pem"), "cert-data");
+		put("cert.pem", "cert-data");
 		const exit = await resolveAll(
 			{
 				username: "tester",
@@ -291,7 +301,7 @@ describe("does not leak resolved values", () => {
 	});
 
 	it("keeps file contents out of every rendering of a success", async () => {
-		writeFileSync(join(tempDir, "leak.txt"), SECRET);
+		put("leak.txt", SECRET);
 		const exit = await resolveAll({
 			username: "tester",
 			github_token: { env: "GH" },
