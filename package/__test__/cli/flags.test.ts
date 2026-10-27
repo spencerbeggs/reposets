@@ -1,5 +1,5 @@
 import { NodeServices } from "@effect/platform-node";
-import { Effect, Option } from "effect";
+import { Console, Effect, Exit, Option } from "effect";
 import { Command } from "effect/cli";
 import { describe, expect, it } from "vitest";
 import { credentialsCommand } from "../../src/cli/commands/credentials.js";
@@ -8,6 +8,7 @@ import { historyCommand } from "../../src/cli/commands/history.js";
 import { initCommand } from "../../src/cli/commands/init.js";
 import { nukeCommand } from "../../src/cli/commands/nuke.js";
 import { syncCommand } from "../../src/cli/commands/sync.js";
+import { capturingConsole } from "../utils/capture.js";
 
 /**
  * The one parser fact this repo owns: what each command receives when a flag
@@ -74,6 +75,34 @@ describe("flags omitted from argv", () => {
 			skip: ["cleanup"],
 			debug: true,
 		});
+	});
+
+	it("sync refuses a phase name that is not one while parsing, a valid one beside it included", async () => {
+		// Moved here from the handler suite: `--only`/`--skip` are `Flag.Literals`,
+		// so a typo never reaches the handler — the parser refuses it as a usage
+		// error, before any config is read. The valid name beside the typo does
+		// not rescue it: running fewer phases than asked for is the narrower
+		// wrong answer the old filter gave.
+		// The parser prints help beside the usage error; capture it rather than
+		// let it reach the test runner's stdout.
+		const { console: double, lines } = capturingConsole();
+		const exit = await Effect.runPromiseExit(
+			Effect.gen(function* () {
+				const capturing = Command.withHandler(syncCommand, () => Effect.void);
+				yield* Command.runWith(capturing, { version: "0.0.0-test", renderErrors: false })([
+					"--only",
+					"settings",
+					"--only",
+					"secrts",
+				]);
+			}).pipe(Effect.provideService(Console.Console, double), Effect.provide(NodeServices.layer)),
+		);
+
+		expect(Exit.isFailure(exit)).toBe(true);
+		expect(JSON.stringify(exit)).toContain("secrts");
+		expect(lines.some((line) => line.text.includes("DESCRIPTION"))).toBe(true);
+		// The control: a valid non-first choice parses.
+		expect((await parse(syncCommand, ["--skip", "rulesets"]))?.skip).toEqual(["rulesets"]);
 	});
 
 	it("drift runs with every flag at its default", async () => {

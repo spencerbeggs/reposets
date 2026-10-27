@@ -8,7 +8,9 @@
  *
  * The library surface is deliberately small: the config schema and the config
  * file services, which are what an embedding program needs to read or validate
- * a `reposets.config.toml` without shelling out to the CLI. Everything else —
+ * a `reposets.config.toml` without shelling out to the CLI, plus `Invocation`,
+ * which those layers require for the working directory discovery starts from
+ * (the CLI provides it from `process.cwd()`). Everything else —
  * the sync engine, the phases, the stores — is reachable only through the CLI,
  * because none of it is useful without the command that sequences it.
  *
@@ -24,3 +26,4 @@ export {
 	ReposetsConfigFile,
 	makeConfigFilesLive,
 } from "./services/ConfigFiles.js";
+export { Invocation } from "./services/Invocation.js";

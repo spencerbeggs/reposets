@@ -1,3 +1,4 @@
+import { Fmt } from "@effected/cli";
 import type { Repo } from "@effected/github";
 import { CodeScanning, WorkflowDispatch } from "@effected/github";
 import { Effect, Option } from "effect";
@@ -237,9 +238,7 @@ export const codeScanningPhase = Effect.gen(function* () {
 			if (!ctx.dryRun) {
 				const failure = yield* codeScanning.configure(desired).pipe(
 					Effect.as(Option.none<string>()),
-					Effect.catch((error: { readonly message?: string }) =>
-						Effect.succeed(Option.some(error.message ?? String(error))),
-					),
+					Effect.catch((error) => Effect.succeed(Option.some(Fmt.describe(error)))),
 				);
 
 				if (Option.isSome(failure)) {

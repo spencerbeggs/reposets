@@ -31,11 +31,7 @@ const formatDuration = (summary: RunSummary): string => {
 	if (summary.finishedAt === null) return "—";
 	const millis = Date.parse(summary.finishedAt) - Date.parse(summary.startedAt);
 	if (Number.isNaN(millis) || millis < 0) return "—";
-	if (millis < 1000) return `${millis}ms`;
-	const seconds = millis / 1000;
-	return seconds < 60
-		? `${seconds.toFixed(1)}s`
-		: `${Math.floor(seconds / 60)}m${String(Math.round(seconds % 60)).padStart(2, "0")}s`;
+	return Fmt.duration(millis);
 };
 
 /**
@@ -282,7 +278,7 @@ const pickRun = (runs: ReadonlyArray<RunSummary>, abbreviate: (id: string) => st
 						// Group names are user-supplied and land in a line this code
 						// builds, not in a document that sanitises itself.
 						label: `${abbreviate(run.id)} · ${formatWhen(run.startedAt)} · ${outcome} · ${Fmt.sanitize(run.group ?? "(all)")}`,
-						detail: `${formatMode(run)} · ${run.changes} change${run.changes === 1 ? "" : "s"} · ${formatDuration(run)}`,
+						detail: `${formatMode(run)} · ${Fmt.plural(run.changes, "change")} · ${formatDuration(run)}`,
 						value: run,
 					};
 				}),
@@ -413,7 +409,7 @@ export const showHandler = (prefix: string | undefined) =>
 									// header says `dry-run`, but a reader scanning resource lines is
 									// past it.
 									const action = dryRun ? `would ${wouldForm(record.action)}` : record.action;
-									return [Doc.text(action.padEnd(18), actionToken(record.action, dryRun)), " ", what, detail];
+									return [Doc.text(Fmt.pad(action, 18), actionToken(record.action, dryRun)), " ", what, detail];
 								}),
 							),
 						]),
@@ -448,7 +444,7 @@ export const pruneHandler = (keep: number) =>
 		const removed = yield* journal.prune(keep).pipe(Effect.orElseSucceed(() => 0));
 		yield* removed === 0
 			? CliMessage.info(`Nothing to prune; ${keep} or fewer runs are recorded.`)
-			: CliMessage.success(`Pruned ${removed} run${removed === 1 ? "" : "s"}, keeping the newest ${keep}.`);
+			: CliMessage.success(`Pruned ${Fmt.plural(removed, "run")}, keeping the newest ${keep}.`);
 		yield* CliMessage.info(UNTOUCHED);
 	});
 
@@ -459,7 +455,7 @@ export const clearHandler = () =>
 	Effect.gen(function* () {
 		const journal = yield* SyncJournal;
 		const removed = yield* journal.clear().pipe(Effect.orElseSucceed(() => 0));
-		yield* CliMessage.success(`Cleared ${removed} run${removed === 1 ? "" : "s"} from the journal.`);
+		yield* CliMessage.success(`Cleared ${Fmt.plural(removed, "run")} from the journal.`);
 		yield* CliMessage.info(UNTOUCHED);
 	});
 

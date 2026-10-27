@@ -304,7 +304,7 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 			 * concatenated directly, with no separating space.
 			 */
 			const formatVerb = (pastTense: string, presentTense: string): string =>
-				dryRun ? `would ${presentTense}`.padEnd(14) : pastTense.padEnd(8);
+				dryRun ? Fmt.pad(`would ${presentTense}`, 14) : Fmt.pad(pastTense, 8);
 
 			/** A change made reads as done; the same change on a dry run, as information. */
 			const changeStatus: CoreStatusName = dryRun ? "info" : "success";
@@ -317,9 +317,7 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 					// the summary agree about what happened. The noun agrees with the
 					// number nearest it — "1 of 3 repos", not "1 of 3 repo".
 					const scope =
-						selected === declared
-							? `${selected} ${selected === 1 ? "repo" : "repos"}`
-							: `${selected} of ${declared} ${declared === 1 ? "repo" : "repos"}`;
+						selected === declared ? Fmt.plural(selected, "repo") : `${selected} of ${Fmt.plural(declared, "repo")}`;
 					return emit(`group: ${name} (${scope})`).pipe(
 						Effect.andThen(publish({ _tag: "GroupStarted", name, selected, declared })),
 					);
@@ -381,7 +379,7 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 					const fingerprints = debug ? ` <- applied ${drift.applied} live ${drift.live}` : "";
 					return action(
 						"warning",
-						`${"drift".padEnd(8)}${resource} ${name} changed outside reposets — ${consequence}${fingerprints}`,
+						`${Fmt.pad("drift", 8)}${resource} ${name} changed outside reposets — ${consequence}${fingerprints}`,
 					).pipe(Effect.andThen(publish({ _tag: "Drift", resource, name, needsApply: drift.needsApply })));
 				},
 
@@ -403,7 +401,7 @@ export function SyncLoggerLive(config: SyncLoggerConfig): Layer.Layer<SyncLogger
 							// The whole closing block follows the run's outcome to one
 							// stream: splitting the header from the list it introduces
 							// would interleave badly under any redirection.
-							yield* emitFailure(`Sync complete with ${errs.length} ${errs.length === 1 ? "error" : "errors"}:`);
+							yield* emitFailure(`Sync complete with ${Fmt.plural(errs.length, "error")}:`);
 							for (const err of errs) {
 								// A run-level failure — an unmatched `--repo`, say — belongs to
 								// no repository, and prefixing it with an empty slug reads as a

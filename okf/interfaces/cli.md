@@ -7,8 +7,7 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:11:28Z
-  body_sha256: 7eac5329923100a48b61163a6f7165a8750b4355ba2eae140d7e9c64d251ee82
+  at: 2026-10-27T16:42:53Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -50,6 +49,9 @@ sources:
     resource: ../../package/src/cli/views/sync-progress-model.ts
   - id: commands-doc
     resource: ../../docs/02-commands.md
+integrity:
+  generated:
+    body: 1fc47da23dbbb9a8
 ---
 
 # The reposets command line
@@ -263,11 +265,13 @@ terminal.
 `sync` and `drift` select phases from `PHASE_NAMES` with `--only` and
 `--skip`. When a name appears in both, `--only` wins: an explicit inclusion
 is a stronger statement than an exclusion, and the alternative — running
-nothing — is worse than an ambiguous but non-empty result. An unrecognised
-phase name in either flag is refused outright rather than filtered out
-silently, and refuses the whole invocation with `Unknown phase name(s): …`
-rather than running the phases it did recognise. It is checked before the
-config is loaded, and it is a usage error (exit 64).[^cli-sync] Phase selection
+nothing — is worse than an ambiguous but non-empty result. Both flags are
+`Flag.Literals` over `PHASE_NAMES`, so an unrecognised phase name is
+refused by the parser rather than filtered out silently: the whole
+invocation fails with `Invalid value for flag --only: "<name>". Expected:
+"settings" | …` (or `--skip`), with the help on stderr, rather than
+running the phases it did recognise. It is refused before the handler runs
+or any config is loaded, and it is a usage error (exit 64).[^cli-sync] Phase selection
 always preserves `PHASE_NAMES` order regardless of the order the names were
 typed in.
 
@@ -343,10 +347,14 @@ org without any claim that the pairing was verified, because nothing in
 verification: GitHub exposes a permission set for GitHub App installation
 tokens only, so a fine-grained personal access token's own scopes are not
 readable through the API, and the output says so explicitly. `doctor` also
-answers "which files?" — it prints the version, the credentials file the
-resolver chain actually found via `discover` (marked `(not created yet)`
-when the chain finds nothing, never guessed from cwd), and the state
-database path.
+answers "which files?" — it prints the version, the config file
+`discover` found or, when discovery failed, the file the failure names
+(`ConfigCodecError.path`, `ConfigFileReadError.path` or
+`ConfigValidationError.path`, so a TOML syntax error names its file
+without a second walk of the chain), the credentials file the resolver
+chain actually found (marked `(not created yet)` when the chain finds
+nothing, never guessed from cwd), and the state database path from
+`AppStore.location`, the derivation `AppStore.layer` opens.
 
 The report runs in sections, in order: Files (version, config,
 credentials file, state database), Schema, Config keys (unknown keys as
@@ -507,7 +515,13 @@ status line and the issue drawn as a tree of rejected keys (for example
 spellings.` only when `ConfigIssueRenderer.render` finds an `unknown key`,
 because a missing key has no spelling to suggest. For any other failure with a `cause`, such as a TOML syntax error
 whose message is only "toml parse failed", `render` prints the cause, which
-carries the line and column, on a second line. `doctor` renders the same
+carries the line and column, on a second line: the messages along the
+cause chain (`Fmt.causeMessage`), prefixed with the failure's file when it
+names one (`ConfigCodecError.path`). An unclosed `[groups` header on the
+first line of `/p/reposets.config.toml` reads
+`/p/reposets.config.toml: TOML parse failed with 1 error:
+ExpectedTableHeaderClose at 1:8 expected ] to close the table header`; the
+position is 1-based. `doctor` renders the same
 issue through `SchemaIssueRenderer.render`, on stdout as part of its
 report.[^cli-doctor]
 

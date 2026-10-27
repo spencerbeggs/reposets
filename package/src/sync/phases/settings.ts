@@ -304,19 +304,7 @@ export const settingsPhase = Effect.gen(function* () {
 			let sent: ReadonlyArray<string> | undefined;
 
 			if (!ctx.dryRun) {
-				const outcome = yield* settingsClient.applySettings(desired).pipe(
-					Effect.map(
-						(applied) =>
-							({ applied }) as
-								| { applied: { rest: ReadonlyArray<string>; graphql: ReadonlyArray<string> } }
-								| { failed: string },
-					),
-					Effect.catch((error: { readonly message?: string }) =>
-						Effect.succeed({ failed: error.message ?? String(error) } as
-							| { applied: { rest: ReadonlyArray<string>; graphql: ReadonlyArray<string> } }
-							| { failed: string }),
-					),
-				);
+				const outcome = yield* read(settingsClient.applySettings(desired));
 
 				if ("failed" in outcome) {
 					return { changes: [], errors: [...errors, { context: KIND, message: outcome.failed }] };
@@ -324,7 +312,7 @@ export const settingsPhase = Effect.gen(function* () {
 
 				// Taken after `preparePatch`, so these are the keys that went on the
 				// wire rather than the ones this phase asked for.
-				sent = [...outcome.applied.rest, ...outcome.applied.graphql];
+				sent = [...outcome.value.rest, ...outcome.value.graphql];
 
 				// Only after the write landed: a fingerprint for settings we failed
 				// to apply would make the next run believe they are in place.

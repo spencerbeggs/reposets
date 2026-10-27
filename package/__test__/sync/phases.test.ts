@@ -1,7 +1,4 @@
-import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
-import { join } from "node:path";
-import { App } from "@effected/app";
+import { AppTest } from "@effected/app/testing";
 import { CliEnv, CliLogger } from "@effected/cli";
 import {
 	CodeScanning,
@@ -16,6 +13,7 @@ import {
 	Ruleset,
 	WorkflowDispatch,
 } from "@effected/github";
+import type { MemoryFileSystemSeed } from "@effected/memfs";
 import { Console, Effect, Layer, Redacted } from "effect";
 import { describe, expect, it } from "vitest";
 import { fingerprint } from "../../src/lib/fingerprint.js";
@@ -46,10 +44,10 @@ const LoggerEnv = CliEnv.layerTest({ audience: "agent" });
 /**
  * A phase is a function of its `RepoContext`, so these construct one directly
  * and never build an engine. Services come from the recording `GitHubClient`
- * double plus `App.layerTest`'s in-memory databases.
+ * double plus `AppTest.layer`'s in-memory databases.
  */
 
-const AppTest = App.layerTest({ namespace: "reposets-phases-test", store: { migrations } });
+const TestApp = AppTest.layer({ namespace: "reposets-phases-test", store: { migrations } });
 
 const config = (overrides: Partial<Config>): Config =>
 	({
@@ -171,6 +169,8 @@ const runPhase = async <R>(
 	options: {
 		readonly responses?: Readonly<Record<string, unknown>>;
 		readonly seed?: ReadonlyArray<{ kind: string; name: string; fingerprint: string }>;
+		/** Files on the in-memory volume, for `{ file }` groups; none by default. */
+		readonly files?: MemoryFileSystemSeed;
 	} = {},
 ): Promise<Outcome> => {
 	const rec = recorder({ ...WRITES_ACCEPTED, ...options.responses });
@@ -191,7 +191,15 @@ const runPhase = async <R>(
 		RepoCacheLive,
 		AppliedStateLive,
 		SyncLoggerLive({ dryRun: ctx.dryRun, debug: true }).pipe(Layer.provide(LoggerEnv)),
-	).pipe(Layer.provideMerge(AppTest), Layer.provideMerge(rec.layer));
+	).pipe(
+		// A seeded volume is its own app plane; the shared one has no files.
+		Layer.provideMerge(
+			options.files === undefined
+				? TestApp
+				: AppTest.layer({ namespace: "reposets-phases-test", store: { migrations }, files: options.files }),
+		),
+		Layer.provideMerge(rec.layer),
+	);
 
 	const program = Effect.gen(function* () {
 		const applied = yield* AppliedState;
@@ -241,7 +249,7 @@ describe("settings phase", () => {
 						RepoCacheLive,
 						AppliedStateLive,
 						SyncLoggerLive({ dryRun: false, debug: true }).pipe(Layer.provide(LoggerEnv)),
-					).pipe(Layer.provideMerge(AppTest), Layer.provideMerge(recorder().layer)),
+					).pipe(Layer.provideMerge(TestApp), Layer.provideMerge(recorder().layer)),
 				),
 			) as Effect.Effect<Phase>,
 		);
@@ -710,23 +718,19 @@ describe("variables phase", () => {
 	});
 
 	it("resolves a file-backed variable group against configDir", async () => {
-		const dir = mkdtempSync(join(tmpdir(), "reposets-var-file-"));
-		try {
-			writeFileSync(join(dir, "level.txt"), "high\n");
-			const fileBacked = config({
-				variables: { fromFile: { file: { LEVEL: "./level.txt" } } },
-				groups: { g: { repos: ["widget"], variables: { actions: ["fromFile"] } } },
-			} as unknown as Partial<Config>);
+		const dir = "/project/config";
+		const fileBacked = config({
+			variables: { fromFile: { file: { LEVEL: "./level.txt" } } },
+			groups: { g: { repos: ["widget"], variables: { actions: ["fromFile"] } } },
+		} as unknown as Partial<Config>);
 
-			const out = await runPhase(variablesPhase, context({ config: fileBacked, configDir: dir }), {
-				responses: empty,
-			});
+		const out = await runPhase(variablesPhase, context({ config: fileBacked, configDir: dir }), {
+			responses: empty,
+			files: { [`${dir}/level.txt`]: "high\n" },
+		});
 
-			expect(out.result.errors).toHaveLength(0);
-			expect(out.result.changes.map((c) => c.name)).toEqual(["LEVEL"]);
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
-		}
+		expect(out.result.errors).toHaveLength(0);
+		expect(out.result.changes.map((c) => c.name)).toEqual(["LEVEL"]);
 	});
 
 	it("a dry run writes nothing and records nothing", async () => {
@@ -885,25 +889,21 @@ describe("secrets phase", () => {
 
 describe("file-backed resource groups", () => {
 	it("resolves a file path against configDir, not the working directory", async () => {
-		const dir = mkdtempSync(join(tmpdir(), "reposets-file-"));
-		try {
-			writeFileSync(join(dir, "token.txt"), "from-the-file\n");
-			const fileConfig = config({
-				secrets: { fromFile: { file: { TOKEN: "./token.txt" } } },
-				groups: { g: { repos: ["widget"], secrets: { actions: ["fromFile"] } } },
-			} as unknown as Partial<Config>);
+		const dir = "/project/config";
+		const fileConfig = config({
+			secrets: { fromFile: { file: { TOKEN: "./token.txt" } } },
+			groups: { g: { repos: ["widget"], secrets: { actions: ["fromFile"] } } },
+		} as unknown as Partial<Config>);
 
-			const out = await runPhase(secretsPhase, context({ config: fileConfig, configDir: dir }), {
-				responses: secretResponses,
-			});
+		const out = await runPhase(secretsPhase, context({ config: fileConfig, configDir: dir }), {
+			responses: secretResponses,
+			files: { [`${dir}/token.txt`]: "from-the-file\n" },
+		});
 
-			expect(out.result.errors).toHaveLength(0);
-			expect(out.result.changes.map((c) => c.name)).toEqual(["actions/TOKEN"]);
-			// Trailing newline trimmed, and the contents never printed.
-			expect(out.lines.join("\n")).not.toContain("from-the-file");
-		} finally {
-			rmSync(dir, { recursive: true, force: true });
-		}
+		expect(out.result.errors).toHaveLength(0);
+		expect(out.result.changes.map((c) => c.name)).toEqual(["actions/TOKEN"]);
+		// Trailing newline trimmed, and the contents never printed.
+		expect(out.lines.join("\n")).not.toContain("from-the-file");
 	});
 
 	it("reports an unreadable file by path, never by contents", async () => {
@@ -1071,7 +1071,7 @@ describe("cleanup phase", () => {
 						RepoCacheLive,
 						AppliedStateLive,
 						SyncLoggerLive({ dryRun: false, debug: true }).pipe(Layer.provide(LoggerEnv)),
-					).pipe(Layer.provideMerge(AppTest), Layer.provideMerge(recorder().layer)),
+					).pipe(Layer.provideMerge(TestApp), Layer.provideMerge(recorder().layer)),
 				),
 			) as Effect.Effect<Phase>,
 		);

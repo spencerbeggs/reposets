@@ -1,5 +1,5 @@
-import { readFileSync } from "node:fs";
-import { isAbsolute, resolve as resolvePath } from "node:path";
+import { Fmt } from "@effected/cli";
+import type { FileSystem, Path } from "effect";
 import { Effect, Redacted } from "effect";
 import type { SecretGroup, VariableGroup } from "../../schemas/common.js";
 import type { RepoContext } from "../phase.js";
@@ -11,6 +11,20 @@ export type ResolvedEntries = ReadonlyMap<string, Redacted.Redacted<string>>;
 export interface ResolveFailure {
 	readonly context: string;
 	readonly message: string;
+}
+
+/**
+ * The platform services reading a `{ file }` group needs.
+ *
+ * @remarks
+ * Passed in rather than required in `R`: a phase binds its services when it is
+ * built, and a `Phase.run` carries only `Repo`.
+ *
+ * @public
+ */
+export interface FileAccess {
+	readonly fs: FileSystem.FileSystem;
+	readonly path: Path.Path;
 }
 
 /** What resolving a set of groups produced. */
@@ -41,48 +55,52 @@ export interface ResolveOutcome {
  * this runs on the secret-loading path, and the error is the most likely thing
  * to reach a log.
  */
-const resolveOne = (group: SecretGroup | VariableGroup, label: string, ctx: RepoContext): ResolveOutcome => {
-	const entries = new Map<string, Redacted.Redacted<string>>();
-	const errors: ResolveFailure[] = [];
+const resolveOne = (
+	io: FileAccess,
+	group: SecretGroup | VariableGroup,
+	label: string,
+	ctx: RepoContext,
+): Effect.Effect<ResolveOutcome> =>
+	Effect.gen(function* () {
+		const entries = new Map<string, Redacted.Redacted<string>>();
+		const errors: ResolveFailure[] = [];
 
-	if ("value" in group) {
-		for (const [name, value] of Object.entries(group.value)) {
-			entries.set(name, Redacted.make(typeof value === "string" ? value : JSON.stringify(value), { label: name }));
-		}
-		return { entries, errors };
-	}
-
-	if ("resolved" in group) {
-		for (const [name, credentialLabel] of Object.entries(group.resolved)) {
-			const value = ctx.credentials.get(credentialLabel);
-			if (value === undefined) {
-				errors.push({
-					context: `${label}.${name}`,
-					// The label is an address into the credentials file, not a secret.
-					message: `credential label '${credentialLabel}' is not defined in the active profile's [resolve] section`,
-				});
-				continue;
+		if ("value" in group) {
+			for (const [name, value] of Object.entries(group.value)) {
+				entries.set(name, Redacted.make(typeof value === "string" ? value : JSON.stringify(value), { label: name }));
 			}
-			entries.set(name, value);
+			return { entries, errors };
 		}
+
+		if ("resolved" in group) {
+			for (const [name, credentialLabel] of Object.entries(group.resolved)) {
+				const value = ctx.credentials.get(credentialLabel);
+				if (value === undefined) {
+					errors.push({
+						context: `${label}.${name}`,
+						// The label is an address into the credentials file, not a secret.
+						message: `credential label '${credentialLabel}' is not defined in the active profile's [resolve] section`,
+					});
+					continue;
+				}
+				entries.set(name, value);
+			}
+			return { entries, errors };
+		}
+
+		for (const [name, filePath] of Object.entries(group.file)) {
+			const fullPath = io.path.isAbsolute(filePath) ? filePath : io.path.resolve(ctx.configDir, filePath);
+			const text = yield* io.fs.readFileString(fullPath).pipe(Effect.result);
+			if (text._tag === "Success") {
+				entries.set(name, Redacted.make(text.success.trim(), { label: name }));
+			} else {
+				// A `PlatformError` names the path; it never carries file contents.
+				errors.push({ context: `${label}.${name}`, message: text.failure.message });
+			}
+		}
+
 		return { entries, errors };
-	}
-
-	for (const [name, filePath] of Object.entries(group.file)) {
-		const fullPath = isAbsolute(filePath) ? filePath : resolvePath(ctx.configDir, filePath);
-		try {
-			entries.set(name, Redacted.make(readFileSync(fullPath, "utf-8").trim(), { label: name }));
-		} catch (error) {
-			errors.push({
-				context: `${label}.${name}`,
-				// The fs error names the path; it never carries file contents.
-				message: error instanceof Error ? error.message : String(error),
-			});
-		}
-	}
-
-	return { entries, errors };
-};
+	});
 
 /**
  * Resolve every group a scope references, later groups winning.
@@ -96,23 +114,25 @@ const resolveOne = (group: SecretGroup | VariableGroup, label: string, ctx: Repo
  * @public
  */
 export const resolveGroups = (
+	io: FileAccess,
 	refs: ReadonlyArray<string>,
 	definitions: Readonly<Record<string, SecretGroup | VariableGroup>>,
 	ctx: RepoContext,
-): ResolveOutcome => {
-	const entries = new Map<string, Redacted.Redacted<string>>();
-	const errors: ResolveFailure[] = [];
+): Effect.Effect<ResolveOutcome> =>
+	Effect.gen(function* () {
+		const entries = new Map<string, Redacted.Redacted<string>>();
+		const errors: ResolveFailure[] = [];
 
-	for (const ref of refs) {
-		const group = definitions[ref];
-		if (group === undefined) continue;
-		const outcome = resolveOne(group, ref, ctx);
-		for (const [name, value] of outcome.entries) entries.set(name, value);
-		errors.push(...outcome.errors);
-	}
+		for (const ref of refs) {
+			const group = definitions[ref];
+			if (group === undefined) continue;
+			const outcome = yield* resolveOne(io, group, ref, ctx);
+			for (const [name, value] of outcome.entries) entries.set(name, value);
+			errors.push(...outcome.errors);
+		}
 
-	return { entries, errors };
-};
+		return { entries, errors };
+	});
 
 /**
  * The names a set of groups declares, without resolving any value.
@@ -157,12 +177,12 @@ export const declaredNames = (
  *
  * @public
  */
-export const read = <A, E extends { readonly message?: string }, R = never>(
+export const read = <A, E, R = never>(
 	effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<{ readonly value: A } | { readonly failed: string }, never, R> =>
 	effect.pipe(
 		Effect.map((value) => ({ value }) as { readonly value: A } | { readonly failed: string }),
-		Effect.catch((error: E) => Effect.succeed({ failed: error.message ?? String(error) })),
+		Effect.catch((error) => Effect.succeed({ failed: Fmt.describe(error) })),
 	);
 
 /**
@@ -171,11 +191,11 @@ export const read = <A, E extends { readonly message?: string }, R = never>(
  *
  * @public
  */
-export const capture = <A, E extends { readonly message?: string }, R = never>(
+export const capture = <A, E, R = never>(
 	context: string,
 	effect: Effect.Effect<A, E, R>,
 ): Effect.Effect<ResolveFailure | undefined, never, R> =>
 	effect.pipe(
 		Effect.as(undefined as ResolveFailure | undefined),
-		Effect.catch((error: E) => Effect.succeed({ context, message: error.message ?? String(error) })),
+		Effect.catch((error) => Effect.succeed({ context, message: Fmt.describe(error) })),
 	);

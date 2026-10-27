@@ -36,23 +36,15 @@ import { on, run, runOutcome, text } from "../utils/capture.js";
 
 let dir: string;
 let home: string;
-let previousCwd: string;
 
 beforeEach(() => {
-	previousCwd = process.cwd();
 	dir = join(tmpdir(), `reposets-cli-${Date.now()}-${Math.random().toString(36).slice(2)}`);
 	home = join(dir, "home");
 	mkdirSync(dir, { recursive: true });
 	mkdirSync(home, { recursive: true });
-	// Both config files resolve by walking UP from the working directory. Left
-	// at the repo root, that walk climbs out of the temp fixture and finds this
-	// repository's own reposets.*.toml — so a test would read the developer's
-	// machine and pass or fail for reasons that have nothing to do with it.
-	process.chdir(dir);
 });
 
 afterEach(() => {
-	process.chdir(previousCwd);
 	rmSync(dir, { recursive: true, force: true });
 });
 
@@ -80,11 +72,8 @@ const layers = (
 		XDG_CACHE_HOME: join(home, ".cache"),
 		...extra,
 	};
-	return Layer.mergeAll(
-		makeConfigFilesLive(configFlag),
-		CredentialsFilesLive,
-		Invocation.layer({ cwd: dir, version: "0.0.0-test" }),
-	).pipe(
+	return Layer.mergeAll(makeConfigFilesLive(configFlag), CredentialsFilesLive).pipe(
+		Layer.provideMerge(Invocation.layer({ cwd: dir, version: "0.0.0-test" })),
 		Layer.provideMerge(AppLive),
 		Layer.provideMerge(NodeServices.layer),
 		Layer.provideMerge(ConfigProvider.layer(ConfigProvider.fromEnv({ env }))),
@@ -293,9 +282,7 @@ describe("doctor", () => {
 			join(dir, "reposets.config.toml"),
 			`[settings.defaults]\nhas_wikkis = false\n\n[groups.g]\nrepos = ["r"]\ncredentials = "me"\nsettings = ["defaults"]\n`,
 		);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 
 		expect(out).toContain("unrecognised setting 'has_wikkis' in settings.defaults");
 		expect(out).toContain("did you mean 'has_wiki'?");
@@ -311,9 +298,7 @@ describe("doctor", () => {
 			join(dir, "reposets.config.toml"),
 			`[settings.defaults]\nhas_wiki = false\ndelete_branch_on_merge = true\n\n[groups.g]\nrepos = ["r"]\ncredentials = "me"\nsettings = ["defaults"]\n`,
 		);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 
 		expect(out).not.toContain("unrecognised setting");
 		expect(out).toContain("No unknown keys detected");
@@ -328,9 +313,7 @@ describe("doctor", () => {
 			join(dir, "reposets.config.toml"),
 			`owner = "acme"\nlog_level = "verbose"\n\n[groups.g]\nowner = "other"\nrepos = ["r"]\n`,
 		);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 
 		expect(out).toContain("'owner' removed in 1.0");
 		expect(out).toContain("credential profile");
@@ -347,15 +330,13 @@ describe("doctor", () => {
 			join(dir, "reposets.config.toml"),
 			`settingz = {}\n\n[groups.g]\nrepos = ["r"]\ncredentials = "me"\nunknown_key = 1\n\n[groups.g.cleanup]\nrulesetz = true\n`,
 		);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 
 		expect(out).toContain("unknown key 'settingz'");
 		expect(out).toContain("did you mean 'settings'?");
 		expect(out).toContain("unknown key 'unknown_key' in groups.g");
 		expect(out).toContain("unknown key 'rulesetz' in groups.g.cleanup");
-		expect(out).toContain("3 warning(s) found");
+		expect(out).toContain("3 warnings found");
 		// The config layer decodes strictly, so these keys are REJECTED, not
 		// stripped. Doctor must say so — a run that reported only warnings would
 		// imply the config loaded and merely had cosmetic problems.
@@ -370,29 +351,38 @@ describe("doctor", () => {
 			join(dir, "reposets.config.toml"),
 			`settingz = {}\n\n[groups.g]\nrepos = ["r"]\ncredentials = "me"\n`,
 		);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 
 		expect(out).not.toContain("No config found");
 		expect(out).toContain("Config: ");
 		expect(out).toContain("did you mean 'settings'?");
 	});
 
+	it("names the file a TOML syntax error is in, from the failure itself, with its position", async () => {
+		// The file comes from `ConfigCodecError.path`, not from a second walk of
+		// the resolver chain; the position is the parser's, 1-based.
+		const file = join(dir, "reposets.config.toml");
+		writeFileSync(file, "[groups\n");
+		const outcome = await runOutcome(provided(doctorHandler as never, file));
+		const stdout = on(outcome.lines, "stdout").join("\n");
+		const stderr = on(outcome.lines, "stderr").join("\n");
+
+		expect(stdout).toContain(file);
+		expect(stderr).toContain("TOML parse error: ");
+		expect(stderr).toContain("ExpectedTableHeaderClose at 1:8");
+		expect(stderr).not.toContain("No config found");
+	});
+
 	it("reports a clean config with no warnings", async () => {
 		writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 		expect(out).toContain("Schema validation: passed");
 		expect(out).toContain("No unknown keys detected.");
 	});
 
 	it("lists the corrected token permissions and never GPG keys", async () => {
 		writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 
 		// v3 told users to grant an account-wide scope reposets never uses.
 		expect(out).not.toContain("GPG");
@@ -420,13 +410,13 @@ describe("doctor", () => {
 			`[profiles.personal]\nusername = "acme"\ngithub_token = { env = "REPOSETS_DOCTOR_TEST" }\n\n[profiles.personal.resolve.op]\nNPM = "op://Private/npm/token"\n`,
 		);
 		const lines = await run(
-			provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"), {
+			provided(doctorHandler as never, join(dir, "reposets.config.toml"), {
 				REPOSETS_DOCTOR_TEST: SECRET,
 			}),
 		);
 		const out = text(lines);
 
-		expect(out).toContain("Credentials: 1 profile(s)");
+		expect(out).toContain("Credentials: 1 profile");
 		// The variable NAME is an address and is printed.
 		expect(out).toContain("env REPOSETS_DOCTOR_TEST");
 		// Its VALUE is a secret and must not be, on any stream.
@@ -449,7 +439,7 @@ describe("doctor", () => {
 		const requested = join(nested, "reposets.config.toml");
 		writeFileSync(requested, `settingz = {}\n\n[groups.g]\nrepos = ["r"]\ncredentials = "me"\n`);
 
-		const out = text(await run(provided(doctorHandler(requested) as never, requested)));
+		const out = text(await run(provided(doctorHandler as never, requested)));
 
 		expect(out).toContain(`Config: ${requested}`);
 		expect(out).not.toContain(`Config: ${join(dir, "reposets.config.toml")}`);
@@ -468,7 +458,7 @@ describe("doctor", () => {
 			`settingz = {}\n\n[groups.g]\nrepos = ["r"]\ncredentials = "me"\n`,
 		);
 
-		const out = text(await run(provided(doctorHandler(nested) as never, nested)));
+		const out = text(await run(provided(doctorHandler as never, nested)));
 
 		expect(out).toContain(`Config: ${join(nested, "reposets.config.toml")}`);
 		expect(out).not.toContain("Could not read");
@@ -485,9 +475,7 @@ describe("doctor", () => {
 			join(dir, "reposets.credentials.toml"),
 			`[profiles.p]\nusername = "acme"\ngithub_token = { env = "GH" }\nop_service_account_token = "ops_leftover"\n`,
 		);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 
 		expect(out).toContain("Credentials: FAILED to load");
 		expect(out).toContain("op_service_account_token");
@@ -506,9 +494,7 @@ describe("doctor", () => {
 			join(dir, "reposets.credentials.toml"),
 			`[profiles.p]\nusername = "acme"\ngithub_token = { op = "op://Private/gh/token" }\n`,
 		);
-		const out = text(
-			await run(provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"))),
-		);
+		const out = text(await run(provided(doctorHandler as never, join(dir, "reposets.config.toml"))));
 		expect(out).toContain("OP_SERVICE_ACCOUNT_TOKEN: NOT SET");
 	});
 
@@ -520,7 +506,7 @@ describe("doctor", () => {
 			`[profiles.p]\nusername = "acme"\ngithub_token = { op = "op://Private/gh/token" }\n`,
 		);
 		const lines = await run(
-			provided(doctorHandler(join(dir, "reposets.config.toml")) as never, join(dir, "reposets.config.toml"), {
+			provided(doctorHandler as never, join(dir, "reposets.config.toml"), {
 				OP_SERVICE_ACCOUNT_TOKEN: SECRET,
 			}),
 		);
@@ -685,14 +671,14 @@ describe("exit codes and streams", () => {
 	const CREDS = `[profiles.default]\nusername = "acme"\ngithub_token = { env = "GH" }\n`;
 	const configPath = (): string => join(dir, "reposets.config.toml");
 
-	const syncWith = (input: { only?: ReadonlyArray<string>; group?: string }) =>
+	const syncWith = (input: { group?: string }) =>
 		syncHandler({
 			dryRun: true,
 			noCleanup: true,
 			failOnDrift: false,
 			group: input.group,
 			repo: undefined,
-			only: input.only ?? [],
+			only: [],
 			skip: [],
 			debug: false,
 		});
@@ -750,15 +736,6 @@ describe("exit codes and streams", () => {
 
 		expect(outcome.exitCode).toBe(1);
 		expect(on(outcome.lines, "stderr")).toEqual(["✗ No config found. Run 'reposets init' to create one."]);
-		expect(on(outcome.lines, "stdout")).toEqual([]);
-	});
-
-	it("sync refuses an unknown phase as a usage error, before reading any config", async () => {
-		// No config file exists at all: the phase check must not depend on one.
-		const outcome = await runOutcome(provided(syncWith({ only: ["settings", "secrts"] }) as never));
-
-		expect(outcome.exitCode).toBe(64);
-		expect(on(outcome.lines, "stderr").join("\n")).toContain("Unknown phase name(s): secrts");
 		expect(on(outcome.lines, "stdout")).toEqual([]);
 	});
 

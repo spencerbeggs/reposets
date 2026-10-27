@@ -1,6 +1,6 @@
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
-import { App } from "@effected/app";
+import { AppTest } from "@effected/app/testing";
 import { CliLogger } from "@effected/cli";
 import type { CliUiTestSession } from "@effected/cli/ui/testing";
 import { CliUiTest } from "@effected/cli/ui/testing";
@@ -25,8 +25,8 @@ import { presentation } from "../utils/capture.js";
  * for the report `Doc.print` writes once a run is chosen.
  */
 
-const AppTest = App.layerTest({ namespace: "reposets-history-show-test", store: { migrations } });
-const Journal = Layer.provideMerge(SyncJournalLive, Layer.provideMerge(AppTest, NodeServices.layer));
+const TestApp = AppTest.layer({ namespace: "reposets-history-show-test", store: { migrations } });
+const Journal = Layer.provideMerge(SyncJournalLive, Layer.provideMerge(TestApp, NodeServices.layer));
 
 /** Two finished runs, each touching its own repository, so the report says which one was picked. */
 const seedTwo = Effect.gen(function* () {

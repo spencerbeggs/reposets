@@ -1,3 +1,4 @@
+import { Fmt } from "@effected/cli";
 import { Config, Context, Data, Effect, Layer, Option, Redacted } from "effect";
 
 /**
@@ -114,7 +115,7 @@ export class OnePasswordClient extends Context.Service<OnePasswordClient, OnePas
 						catch: (error) =>
 							new OnePasswordError({
 								reference,
-								reason: error instanceof Error ? error.message : String(error),
+								reason: Fmt.describe(error),
 							}),
 					});
 					return Redacted.make(value, { label: reference });

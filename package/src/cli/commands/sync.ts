@@ -16,7 +16,7 @@ import {
 	WorkflowDispatch,
 } from "@effected/github";
 import type { Cache, Store } from "@effected/store";
-import type { Crypto, Scope } from "effect";
+import type { Crypto, FileSystem, Path, Scope } from "effect";
 import { Console, Effect, Exit, Layer, Option, PubSub } from "effect";
 import { CliError, Command, Flag } from "effect/cli";
 import { danglingReferences } from "../../lib/config-refs.js";
@@ -36,25 +36,6 @@ import { SyncEngine, SyncEngineLive } from "../../sync/SyncEngine.js";
 import type { SyncProgressState } from "../views/sync-progress-model.js";
 import { syncSummaryBlock } from "../views/sync-progress-model.js";
 import { syncProgressView } from "../views/sync-progress-view.js";
-
-const isPhaseName = (value: string): value is PhaseName => (PHASE_NAMES as ReadonlyArray<string>).includes(value);
-
-const phaseSet = (values: ReadonlyArray<string>): ReadonlySet<PhaseName> => new Set(values.filter(isPhaseName));
-
-/**
- * Phase names the user typed that do not exist.
- *
- * @remarks
- * Unrecognised names used to be filtered out silently, and an empty `only` set
- * reads downstream as "no filter" — so `--only nonsense` ran **all eight
- * phases**. The flag reached for to limit the blast radius of a destructive
- * command did the opposite of what it says, and reported success.
- *
- * Any unknown name is refused, including alongside valid ones: a typo in
- * `--only settings,secrts` means the user asked for two phases and would
- * otherwise get one, silently. That is a narrower wrong answer, not a safer one.
- */
-const unknownPhases = (values: ReadonlyArray<string>): ReadonlyArray<string> => values.filter((v) => !isPhaseName(v));
 
 /**
  * Group names by the credential profile they authenticate as.
@@ -197,8 +178,8 @@ export const syncHandler = (input: {
 	readonly failOnDrift: boolean;
 	readonly group: string | undefined;
 	readonly repo: string | undefined;
-	readonly only: ReadonlyArray<string>;
-	readonly skip: ReadonlyArray<string>;
+	readonly only: ReadonlyArray<PhaseName>;
+	readonly skip: ReadonlyArray<PhaseName>;
 	readonly debug: boolean;
 }): Effect.Effect<
 	void,
@@ -208,6 +189,8 @@ export const syncHandler = (input: {
 	| Store
 	| Cache
 	| Crypto.Crypto
+	| FileSystem.FileSystem
+	| Path.Path
 	| Invocation
 	| CliExit
 	| CliTheme
@@ -216,18 +199,6 @@ export const syncHandler = (input: {
 	| CliLinks
 > =>
 	Effect.gen(function* () {
-		// Before anything else, and before the config is even read: a phase
-		// filter that does not name a phase is a typo — a usage error, exit 64 —
-		// and silently running everything is the worst available response.
-		const badPhases = [...unknownPhases(input.only), ...unknownPhases(input.skip)];
-		if (badPhases.length > 0) {
-			return yield* Effect.fail(
-				new CliError.UserError({
-					cause: `Unknown phase name(s): ${badPhases.join(", ")}. Valid phases: ${PHASE_NAMES.join(", ")}. Nothing was synced.`,
-				}),
-			);
-		}
-
 		const configFile = yield* ReposetsConfigFile;
 		const credentialsFile = yield* ReposetsCredentialsFile;
 
@@ -406,8 +377,8 @@ export const syncHandler = (input: {
 							configDir,
 							group: input.group,
 							repo: input.repo,
-							only: phaseSet(input.only),
-							skip: phaseSet(input.skip),
+							only: new Set(input.only),
+							skip: new Set(input.skip),
 						});
 					}).pipe(Effect.provide(engineLayer));
 
@@ -466,8 +437,14 @@ export const syncCommand = Command.make(
 		),
 		group: Flag.String("group").pipe(Flag.optional, Flag.withDescription("Sync only this group")),
 		repo: Flag.String("repo").pipe(Flag.optional, Flag.withDescription("Sync only this repository")),
-		only: Flag.String("only").pipe(Flag.atLeast(0), Flag.withDescription("Run only these phases")),
-		skip: Flag.String("skip").pipe(Flag.atLeast(0), Flag.withDescription("Skip these phases")),
+		// `Flag.Literals`, so a name that is not a phase is refused while parsing —
+		// a usage error, exit 64, naming the choices — before the handler or any
+		// config read runs. A typo was once filtered out silently, and an empty
+		// `only` reads as "no filter", so `--only nonsense` ran all eight phases;
+		// a typo beside a valid name is refused too, rather than quietly running
+		// fewer phases than were asked for.
+		only: Flag.Literals("only", PHASE_NAMES).pipe(Flag.atLeast(0), Flag.withDescription("Run only these phases")),
+		skip: Flag.Literals("skip", PHASE_NAMES).pipe(Flag.atLeast(0), Flag.withDescription("Skip these phases")),
 		debug: Flag.Boolean("debug").pipe(
 			Flag.withDefault(false),
 			Flag.withDescription("Annotate output with value sources and the fingerprints behind a drift report"),

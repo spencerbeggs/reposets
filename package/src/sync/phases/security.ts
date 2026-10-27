@@ -1,3 +1,4 @@
+import { Fmt } from "@effected/cli";
 import type { Repo } from "@effected/github";
 import { RepositorySecurity } from "@effected/github";
 import { Effect, Option } from "effect";
@@ -90,9 +91,7 @@ export const securityPhase = Effect.gen(function* () {
 
 		return call.pipe(
 			Effect.as(Option.none<string>()),
-			Effect.catch((error: { readonly message?: string }) =>
-				Effect.succeed(Option.some(error.message ?? String(error))),
-			),
+			Effect.catch((error) => Effect.succeed(Option.some(Fmt.describe(error)))),
 		);
 	};
 

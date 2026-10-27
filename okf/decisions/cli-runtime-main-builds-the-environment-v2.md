@@ -7,8 +7,7 @@ supersedes: cli-runtime-main-builds-the-environment.md
 tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:11:28Z
-  body_sha256: 125d6078b213a379614f2f163dd6616126595508514fb6e8dadacfe893147d4b
+  at: 2026-10-27T16:42:53Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -35,6 +34,9 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-10-03T18:13:54Z
+integrity:
+  generated:
+    body: 8dcdc4f5fe239a01
 ---
 
 # CliRuntime.main builds the audience environment over App.layerDirs
@@ -54,7 +56,6 @@ NodeRuntime.runMain(
       audienceEnvVar: "REPOSETS_AUDIENCE",
       log: { envVar: "REPOSETS_LOG_LEVEL" },
       spansEnvVar: "REPOSETS_SPANS",
-      stderrIsTerminal: Effect.sync(() => process.stderr.isTTY === true),
     },
     render,
     helpOnUsageError: "stderr",
