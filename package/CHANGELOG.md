@@ -1,5 +1,70 @@
 # reposets
 
+## 4.0.0
+
+### Breaking Changes
+
+#### `makeConfigFilesLive` requires `Invocation`
+
+- Config discovery now starts from the invocation's working directory instead of reading the process cwd, and a relative `--config` path resolves against that directory. As a result, the layer returned by `makeConfigFilesLive` has `Invocation` in its requirements. `Invocation` is now exported from the package root.
+
+- Programs that embed the library must provide it:
+
+```ts
+import { Invocation, makeConfigFilesLive } from "reposets";
+import { Layer } from "effect";
+
+const ConfigLive = makeConfigFilesLive(undefined).pipe(
+  Layer.provide(Invocation.layer({ cwd: process.cwd(), version: "embedded" })),
+);
+```
+
+- The CLI is unaffected: it provides `Invocation` from its entry point.
+
+#### `--only` / `--skip` reject unknown phases at parse time
+
+- `reposets sync --only` and `--skip` now accept only the known phase names, and the flag parser rejects anything else. The message changes from `Unknown phase name(s): x. Valid phases: …` to the parser's `Invalid value for flag --only: "x". Expected: …`, with help printed on stderr. The exit code is still `64`.
+
+### Features
+
+- A config file that fails to parse now reports its path and a 1-based position, e.g. `reposets.config.toml: TOML parse failed with 1 error: ExpectedTableHeaderClose at 1:8 …`, without the redundant `TomlParseError:` prefix
+- `reposets doctor` names the broken file directly from the load failure
+
+### Refactoring
+
+- Output now goes through `@effected/cli`'s shared formatters, so wording matches other kit-based CLIs:
+
+- Error lines in `doctor` and `nuke` drop the ` Tag:  ` prefix, e.g. `could not resolve — Failed…`
+
+- Counts are pluralized properly: `3 warnings found`, `1 profile`
+
+- `history` durations read `1m 3s` and `2s` instead of `1m03s` and `2.0s`
+
+- An unreadable `file:` reference in a secrets or variables group reports the filesystem error, e.g. `NotFound: FileSystem.readFile (/abs/path)` [#245][#245]
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/app | dependency | updated | ^0.27.1 | ^0.28.0 |
+| @effected/cli | dependency | updated | ^0.22.2 | ^0.23.0 |
+| @effected/config-file | dependency | updated | ^0.20.1 | ^0.21.0 |
+| @effected/env | dependency | updated | ^0.5.0 | ^0.6.0 |
+| @effected/github | dependency | updated | ^0.25.0 | ^0.25.1 |
+| @effected/glob | dependency | updated | ^0.14.0 | ^0.15.0 |
+| @effected/schemastore | dependency | updated | ^0.26.2 | ^0.26.3 |
+| @effected/store | dependency | updated | ^0.19.0 | ^0.20.0 |
+| @effected/walker | dependency | updated | ^0.20.1 | ^0.21.0 |
+| @effected/xdg | dependency | updated | ^0.15.1 | ^0.16.0 |
+
+[#245][#245]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/spencerbeggs) for their contributions!
+
+[#245]: https://github.com/spencerbeggs/reposets/pull/245
+
 ## 3.1.8
 
 ### Dependencies
@@ -773,8 +838,6 @@ Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contri
   | --- | --- | --- | --- | --- | --- |
   | @effected/config-file | dependency | updated | ^0.5.0 | ^0.5.1 | [#82][#82] Thanks [@spencerbeggs](https://github.com/apps/spencerbeggs)! |
 
-### Patch Changes
-
 [#82]: https://github.com/spencerbeggs/reposets/pull/82
 
 ## 1.0.4
@@ -785,8 +848,6 @@ Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contri
   | --- | --- | --- | --- | --- | --- |
   | @effected/app | dependency | updated | ^0.11.0 | ^0.11.1 | [#74][#74] Thanks [@spencerbeggs](https://github.com/apps/spencerbeggs)! |
 
-### Patch Changes
-
 [#74]: https://github.com/spencerbeggs/reposets/pull/74
 
 ## 1.0.3
@@ -796,8 +857,6 @@ Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contri
 - | Dependency | Type | Action | From | To |  |
   | --- | --- | --- | --- | --- | --- |
   | @effected/github | dependency | updated | ^0.5.0 | ^0.7.0 | [#71][#71] Thanks [@spencerbeggs](https://github.com/apps/spencerbeggs)! |
-
-### Patch Changes
 
 [#71]: https://github.com/spencerbeggs/reposets/pull/71
 
@@ -827,8 +886,6 @@ Thanks to [@spencerbeggs](https://github.com/apps/spencerbeggs) for their contri
 - | Dependency | Type | Action | From | To |  |
   | --- | --- | --- | --- | --- | --- |
   | @1password/sdk | dependency | updated | ^0.4.0 | ^0.5.0 | [#65][#65] Thanks [@spencerbeggs](https://github.com/apps/spencerbeggs)! |
-
-### Patch Changes
 
 [#65]: https://github.com/spencerbeggs/reposets/pull/65
 
