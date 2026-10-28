@@ -1,5 +1,41 @@
 # reposets
 
+## 4.0.1
+
+### Bug Fixes
+
+- Passing a single-valued flag more than once, such as `reposets sync --group a --group b`, is now a usage error that exits 64. Previously the first value was silently kept and the rest ignored. Pass the flag once, or use a flag that accepts multiple values. [#249][#249]
+
+* A `[settings.*]` key that GitHub's API description does not declare is now sent on the repository PATCH instead of being dropped, so a setting GitHub ships before it is documented works without a reposets release. Because GitHub answers 200 whether or not it recognised the field, `sync` prints one `unconfirmed: GitHub does not describe this field` line per such key, which also makes a misspelled key visible during the run. [#249][#249]
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effect/platform-node | dependency | updated | ^4.0.6 | ^4.0.7 |
+| @effected/app | dependency | updated | ^0.28.0 | ^0.29.0 |
+| @effected/cli | dependency | updated | ^0.23.0 | ^0.24.0 |
+| @effected/config-file | dependency | updated | ^0.21.0 | ^0.22.0 |
+| @effected/env | dependency | updated | ^0.6.0 | ^0.7.0 |
+| @effected/github | dependency | updated | ^0.25.1 | ^0.26.0 |
+| @effected/glob | dependency | updated | ^0.15.0 | ^0.16.0 |
+| @effected/schemastore | dependency | updated | ^0.26.3 | ^0.27.0 |
+| @effected/store | dependency | updated | ^0.20.0 | ^0.21.0 |
+| @effected/toml | dependency | updated | ^0.16.0 | ^0.17.0 |
+| @effected/walker | dependency | updated | ^0.21.0 | ^0.22.0 |
+| @effected/xdg | dependency | updated | ^0.16.0 | ^0.17.0 |
+| effect | dependency | updated | ^4.0.6 | ^4.0.7 |
+| @effected/jsonc | dependency | added | — | ^0.21.0 |
+| @effected/yaml | dependency | added | — | ^0.26.0 |
+
+[#249][#249]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/spencerbeggs) for their contributions!
+
+[#249]: https://github.com/spencerbeggs/reposets/pull/249
+
 ## 4.0.0
 
 ### Breaking Changes
