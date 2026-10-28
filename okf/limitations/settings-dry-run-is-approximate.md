@@ -7,10 +7,12 @@ tags: [github, dx]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 29838d774596035435af68f6f67f59924210b33e0cd7bf9c3f81aa45dbe1fe06
 sources:
   - id: settings-phase
     resource: ../../package/src/sync/phases/settings.ts
+integrity:
+  generated:
+    body: 29838d7745960354
 ---
 
 # A settings dry run reports the request, not the write

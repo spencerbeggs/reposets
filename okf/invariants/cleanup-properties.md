@@ -7,12 +7,14 @@ tags: [testing, security]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 901ce933ea8975068d2f0536d717495e91ee284b0d495ef9abfb60d591f913bf
 sources:
   - id: phases-test
     resource: ../../package/__test__/sync/phases.test.ts
   - id: cleanup-phase
     resource: ../../package/src/sync/phases/cleanup.ts
+integrity:
+  generated:
+    body: 901ce933ea897506
 ---
 
 # Cleanup phase properties

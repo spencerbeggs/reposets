@@ -96,6 +96,16 @@ describe("credentials create accepts a long 1Password reference", () => {
 		assert.include(readFileSync(xdgCredentialsFile(), "utf8"), LONG_REFERENCE);
 	});
 
+	it("writes back to a project-local credentials file, not the XDG one", async () => {
+		seed();
+		const outcome = await runOutcome(create({ profile: "p", op: LONG_REFERENCE, username: "u" }));
+		assert.strictEqual(outcome.exitCode, 0);
+		const local = readFileSync(credentialsFile(), "utf8");
+		assert.include(local, LONG_REFERENCE);
+		assert.include(local, "[profiles.work]");
+		assert.isFalse(existsSync(xdgCredentialsFile()));
+	});
+
 	it("by flag: a value over 60 characters that is not a reference is still refused", async () => {
 		const long = "x".repeat(61);
 		const outcome = await runOutcome(create({ profile: "p", env: long, username: "u" }));

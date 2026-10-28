@@ -6,8 +6,10 @@ stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
   at: 2026-09-27T17:39:49Z
-  body_sha256: 63441352d9b3e4e7bebcba0af4e34d4ff61d4083ca9cd65f546c138bf826400a
 tags: [dx]
+integrity:
+  generated:
+    body: 63441352d9b3e4e7
 ---
 
 # Imports and code style

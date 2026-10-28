@@ -7,7 +7,6 @@ tags: [dx, effect, ci, observability]
 generated:
   by: okfit/claude-code
   at: 2026-10-02T15:49:51Z
-  body_sha256: e30e5a28280bc0f8dff6b82be0c3bdcc0f62fa326a8ce79708fe7d594cfe65b5
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -28,6 +27,9 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-10-02T17:14:23Z
+integrity:
+  generated:
+    body: e30e5a28280bc0f8
 ---
 
 # Adopt @effected/cli's interactive kit

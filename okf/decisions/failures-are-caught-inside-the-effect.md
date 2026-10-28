@@ -7,7 +7,6 @@ tags: [effect, dx]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: b099c319cf73495816f1d8ad5639dc58dfa9aa0002b75ff9a351089361954d2c
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -18,6 +17,9 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:29Z
+integrity:
+  generated:
+    body: b099c319cf734958
 ---
 
 # Failures are caught inside the effect

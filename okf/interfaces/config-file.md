@@ -8,7 +8,6 @@ tags: [github, security, docs]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 3364eb8c09e1d0676b75e3f522cb0c4a5badef25f4d0bbe54db852a700d3d59e
 sources:
   - id: config-schema
     resource: ../../package/src/schemas/config.ts
@@ -22,6 +21,9 @@ sources:
     resource: ../../package/src/sync/phases/cleanup.ts
   - id: config-refs
     resource: ../../package/src/lib/config-refs.ts
+integrity:
+  generated:
+    body: 3364eb8c09e1d067
 ---
 
 # reposets.config.toml

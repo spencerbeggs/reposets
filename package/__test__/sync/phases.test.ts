@@ -304,6 +304,21 @@ describe("settings phase", () => {
 		expect(out.result.changes).toHaveLength(1);
 	});
 
+	it("sends a settings key GitHub does not describe, and says nothing confirms it", async () => {
+		const withUnknown = config({
+			settings: { defaults: { has_issues: true, has_future_setting: true } },
+			groups: { g: { repos: ["widget"], settings: ["defaults"], credentials: "default" } },
+		} as unknown as Partial<Config>);
+
+		const out = await runPhase(settingsPhase, context({ config: withUnknown }));
+
+		const patch = out.requests.find((r) => r.route === "PATCH /repos/{owner}/{repo}");
+		expect(patch?.params.data).toMatchObject({ has_issues: true, has_future_setting: true });
+		const text = out.lines.join("\n");
+		expect(text).toContain("has_future_setting");
+		expect(text).toContain("unconfirmed");
+	});
+
 	it("strips org-only settings on a personal account and says so", async () => {
 		const withForking = config({
 			settings: { defaults: { has_issues: true, allow_forking: true } },

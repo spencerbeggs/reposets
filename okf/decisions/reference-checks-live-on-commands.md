@@ -7,7 +7,6 @@ tags: [architecture, dx]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 1cdfc683cf03f0497f919c4b75b440fdf1576d32432088c714f51dc1dabb8a72
 sources:
   - id: config-refs
     resource: ../../package/src/lib/config-refs.ts
@@ -24,6 +23,9 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:26Z
+integrity:
+  generated:
+    body: 1cdfc683cf03f049
 ---
 
 # Reference checks live on commands, not the config loader

@@ -8,7 +8,6 @@ tags: [security, dx]
 generated:
   by: okfit/claude-code
   at: 2026-10-03T18:04:28Z
-  body_sha256: aee06419f07b52365268c762d70349d90f3cc919071fedc267099d5ab77fbe2c
 sources:
   - id: cli-credentials
     resource: ../../package/src/cli/commands/credentials.ts
@@ -16,6 +15,9 @@ sources:
     resource: npm:@effected/cli@0.12.0
   - id: credentials-test
     resource: ../../package/__test__/cli/credentials.test.ts
+integrity:
+  generated:
+    body: aee06419f07b5236
 ---
 
 # A token pasted into a credentials name prompt is visible until Enter

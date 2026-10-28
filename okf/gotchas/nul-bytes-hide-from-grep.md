@@ -10,10 +10,12 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 021d1699a4129c9c6bc59797e797b0708901e14740d9c79bc0e9c4a7af5058f1
 sources:
   - id: applied-state
     resource: "../../package/src/store/AppliedState.ts"
+integrity:
+  generated:
+    body: 021d1699a4129c9c
 ---
 
 # NUL bytes hide from grep

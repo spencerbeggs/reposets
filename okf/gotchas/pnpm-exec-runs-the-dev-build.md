@@ -8,10 +8,12 @@ tags: [dx]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: b4cfbb87b878ba0836f35528d8f8dbc6850b3fdb571118788b7eee7e2e7e368a
 sources:
   - id: package-json
     resource: ../../package/package.json
+integrity:
+  generated:
+    body: b4cfbb87b878ba08
 ---
 
 # pnpm exec reposets runs the dev build, not prod

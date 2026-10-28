@@ -7,7 +7,6 @@ tags: [architecture, effect, observability]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 7076501a4cc46ed91f1b431cdfeeb4ec88aa93661fad6f7b79acb462135982e1
 sources:
   - id: sync-engine
     resource: ../../package/src/sync/SyncEngine.ts
@@ -16,6 +15,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:27Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: 7076501a4cc46ed9
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: 4a2e80754accb637
 ---
 
 # The run boundary belongs to the command, not the engine

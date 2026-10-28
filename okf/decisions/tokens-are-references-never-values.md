@@ -7,7 +7,6 @@ tags: [security]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 81f22c9f0b471c3b6f42bf9097f5a5828002f6701c2adafc858d9f64efe9d17e
 sources:
   - id: credentials-schema
     resource: ../../package/src/schemas/credentials.ts
@@ -16,6 +15,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:24Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: 81f22c9f0b471c3b
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: 6b3c582dcc8eb8d8
 ---
 
 # Tokens are references, never values

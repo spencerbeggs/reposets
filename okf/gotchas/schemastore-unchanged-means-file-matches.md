@@ -7,10 +7,12 @@ tags: [dx, docs]
 generated:
   by: okfit/claude-code
   at: 2026-10-02T17:48:12Z
-  body_sha256: cfa5c6e53a6d2a4f1289513f30a0b878a68bf31a09e9fe12804268397d799ff4
 sources:
   - id: schemastore-cli
     resource: "npm:@effected/schemastore-cli"
+integrity:
+  generated:
+    body: cfa5c6e53a6d2a4f
 ---
 
 # "unchanged" means the file already matches, not that the schema did not change

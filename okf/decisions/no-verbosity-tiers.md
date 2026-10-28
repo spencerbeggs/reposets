@@ -7,7 +7,6 @@ tags: [dx, observability]
 generated:
   by: okfit/claude-code
   at: 2026-09-28T22:03:48Z
-  body_sha256: c276463e41edf50357bf7316770493c0066f2b7142255a387fbd801da8bb8e5f
 sources:
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
@@ -18,6 +17,9 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:25Z
+integrity:
+  generated:
+    body: c276463e41edf503
 ---
 
 # There are no verbosity tiers

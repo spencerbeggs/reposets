@@ -8,7 +8,6 @@ tags: [architecture, dx]
 generated:
   by: okfit/claude-code
   at: 2026-09-27T17:39:49Z
-  body_sha256: 7a1a257678eea4982d546dda34c4bdaadc0b5025c8f4877a4f1f4fc99855470d
 sources:
   - id: config-refs
     resource: ../../package/src/lib/config-refs.ts
@@ -27,6 +26,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-27T17:38:40Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: 7a1a257678eea498
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: 795813236d57d807
 ---
 
 # Reference checks are functions commands call

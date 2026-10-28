@@ -9,7 +9,6 @@ tags: [testing, effect, security]
 generated:
   by: okfit/claude-code
   at: 2026-09-27T17:39:49Z
-  body_sha256: f06178dbb870ff1f56f75ec242cf719710a0d8b7f7f188a90caac88485d2492f
 sources:
   - id: resolver-test
     resource: ../../package/__test__/services/CredentialResolver.test.ts
@@ -17,6 +16,9 @@ sources:
     resource: ../../package/src/services/CredentialResolver.ts
   - id: onepassword-client
     resource: ../../package/src/services/OnePasswordClient.ts
+integrity:
+  generated:
+    body: f06178dbb870ff1f
 ---
 
 # A ConfigProvider passed with Layer.provide reads the real environment

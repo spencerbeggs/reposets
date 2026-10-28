@@ -8,7 +8,6 @@ tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
   at: 2026-10-02T15:49:51Z
-  body_sha256: cf7ea47668c71d69e4860ac8fcf6299d702d4c9e9207c08dbdc330dc39651364
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -35,6 +34,9 @@ verified:
     at: 2026-09-27T17:38:39Z
   - by: human:spencer
     at: 2026-10-02T17:14:06Z
+integrity:
+  generated:
+    body: cf7ea47668c71d69
 ---
 
 # The CLI runs under @effected/cli's CliRuntime.main

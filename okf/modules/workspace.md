@@ -8,8 +8,10 @@ status: draft
 generated:
   by: okfit/claude-code
   at: 2026-10-03T18:04:28Z
-  body_sha256: 891efdf43c54c4dfd11f1f6edaf8585c1acc25bd4af42d1196ddf9284c5da68b
 tags: [architecture, dx, deps]
+integrity:
+  generated:
+    body: 891efdf43c54c4df
 ---
 
 # workspace

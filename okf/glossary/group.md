@@ -7,12 +7,14 @@ tags: [docs]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 4a910ae0caa1e47c0987323222c4eae9026c671d149f2aa333b47932fca03a43
 sources:
   - id: config-schema
     resource: ../../package/src/schemas/config.ts
   - id: config-refs
     resource: ../../package/src/lib/config-refs.ts
+integrity:
+  generated:
+    body: 4a910ae0caa1e47c
 ---
 
 # Group

@@ -8,7 +8,6 @@ tags: [dx, release, docs]
 generated:
   by: okfit/claude-code
   at: 2026-10-02T17:48:12Z
-  body_sha256: bc61a1ada6fa46d8452acb5cfaec5888d3dd6608a95b6decce138486d36e82dc
 sources:
   - id: hosted
     resource: ../../package/src/schemas/hosted.ts
@@ -25,6 +24,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-10-02T19:01:47Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: bc61a1ada6fa46d8
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: af718eff6b542080
 ---
 
 # Versioned JSON schemas at the repository root

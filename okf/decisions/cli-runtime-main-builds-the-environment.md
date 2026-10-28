@@ -8,7 +8,6 @@ tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
   at: 2026-10-02T19:04:30Z
-  body_sha256: f114f72b341f2bcb5ab89ef94d678570d976627fc979e8c12954f146bc249113
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -35,6 +34,9 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-10-02T19:04:46Z
+integrity:
+  generated:
+    body: f114f72b341f2bcb
 ---
 
 # CliRuntime.main builds the audience environment over a directories-only platform

@@ -7,13 +7,21 @@ tags: [security, github]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: afea5261f3f673e8d0febb3fbe4ee73420f8493ea4bb89db8e0abfb231085d1e
 sources:
   - id: config-schema
     resource: ../../package/src/schemas/config.ts
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:28Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: afea5261f3f673e8
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: 721228aa9c02d86d
 ---
 
 # Five PATCH fields are deliberately not typed on settings groups

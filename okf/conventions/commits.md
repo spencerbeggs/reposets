@@ -6,8 +6,10 @@ stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 9eeb3de75d416430be916f620aa38f819296e3ec985a6a5ad0e78fe8f9924bb0
 tags: [release, ci]
+integrity:
+  generated:
+    body: 9eeb3de75d416430
 ---
 
 # Commits

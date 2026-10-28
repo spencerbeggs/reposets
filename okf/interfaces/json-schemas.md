@@ -8,7 +8,6 @@ tags: [docs, dx]
 generated:
   by: okfit/claude-code
   at: 2026-10-02T19:01:24Z
-  body_sha256: 8e38f07c83a69aeda326723bf0f3c3483a5fe8a15bd18535b2d98f4eee4deea1
 sources:
   - id: hosted
     resource: ../../package/src/schemas/hosted.ts
@@ -24,6 +23,9 @@ sources:
     resource: ../../schemas/catalog.json
   - id: catalog-slice
     resource: ../../schemas/catalogs/reposets.json
+integrity:
+  generated:
+    body: 8e38f07c83a69aed
 ---
 
 # Published JSON schemas for reposets.config.toml and reposets.credentials.toml

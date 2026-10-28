@@ -34,9 +34,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-10-03T18:13:54Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
 integrity:
   generated:
     body: 8dcdc4f5fe239a01
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: 8f6f5934ec287f6c
 ---
 
 # CliRuntime.main builds the audience environment over App.layerDirs

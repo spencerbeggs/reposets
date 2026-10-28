@@ -10,7 +10,6 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-10-02T16:06:57Z
-  body_sha256: 602c021e9990f74ccdeda4e63f54f04a9df051fb6ad891560ff7c16357988d44
 sources:
   - id: applied-state
     resource: "../../package/src/store/AppliedState.ts"
@@ -20,6 +19,9 @@ sources:
     resource: "../../package/src/store/RepoCache.ts"
   - id: migrations
     resource: "../../package/src/store/migrations.ts"
+integrity:
+  generated:
+    body: 602c021e9990f74c
 ---
 
 # Local state

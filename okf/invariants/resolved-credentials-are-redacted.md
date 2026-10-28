@@ -8,7 +8,6 @@ tags: [security, effect]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 733f862df39be21dfeb5a9b9c9057138df8dcdf4ce4a9eb37ac22e205db8c1b3
 sources:
   - id: credential-resolver
     resource: ../../package/src/services/CredentialResolver.ts
@@ -18,6 +17,9 @@ sources:
     resource: ../../package/src/sync/phases/secrets.ts
   - id: variables-phase
     resource: ../../package/src/sync/phases/variables.ts
+integrity:
+  generated:
+    body: 733f862df39be21d
 ---
 
 # Every value `CredentialResolver` returns is `Redacted`

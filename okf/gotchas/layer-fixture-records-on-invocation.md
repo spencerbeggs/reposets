@@ -8,10 +8,12 @@ tags: [testing, github]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 5b2a3c9eed014574a0fbc9ad44b4ce9a16d099cea970f3cd6b8c0891597327ee
 sources:
   - id: cleanup-phase
     resource: ../../package/src/sync/phases/cleanup.ts
+integrity:
+  generated:
+    body: 5b2a3c9eed014574
 ---
 
 # A prepared-but-unrun fixture request still reads as sent

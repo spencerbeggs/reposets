@@ -7,7 +7,6 @@ tags: [architecture, security, github]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: b808bfc3d81d6bbc6a24076da927ea5a548142d4b466d8cdb56304bf3770b86f
 sources:
   - id: credentials-schema
     resource: ../../package/src/schemas/credentials.ts
@@ -18,6 +17,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:24Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: b808bfc3d81d6bbc
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: 43c300985d1ca940
 ---
 
 # The owner lives on the credential profile

@@ -92,6 +92,13 @@ const STRICT_KEYS = {
  * `upwardWalk` defaults to `process.cwd()` when given no `cwd`, which made
  * config discovery the one reader of `process` below the entrypoint.
  *
+ * **Writes go back to the file that was found.** `AppConfig` pins
+ * `saveTarget: "default"`, the XDG path, which would split reads from writes
+ * when a project-local `reposets.credentials.toml` exists: `credentials create`
+ * would land in XDG while `list` and `sync` keep reading the local file.
+ * `"source"` writes to the highest-priority file the chain found, and to XDG
+ * only when there is none.
+ *
  * @public
  */
 export const CredentialsFilesLive: Layer.Layer<
@@ -106,6 +113,7 @@ export const CredentialsFilesLive: Layer.Layer<
 			codec: TomlCodec,
 			resolvers: [ConfigResolver.upwardWalk({ filename: CREDENTIALS_FILENAME, cwd })],
 			parseOptions: STRICT_KEYS,
+			saveTarget: "source",
 		}),
 	),
 );

@@ -8,7 +8,6 @@ tags: [dx, observability]
 generated:
   by: okfit/claude-code
   at: 2026-09-28T22:03:48Z
-  body_sha256: 6f71c1b47f554e618059bccce1b75fcf402fde0e4a1f28a56cdcc31516a3afa9
 sources:
   - id: sync-logger
     resource: ../../package/src/services/SyncLogger.ts
@@ -19,6 +18,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-27T17:38:40Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: 6f71c1b47f554e61
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: b1a4e2f2e1f1199f
 ---
 
 # One output level, plus --debug
