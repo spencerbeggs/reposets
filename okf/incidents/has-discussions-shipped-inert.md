@@ -8,7 +8,6 @@ tags: [github, testing]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: b077a97357a6047f6f2b698020aa1cc927beef3e504282ba662d7b6d6c25dafe
 sources:
   - id: config-schema
     resource: ../../package/src/schemas/config.ts
@@ -18,6 +17,9 @@ sources:
     resource: ../../package/node_modules/@effected/github/package.json
   - id: effected-358
     resource: https://github.com/spencerbeggs/effected/issues/358
+integrity:
+  generated:
+    body: b077a97357a6047f
 ---
 
 # `has_discussions` shipped inert since v3

@@ -8,12 +8,14 @@ resource: ../../package/src/schemas/credentials.ts
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: b15af7b22db081cd2c81a145987484efed84c3266ca5211edbd341bad16eefc7
 sources:
   - id: credentials-schema
     resource: ../../package/src/schemas/credentials.ts
   - id: credentials-test
     resource: ../../package/__test__/schemas/credentials.test.ts
+integrity:
+  generated:
+    body: b15af7b22db081cd
 ---
 
 # A credential profile declares exactly one owner

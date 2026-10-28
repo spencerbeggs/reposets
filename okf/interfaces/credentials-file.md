@@ -8,12 +8,14 @@ tags: [security, github]
 generated:
   by: okfit/claude-code
   at: 2026-09-27T17:39:49Z
-  body_sha256: 2a20dd005bb87b9a362d6263746fb841375c53b377edbae147a9fd154262d1f0
 sources:
   - id: credentials-schema
     resource: ../../package/src/schemas/credentials.ts
   - id: credential-resolver
     resource: ../../package/src/services/CredentialResolver.ts
+integrity:
+  generated:
+    body: 2a20dd005bb87b9a
 ---
 
 # reposets.credentials.toml

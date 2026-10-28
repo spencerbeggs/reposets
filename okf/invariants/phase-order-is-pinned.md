@@ -7,8 +7,10 @@ status: draft
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 539a8bc5fa64cffbc25d0c4da4f3a8427fe7aa79232b0c2db89e6ace783914db
 tags: [architecture]
+integrity:
+  generated:
+    body: 539a8bc5fa64cffb
 ---
 
 # Phase order is pinned

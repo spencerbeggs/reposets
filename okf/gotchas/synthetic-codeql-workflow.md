@@ -9,12 +9,14 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: dbb45b89e5702c6c5e059dddecb849c91843b5147dffdc9b9f3b86b3cfa887eb
 sources:
   - id: code-scanning
     resource: "../../package/src/sync/phases/code-scanning.ts"
   - id: phases-test
     resource: "../../package/__test__/sync/phases.test.ts"
+integrity:
+  generated:
+    body: dbb45b89e5702c6c
 ---
 
 # GitHub's own CodeQL workflow satisfies the check it should fail

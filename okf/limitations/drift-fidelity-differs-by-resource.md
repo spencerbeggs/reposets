@@ -10,12 +10,14 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 9d97ec69878dd509ef85f380432d24b0e5f2d5a36868def14799321030bd200d
 sources:
   - id: secrets-phase
     resource: "../../package/src/sync/phases/secrets.ts"
   - id: rulesets-phase
     resource: "../../package/src/sync/phases/rulesets.ts"
+integrity:
+  generated:
+    body: 9d97ec69878dd509
 ---
 
 # Drift fidelity differs by resource

@@ -10,10 +10,12 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: b652ff6f5956562542dae675d4a20b16bafaae0578160bbe0f3fca9165073bbb
 sources:
   - id: doctor
     resource: "../../package/src/cli/commands/doctor.ts"
+integrity:
+  generated:
+    body: b652ff6f59565625
 ---
 
 # Token permissions

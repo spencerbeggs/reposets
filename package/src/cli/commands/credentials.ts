@@ -122,38 +122,6 @@ const SECRET_IN_NAME = "That looks like a token, not a name. It was not stored."
 const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
 
 /**
- * Write credentials back to the file they were read from.
- *
- * @remarks
- * `ConfigFileShape.save` resolves its own default path — the XDG one — rather
- * than the path `discover` found. With a project-local
- * `reposets.credentials.toml` present, that splits reads from writes: `create`
- * lands in XDG while `list` keeps reading the local file, so a profile is
- * created that the user cannot see and that sync will not use. Writing back to
- * the discovered source keeps one file authoritative, and falls back to `save`
- * only when there is genuinely nothing to update.
- */
-const saveWhereRead = (
-	file: {
-		readonly discover: Effect.Effect<ReadonlyArray<{ readonly path: string }>, unknown>;
-		readonly write: (value: Credentials, path: string) => Effect.Effect<void, unknown>;
-		readonly save: (value: Credentials) => Effect.Effect<string, unknown>;
-	},
-	value: Credentials,
-): Effect.Effect<string, unknown> =>
-	Effect.gen(function* () {
-		const sources = yield* file.discover.pipe(
-			Effect.orElseSucceed(() => [] as ReadonlyArray<{ readonly path: string }>),
-		);
-		const existing = sources[0];
-		if (existing === undefined) {
-			return yield* file.save(value);
-		}
-		yield* file.write(value, existing.path);
-		return existing.path;
-	});
-
-/**
  * Refuse an invocation the user got wrong.
  *
  * @remarks
@@ -399,7 +367,7 @@ export const createHandler = (input: {
 						});
 
 		const record: CredentialProfile = { ...actsAs, github_token };
-		const path = yield* saveWhereRead(credentialsFile, {
+		const path = yield* credentialsFile.save({
 			profiles: { ...existing.profiles, [profile]: record },
 		});
 
@@ -528,7 +496,7 @@ export const deleteHandler = (profile: string | undefined) =>
 		}
 
 		const { [name]: _removed, ...remaining } = credentials.profiles;
-		const path = yield* saveWhereRead(credentialsFile, { profiles: remaining });
+		const path = yield* credentialsFile.save({ profiles: remaining });
 
 		yield* CliMessage.success(`Deleted profile '${name}' from ${path}.`);
 	});

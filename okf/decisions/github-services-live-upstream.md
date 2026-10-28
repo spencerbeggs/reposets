@@ -7,7 +7,6 @@ tags: [architecture, github, deps, effect]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: b228913c1ab1852e2a918ff489c7fc0d2414eb64934a78f31cf0c86fde821373
 sources:
   - id: sync-command
     resource: ../../package/src/cli/commands/sync.ts
@@ -18,6 +17,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:27Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: b228913c1ab1852e
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: ebf093e09e648649
 ---
 
 # GitHub resource services live upstream, in `@effected/github`

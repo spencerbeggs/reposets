@@ -7,10 +7,12 @@ tags: [github]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: b67fdf9a5fc4634a297c75306bdbd6a50e51a412fe3f5e3e984e95759cff2c10
 sources:
   - id: rulesets-phase
     resource: ../../package/src/sync/phases/rulesets.ts
+integrity:
+  generated:
+    body: b67fdf9a5fc4634a
 ---
 
 # A renamed ruleset creates a second one

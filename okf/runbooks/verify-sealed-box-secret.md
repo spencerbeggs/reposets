@@ -9,7 +9,9 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 874644c7d39e7e243993577929f1a3b0be9438ecc56b7ce3219ba25a58714379
+integrity:
+  generated:
+    body: 874644c7d39e7e24
 ---
 
 # Verify a sealed-box secret

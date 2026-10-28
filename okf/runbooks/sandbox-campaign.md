@@ -8,10 +8,12 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: e35c93b4c52112a8e0a80b7a45c610b7ddc0f823b551d6856bd8d1f737ba7828
 sources:
   - id: gitignore
     resource: "../../.gitignore"
+integrity:
+  generated:
+    body: e35c93b4c52112a8
 ---
 
 # Sandbox campaign

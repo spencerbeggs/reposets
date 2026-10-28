@@ -7,8 +7,7 @@ stale_after: 2027-03-16T00:00:00Z
 tags: [github, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
-  body_sha256: 05e55e884a3adccc295d2f7845c1430419c5a3e1b0dc2726aaeeeb5c19dede43
+  at: 2026-10-28T23:43:19Z
 sources:
   - id: config-schema
     resource: ../../package/src/schemas/config.ts
@@ -16,6 +15,9 @@ sources:
     resource: ../../package/src/cli/commands/doctor.ts
   - id: has-discussions-incident
     resource: ../incidents/has-discussions-shipped-inert.md
+integrity:
+  generated:
+    body: e1eeebaafe95272f
 ---
 
 # An unrecognised settings field reports as applied
@@ -48,9 +50,16 @@ hand-maintaining a second list, comparing the raw TOML against it and
 suggesting the nearest known field by edit distance when one is
 close.[^doctor-cmd] Deriving that set from the schema is what stops a
 second hand-written list from going stale the way the original
-`KNOWN_CONFIG_KEYS`/`KNOWN_GROUP_KEYS` sets already had for removed keys —
-`doctor` only catches this by running as a separate, explicit step; `sync`
-and `validate` do not warn about it on their own.
+`KNOWN_CONFIG_KEYS`/`KNOWN_GROUP_KEYS` sets already had for removed keys.
+
+`sync` now narrows the trap without closing it. The settings phase calls
+`applySettings` with `unknownKeys: "send"`, so a key GitHub's description
+does not declare is sent rather than dropped, and `@effected/github` names
+it in `AppliedSettings.unverified`; the phase prints one
+`unconfirmed: GitHub does not describe this field` line per such key.
+That catches a typo like `has_wikkis` during the run. It does not catch a
+key GitHub *describes* but ignores, the `has_discussions` shape below,
+which still reports as applied; `validate` does not warn at all.
 
 This is the same failure shape that let
 [`has_discussions` ship inert](../incidents/has-discussions-shipped-inert.md):

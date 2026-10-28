@@ -9,7 +9,6 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 8dbb99510b4813a694047731c525385330236c5ef587535f67bcbca6c08bdb84
 sources:
   - id: decide
     resource: "../../package/src/sync/decide.ts"
@@ -22,6 +21,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:25Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: 8dbb99510b4813a6
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: ce461edd27d7a6f2
 ---
 
 # Drift is reported and still converged

@@ -8,12 +8,14 @@ tags: [testing, dx]
 generated:
   by: okfit/claude-code
   at: 2026-10-02T17:48:12Z
-  body_sha256: 7c6aa02ddc4dff3c54367e549aa589a4a00826bb0bdcb28e17e7714bc1c6af65
 sources:
   - id: vitest-setup
     resource: ../../vitest.setup.ts
   - id: turbo-json
     resource: ../../package/turbo.json
+integrity:
+  generated:
+    body: 7c6aa02ddc4dff3c
 ---
 
 # Running the test suite rewrites the published JSON schemas

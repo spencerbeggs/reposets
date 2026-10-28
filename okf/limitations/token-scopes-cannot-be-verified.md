@@ -9,10 +9,12 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 87cfcf939ac981d7d470c6125d22d039d023177f6596a7b6914ae138fcea45b7
 sources:
   - id: doctor
     resource: "../../package/src/cli/commands/doctor.ts"
+integrity:
+  generated:
+    body: 87cfcf939ac981d7
 ---
 
 # Token scopes cannot be verified

@@ -9,7 +9,6 @@ tags: [dx, ci, observability, effect]
 generated:
   by: okfit/claude-code
   at: 2026-10-03T18:11:28Z
-  body_sha256: 7f18adabfb0614a16c7e17075c8ca98a6b04281ae9d37e12aade196788e43958
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -21,6 +20,9 @@ sources:
     resource: npm:@effected/cli@0.11.0
   - id: cli-sync
     resource: ../../package/src/cli/commands/sync.ts
+integrity:
+  generated:
+    body: 7f18adabfb0614a1
 ---
 
 # --log-level none still prints the report

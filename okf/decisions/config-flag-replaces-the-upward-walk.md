@@ -13,9 +13,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:26Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
 integrity:
   generated:
     body: 708e1cd982cd75dc
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: 57360169b1d64639
 ---
 
 # `--config` replaces the upward walk

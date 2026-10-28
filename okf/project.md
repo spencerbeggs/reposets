@@ -6,7 +6,9 @@ status: draft
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: f0dd7c4203f9c4a8bad8e12c0ec9ba66ef71486c767e7e0e380f3a7b9690dfa6
+integrity:
+  generated:
+    body: f0dd7c4203f9c4a8
 ---
 
 # reposets

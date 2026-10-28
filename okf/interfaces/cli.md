@@ -7,7 +7,7 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-27T16:42:53Z
+  at: 2026-10-28T23:43:19Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -51,7 +51,7 @@ sources:
     resource: ../../docs/02-commands.md
 integrity:
   generated:
-    body: 1fc47da23dbbb9a8
+    body: a3997de4f6460dbc
 ---
 
 # The reposets command line
@@ -538,7 +538,7 @@ here.[^effected-cli]
 | 0 | Nothing wrong | Every command that finds nothing to report. Also an explicit `--help` or `--version`, and a bare command group. |
 | 1 | A finding | A handler that succeeded calls `CliExit.set(1)`. This covers a dangling reference, an undeclared credential label, an org-only violation, no config found (including `list`), a config with no groups, and a `sync` whose partitions produced at least one error. It also covers `sync` with `--fail-on-drift`, and so every `drift`, that found at least one drifted resource. Finally, it covers a `nuke` that could not remove a target and an `init` that could not write a file or the `.gitignore`. |
 | 1 | An escaped failure | A config that fails to read or decode, or any other failure a command does not handle. `CliRuntime.main` renders it and exits with its fallback code. |
-| 64 | A usage mistake (`EX_USAGE`) | A parse error, an unknown subcommand or flag, more than one audience flag, an unknown `--only`/`--skip` phase, or an unknown `--group`. Also `history show` with no match or an ambiguous prefix, and a non-interactive `history show` without `--run`. Also `nuke` refused in a non-interactive run without `--force`, every `credentials create` refusal, and `credentials delete` of a missing profile, with a token-shaped `--profile`, or without `--profile` in a non-interactive run. |
+| 64 | A usage mistake (`EX_USAGE`) | A parse error, an unknown subcommand or flag, a single-valued flag given twice (`--group a --group b`; since Effect 4.0.7 this no longer keeps the first), more than one audience flag, an unknown `--only`/`--skip` phase, or an unknown `--group`. Also `history show` with no match or an ambiguous prefix, and a non-interactive `history show` without `--run`. Also `nuke` refused in a non-interactive run without `--force`, every `credentials create` refusal, and `credentials delete` of a missing profile, with a token-shaped `--profile`, or without `--profile` in a non-interactive run. |
 | 130 | Cancelled | A person cancelled a prompt with Esc, `q` or Ctrl-C. The kit prints `cancelled; nothing written`. |
 
 `doctor` always exits 0, even when its report says schema validation

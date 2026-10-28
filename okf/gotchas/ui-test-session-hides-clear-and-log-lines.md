@@ -8,7 +8,6 @@ tags: [testing, dx]
 generated:
   by: okfit/claude-code
   at: 2026-10-03T18:04:28Z
-  body_sha256: 50a5a3c5935eaaa77bcc66f5d5dcc5f4b0c35c5055702074cbae5f3193f61e0f
 sources:
   - id: effected-cli
     resource: npm:@effected/cli@0.12.0
@@ -16,6 +15,9 @@ sources:
     resource: ../../package/__test__/cli/credentials.test.ts
   - id: sync-test
     resource: ../../package/__test__/cli/sync.test.ts
+integrity:
+  generated:
+    body: 50a5a3c5935eaaa7
 ---
 
 # CliUiTest.session shows neither a cleared frame nor the lines above a live view

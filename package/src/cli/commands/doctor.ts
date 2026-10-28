@@ -123,38 +123,16 @@ const REQUIRED_PERMISSIONS: ReadonlyArray<readonly [string, string, string]> = [
 	["Organization", "Members (Read)", "resolve team slugs (org-owned repos only)"],
 ];
 
-const levenshtein = (a: string, b: string): number => {
-	const matrix: number[][] = [];
-	for (let i = 0; i <= a.length; i++) {
-		matrix[i] = [i];
-	}
-	for (let j = 0; j <= b.length; j++) {
-		(matrix[0] as number[])[j] = j;
-	}
-	for (let i = 1; i <= a.length; i++) {
-		for (let j = 1; j <= b.length; j++) {
-			const cost = a[i - 1] === b[j - 1] ? 0 : 1;
-			const row = matrix[i] as number[];
-			const prev = matrix[i - 1] as number[];
-			row[j] = Math.min((prev[j] as number) + 1, (row[j - 1] as number) + 1, (prev[j - 1] as number) + cost);
-		}
-	}
-	return (matrix[a.length] as number[])[b.length] as number;
-};
-
-/** The nearest known key within edit distance 3, if any. */
-const findClosestMatch = (key: string, known: ReadonlySet<string>): string | undefined => {
-	let best: string | undefined;
-	let bestDist = Number.POSITIVE_INFINITY;
-	for (const candidate of known) {
-		const dist = levenshtein(key, candidate);
-		if (dist < bestDist && dist <= 3) {
-			bestDist = dist;
-			best = candidate;
-		}
-	}
-	return best;
-};
+/**
+ * The nearest known key within edit distance 3, if any.
+ *
+ * @remarks
+ * Three edits, the threshold this check had before it moved onto the kit;
+ * `Fmt.suggest` defaults to two, `effect/cli`'s threshold. Ties keep the
+ * first known key, as before.
+ */
+const findClosestMatch = (key: string, known: ReadonlySet<string>): string | undefined =>
+	Fmt.suggest(key, known, { maxDistance: 3 })[0];
 
 /**
  * The credential resolver `doctor`'s live token check runs through.

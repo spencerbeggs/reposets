@@ -7,10 +7,12 @@ tags:
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 9e2c2817b4732a34f6856c5a4c19fb260462ab980f7099dd6d0e74f5680bf2df
 sources:
   - id: decide
     resource: "../../package/src/sync/decide.ts"
+integrity:
+  generated:
+    body: 9e2c2817b4732a34
 ---
 
 # Drift

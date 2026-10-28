@@ -8,12 +8,14 @@ tags: [github, architecture]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: be12e99721d72a294452fe9ab0403635b08065abce655a2e0fbcabbb9eb360d6
 sources:
   - id: config-schema
     resource: ../../package/src/schemas/config.ts
   - id: github-repository
     resource: ../../package/node_modules/@effected/github/GitHubRepository.js
+integrity:
+  generated:
+    body: be12e99721d72a29
 ---
 
 # Repository subsystems reposets does not manage

@@ -304,10 +304,20 @@ export const settingsPhase = Effect.gen(function* () {
 			let sent: ReadonlyArray<string> | undefined;
 
 			if (!ctx.dryRun) {
-				const outcome = yield* read(settingsClient.applySettings(desired));
+				// `"send"` keeps the config's pass-through promise: a key GitHub
+				// accepts before its description declares it still goes out, rather
+				// than being dropped by the package's default `"ignore"`.
+				const outcome = yield* read(settingsClient.applySettings(desired, { unknownKeys: "send" }));
 
 				if ("failed" in outcome) {
 					return { changes: [], errors: [...errors, { context: KIND, message: outcome.failed }] };
+				}
+
+				// The PATCH answers 200 whether or not GitHub recognised a field, so
+				// a key it does not describe is sent with no evidence it did anything.
+				// Said per key, because a typo lands here too.
+				for (const key of outcome.value.unverified) {
+					yield* logger.syncOperation("apply", "setting", key, "(unconfirmed: GitHub does not describe this field)");
 				}
 
 				// Taken after `preparePatch`, so these are the keys that went on the

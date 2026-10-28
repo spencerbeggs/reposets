@@ -6,11 +6,19 @@ status: stable
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 388cc132b65fca8e98de4ed936aef76b2e5bc2e1ab78dac9d8844bd33fe26b4c
 tags: [architecture, effect]
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:23Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: 388cc132b65fca8e
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: b598dd4f753e6fd2
 ---
 
 # Phases are data, not a hardcoded sequence

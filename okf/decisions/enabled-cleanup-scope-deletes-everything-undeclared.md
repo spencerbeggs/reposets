@@ -7,7 +7,6 @@ tags: [security, architecture]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: ceb441570dc9645ac9a611f5fba15213383ae21bd122af7e935183385e6c70a0
 sources:
   - id: cleanup-phase
     resource: ../../package/src/sync/phases/cleanup.ts
@@ -16,6 +15,15 @@ sources:
 verified:
   - by: human:spencer
     at: 2026-09-16T15:16:29Z
+  - by: human:spencer
+    at: 2026-10-28T23:24:10Z
+integrity:
+  generated:
+    body: ceb441570dc9645a
+  verified:
+    by: human:spencer
+    at: 2026-10-28T23:24:10Z
+    content: cf423598d92e6d63
 ---
 
 # An enabled cleanup scope with nothing declared deletes everything in that scope

@@ -9,7 +9,6 @@ tags: [testing, dx]
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: ca3011c67aeeeaa4272c34f42ea703ca65d75148c717ad934d46c5a3f6690495
 sources:
   - id: config-refs
     resource: ../../package/src/lib/config-refs.ts
@@ -19,6 +18,9 @@ sources:
     resource: ../../package/src/cli/commands/validate.ts
   - id: sync-command
     resource: ../../package/src/cli/commands/sync.ts
+integrity:
+  generated:
+    body: ca3011c67aeeeaa4
 ---
 
 # The dangling-reference check was dropped and nothing replaced it

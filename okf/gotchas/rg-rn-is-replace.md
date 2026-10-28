@@ -6,8 +6,10 @@ stale_after: 2026-12-16T00:00:00Z
 generated:
   by: okfit/claude-code
   at: 2026-09-16T15:09:19Z
-  body_sha256: 69cb65709fcc0b2dbd69f67d369163b2810b396cfd9d14b9b55e38538c8e432a
 tags: [dx]
+integrity:
+  generated:
+    body: 69cb65709fcc0b2d
 ---
 
 # `rg -rn` is `--replace n`, not recursive with line numbers
