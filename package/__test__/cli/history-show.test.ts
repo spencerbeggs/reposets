@@ -1,4 +1,4 @@
-import { NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { AppTest } from "@effected/app/testing";
 import { CliLogger } from "@effected/cli";
@@ -26,7 +26,10 @@ import { presentation } from "../utils/capture.js";
  */
 
 const TestApp = AppTest.layer({ namespace: "reposets-history-show-test", store: { migrations } });
-const Journal = Layer.provideMerge(SyncJournalLive, Layer.provideMerge(TestApp, NodeServices.layer));
+const Journal = Layer.provideMerge(
+	SyncJournalLive,
+	Layer.provideMerge(TestApp, Layer.mergeAll(NodeServices.layer, NodeCrypto.layerSecureRandom)),
+);
 
 /** Two finished runs, each touching its own repository, so the report says which one was picked. */
 const seedTwo = Effect.gen(function* () {

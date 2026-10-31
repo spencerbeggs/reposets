@@ -7,7 +7,7 @@ supersedes: cli-runtime-main-builds-the-environment.md
 tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
-  at: 2026-10-27T16:42:53Z
+  at: 2026-10-31T20:39:00Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -36,13 +36,15 @@ verified:
     at: 2026-10-03T18:13:54Z
   - by: human:spencer
     at: 2026-10-28T23:24:10Z
+  - by: human:spencer
+    at: 2026-10-31T20:40:08Z
 integrity:
   generated:
-    body: 8dcdc4f5fe239a01
+    body: 3d17531bf2574534
   verified:
     by: human:spencer
-    at: 2026-10-28T23:24:10Z
-    content: 8f6f5934ec287f6c
+    at: 2026-10-31T20:40:08Z
+    content: 39bb48d05f1fcf8e
 ---
 
 # CliRuntime.main builds the audience environment over App.layerDirs
@@ -82,7 +84,9 @@ failure reporting so a layer-build failure renders as one line, and
 `CliExit` is provided fresh.[^cli-index][^effected-cli]
 
 `PlatformLive` is only the XDG directories and the `Invocation` layer over
-`NodeServices.layer`. The directories are
+`NodeServices.layer` and `NodeCrypto.layerSecureRandom` (Effect 4.1 took
+crypto out of `NodeServices`; the journal mints run ids with
+`SecureRandom`). The directories are
 `App.layerDirs({ namespace: "reposets" })`, the directories half of
 `App.layer` (`AppDirs` over `Xdg`) without the two databases `App.layer`
 always opens. The databases are not on the platform: `StoreLive` and

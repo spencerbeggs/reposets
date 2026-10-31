@@ -2,7 +2,7 @@
 	"repos": {
 		"effect": {
 			"url": "https://github.com/Effect-TS/effect",
-			"ref": "effect@4.0.7",
+			"ref": "effect@4.1.1",
 			"purpose": "Effect v4 core pinned to the stable release this repo runs (effect@4.0.7, the lockfile's resolution); the authority for v4 APIs including effect/cli. Re-pin whenever the lockfile's effect moves to a new 4.x.",
 			"sparse": [
 				"packages/effect/src",
@@ -11,7 +11,7 @@
 		},
 		"effected": {
 			"url": "https://github.com/spencerbeggs/effected",
-			"ref": "@effected/pnpm-plugin-effect@0.19.0",
+			"ref": "@effected/pnpm-plugin-effected@0.20.0",
 			"purpose": "The @effected kit source at the kit release this repo installs (@effected/pnpm-plugin-effect@0.19.0) — authority for app, store, config-file, toml, xdg, github, schemastore, cli, env and their transitive deps. Re-pin with the catalog plugin.",
 			"sparse": [
 				"packages/app",

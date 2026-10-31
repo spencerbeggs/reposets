@@ -1,4 +1,4 @@
-import { NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { AppTest } from "@effected/app/testing";
 import type { CliEnvTestOptions } from "@effected/cli";
 import { CliLogger } from "@effected/cli";
@@ -42,8 +42,13 @@ const runFull = (
 
 	return runOutcome(
 		program.pipe(
-			// `Crypto` is required: run ids are UUIDv7.
-			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(TestApp, NodeServices.layer))),
+			// `SecureRandom` is required: run ids are UUIDv7.
+			Effect.provide(
+				Layer.provideMerge(
+					SyncJournalLive,
+					Layer.provideMerge(TestApp, Layer.mergeAll(NodeServices.layer, NodeCrypto.layerSecureRandom)),
+				),
+			),
 		) as Effect.Effect<void, unknown, PresentationServices>,
 	);
 };
@@ -370,7 +375,12 @@ describe("history output by audience", () => {
 			};
 			return { agent: yield* render({ audience: "agent" }), person: yield* render(human) };
 		}).pipe(
-			Effect.provide(Layer.provideMerge(SyncJournalLive, Layer.provideMerge(TestApp, NodeServices.layer))),
+			Effect.provide(
+				Layer.provideMerge(
+					SyncJournalLive,
+					Layer.provideMerge(TestApp, Layer.mergeAll(NodeServices.layer, NodeCrypto.layerSecureRandom)),
+				),
+			),
 			Effect.runPromise,
 		);
 

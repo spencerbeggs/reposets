@@ -1,6 +1,6 @@
 import { Store } from "@effected/store";
-import { Context, Crypto, DateTime, Effect, Layer } from "effect";
-import type { PlatformError } from "effect/PlatformError";
+import { Context, DateTime, Effect, Layer } from "effect";
+import { SecureRandom } from "effect/crypto";
 import type { SqlError } from "effect/sql";
 
 /**
@@ -63,7 +63,7 @@ export interface SyncJournalShape {
 	readonly startRun: (options: {
 		readonly group?: string | undefined;
 		readonly dryRun: boolean;
-	}) => Effect.Effect<string, SqlError.SqlError | PlatformError>;
+	}) => Effect.Effect<string, SqlError.SqlError>;
 	readonly recordChange: (runId: string, change: ChangeRecord) => Effect.Effect<void, SqlError.SqlError>;
 	readonly finishRun: (runId: string, outcome: RunOutcome, error?: string) => Effect.Effect<void, SqlError.SqlError>;
 	/**
@@ -131,7 +131,7 @@ export interface SyncJournalShape {
 export class SyncJournal extends Context.Service<SyncJournal, SyncJournalShape>()("reposets/SyncJournal", {
 	make: Effect.gen(function* () {
 		const store = yield* Store;
-		const crypto = yield* Crypto.Crypto;
+		const random = yield* SecureRandom.SecureRandom;
 		const sql = store.client;
 
 		return {
@@ -144,7 +144,7 @@ export class SyncJournal extends Context.Service<SyncJournal, SyncJournalShape>(
 					// runs in one millisecond is a test-loop shape rather than a
 					// real one, but `history` must be deterministic regardless —
 					// it orders by rowid, which is insertion order and exact.
-					const id = yield* crypto.randomUUIDv7();
+					const id = yield* random.uuidV7();
 					const startedAt = yield* DateTime.now;
 
 					yield* sql`
@@ -239,7 +239,7 @@ export class SyncJournal extends Context.Service<SyncJournal, SyncJournalShape>(
  *
  * @public
  */
-export const SyncJournalLive: Layer.Layer<SyncJournal, never, Store | Crypto.Crypto> = Layer.effect(
+export const SyncJournalLive: Layer.Layer<SyncJournal, never, Store | SecureRandom.SecureRandom> = Layer.effect(
 	SyncJournal,
 	SyncJournal.make,
 );
