@@ -37,7 +37,7 @@ const CREDENTIALS = `[profiles.default]\nusername = "acme"\ngithub_token = { env
  * Every service the handler needs, hermetically: `AppTest.layer` seeds both
  * files onto an in-memory volume beside `:memory:` databases, `Invocation`
  * names the working directory, and an empty `ConfigProvider` keeps the
- * developer's own environment out. `Crypto` mints the run id.
+ * developer's own environment out. `SecureRandom` mints the run id.
  */
 const services = () =>
 	Layer.mergeAll(makeConfigFilesLive(`${CWD}/reposets.config.toml`), CredentialsFilesLive).pipe(
@@ -49,7 +49,7 @@ const services = () =>
 					store: { migrations },
 					files: { [`${CWD}/reposets.config.toml`]: CONFIG, [`${CWD}/reposets.credentials.toml`]: CREDENTIALS },
 				}),
-				NodeCrypto.layer,
+				NodeCrypto.layerSecureRandom,
 			),
 		),
 		Layer.provideMerge(ConfigProvider.layer(ConfigProvider.fromEnv({ env: {} }))),

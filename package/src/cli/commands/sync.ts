@@ -16,9 +16,10 @@ import {
 	WorkflowDispatch,
 } from "@effected/github";
 import type { Cache, Store } from "@effected/store";
-import type { Crypto, FileSystem, Path, Scope } from "effect";
+import type { FileSystem, Path, Scope } from "effect";
 import { Console, Effect, Exit, Layer, Option, PubSub } from "effect";
 import { CliError, Command, Flag } from "effect/cli";
+import type { SecureRandom } from "effect/crypto";
 import { danglingReferences } from "../../lib/config-refs.js";
 import { ReposetsConfigFile, ReposetsCredentialsFile } from "../../services/ConfigFiles.js";
 import { CredentialResolver, CredentialResolverLive } from "../../services/CredentialResolver.js";
@@ -188,7 +189,7 @@ export const syncHandler = (input: {
 	| ReposetsCredentialsFile
 	| Store
 	| Cache
-	| Crypto.Crypto
+	| SecureRandom.SecureRandom
 	| FileSystem.FileSystem
 	| Path.Path
 	| Invocation

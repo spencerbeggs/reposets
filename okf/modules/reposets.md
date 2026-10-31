@@ -7,11 +7,11 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-27T16:42:53Z
+  at: 2026-10-31T20:39:00Z
 tags: [architecture, effect, github]
 integrity:
   generated:
-    body: 1ee1618fbfd375e1
+    body: 81fdb98058c9b19b
 ---
 
 # reposets (package)
@@ -58,7 +58,9 @@ load-bearing rather than a style choice:
 1. **Root entrypoint** (`package/src/cli/index.ts`) — `PlatformLive`
    (`App.layerDirs({ namespace: "reposets" })`, which provides `Xdg` and
    `AppDirs`, and the `Invocation` layer over
-   `NodeServices.layer`) handed to `CliRuntime.main`, which adds
+   `NodeServices.layer` and `NodeCrypto.layerSecureRandom`, which the
+   journal mints UUIDv7 run ids with and which `NodeServices` no longer
+   carries) handed to `CliRuntime.main`, which adds
    `CliLogger.layer()` outermost and, from its `env` option, the audience,
    terminal, theme, `CliInteractive` and the colour-aware help formatter,
    plus `ConfigLive` and `CredentialsFilesLive` on the root command, all

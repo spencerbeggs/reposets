@@ -1,5 +1,11 @@
 # Log
 
+## 2026-10-31
+
+* Updated CliRuntime.main builds the audience environment over App.layerDirs
+* Updated reposets
+* Updated workspace
+
 ## 2026-10-28
 
 * Updated "unchanged" means the file already matches, not that the schema did not change

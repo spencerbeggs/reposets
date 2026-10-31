@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { NodeRuntime, NodeServices } from "@effect/platform-node";
+import { NodeCrypto, NodeRuntime, NodeServices } from "@effect/platform-node";
 import { App, AppCache, AppStore } from "@effected/app";
 import type { FailureDetails } from "@effected/cli";
 import { CliAudience, CliRuntime, ConfigIssueRenderer, Fmt } from "@effected/cli";
@@ -135,8 +135,9 @@ const cli = Command.make("reposets", {}, () => Effect.void).pipe(
 );
 
 /**
- * The platform: Node's services, the application's directories over them, and
- * the invocation facts.
+ * The platform: Node's services, `SecureRandom` (which `NodeServices` no longer
+ * carries; the journal mints run ids with it), the application's directories
+ * over them, and the invocation facts.
  *
  * @remarks
  * `provideMerge` rather than `provide`, because commands require the platform
@@ -147,7 +148,9 @@ const cli = Command.make("reposets", {}, () => Effect.void).pipe(
  * colour-aware help formatter itself, closer to the program, and one set here
  * would be shadowed.
  */
-const PlatformLive = Layer.mergeAll(DirsLive, InvocationLive).pipe(Layer.provideMerge(NodeServices.layer));
+const PlatformLive = Layer.mergeAll(DirsLive, InvocationLive).pipe(
+	Layer.provideMerge(Layer.mergeAll(NodeServices.layer, NodeCrypto.layerSecureRandom)),
+);
 
 /**
  * Render a failure that escaped a command, one line at a time, to stderr.
