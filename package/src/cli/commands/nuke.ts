@@ -1,8 +1,8 @@
 import { AppCache, AppStore } from "@effected/app";
-import type { Cancelled, CliLinks, CliTheme, Document } from "@effected/cli";
-import { CliExit, CliInteractive, CliMessage, Doc, Fmt } from "@effected/cli";
-import type { MultiSelectSection } from "@effected/cli/ui";
-import { CliUi, Confirm, MultiSelect } from "@effected/cli/ui";
+import type { Cancelled, CliLinks, CliTheme, Document } from "@effected/cli-kit";
+import { CliExit, CliInteractive, CliMessage, Doc, Fmt } from "@effected/cli-kit";
+import type { MultiSelectSection } from "@effected/cli-kit/ui";
+import { CliUi, Confirm, MultiSelect } from "@effected/cli-kit/ui";
 import type { Audience, TerminalEnv } from "@effected/env";
 import { Walker } from "@effected/walker";
 import { AppDirs, Xdg } from "@effected/xdg";

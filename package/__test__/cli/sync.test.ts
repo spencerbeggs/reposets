@@ -1,8 +1,8 @@
 import { NodeCrypto } from "@effect/platform-node";
 import { AppTest } from "@effected/app/testing";
-import type { CliTheme } from "@effected/cli";
-import { CliExit, CliLogger } from "@effected/cli";
-import { CliUiTest } from "@effected/cli/ui/testing";
+import type { CliTheme } from "@effected/cli-kit";
+import { CliExit, CliLogger } from "@effected/cli-kit";
+import { CliUiTest } from "@effected/cli-kit/ui/testing";
 import { Cause, ConfigProvider, Console, Effect, Exit, Layer, MutableRef, PubSub } from "effect";
 import { describe, expect, it } from "vitest";
 import { runUnderSyncView, selectedRepoCount, syncHandler } from "../../src/cli/commands/sync.js";

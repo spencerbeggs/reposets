@@ -1,5 +1,5 @@
-import type { Block } from "@effected/cli";
-import { CliExit, CliMessage, Doc } from "@effected/cli";
+import type { Block } from "@effected/cli-kit";
+import { CliExit, CliMessage, Doc } from "@effected/cli-kit";
 import { Effect } from "effect";
 import { Command } from "effect/cli";
 import type { Config } from "../../schemas/config.js";

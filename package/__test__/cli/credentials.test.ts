@@ -1,7 +1,7 @@
 import { existsSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import { CliUiTest } from "@effected/cli/ui/testing";
+import { CliUiTest } from "@effected/cli-kit/ui/testing";
 import { Console, Effect, Exit, Option } from "effect";
 import { createHandler, deleteHandler, listHandler } from "../../src/cli/commands/credentials.js";
 import { on, runOutcome } from "../utils/capture.js";

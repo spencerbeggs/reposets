@@ -1,4 +1,4 @@
-import { Fmt } from "@effected/cli";
+import { Fmt } from "@effected/cli-kit";
 import type { OwnerType, Repo } from "@effected/github";
 import type { Redacted } from "effect";
 import { Effect } from "effect";

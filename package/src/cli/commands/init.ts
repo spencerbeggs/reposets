@@ -1,6 +1,6 @@
-import type { CliTheme } from "@effected/cli";
-import { CliExit, CliMessage } from "@effected/cli";
-import { CliUi, Select } from "@effected/cli/ui";
+import type { CliTheme } from "@effected/cli-kit";
+import { CliExit, CliMessage } from "@effected/cli-kit";
+import { CliUi, Select } from "@effected/cli-kit/ui";
 import type { Audience } from "@effected/env";
 import { AppDirs } from "@effected/xdg";
 import { Effect, FileSystem, Option, Path } from "effect";

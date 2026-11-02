@@ -1,13 +1,13 @@
 ---
 type: Decision
-title: Adopt @effected/cli's interactive kit
+title: Adopt @effected/cli-kit's interactive kit
 description: Output is presented for its audience, a missing input is asked for only when a person can answer it, sync and drift draw a hosted live view whose JSX loads lazily, and findings are failure lines no log level silences.
 status: stable
 supersedes: adopt-interactive-cli-kit.md
 tags: [dx, effect, ci, observability]
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:11:28Z
+  at: 2026-11-02T19:14:55Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -34,18 +34,18 @@ verified:
     at: 2026-10-28T23:24:10Z
 integrity:
   generated:
-    body: b3d5a48488d0b2cd
+    body: e66a9c01f34fa43f
   verified:
     by: human:spencer
     at: 2026-10-28T23:24:10Z
     content: 2c05d9bcca451867
 ---
 
-# Adopt @effected/cli's interactive kit
+# Adopt @effected/cli-kit's interactive kit
 
 ## Decision
 
-The CLI adopts the whole of `@effected/cli`'s presentation layer, not only
+The CLI adopts the whole of `@effected/cli-kit`'s presentation layer, not only
 its runtime. Four parts follow from it.
 
 1. **Output is presented for its audience.** The root command takes

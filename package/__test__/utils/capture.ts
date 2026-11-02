@@ -1,5 +1,5 @@
-import type { CliEnvTestOptions } from "@effected/cli";
-import { CliEnv, CliExit, CliLinks, CliLogger } from "@effected/cli";
+import type { CliEnvTestOptions } from "@effected/cli-kit";
+import { CliEnv, CliExit, CliLinks, CliLogger } from "@effected/cli-kit";
 import { Cause, Console, Effect, Exit, Layer, MutableRef } from "effect";
 import { CliError } from "effect/cli";
 

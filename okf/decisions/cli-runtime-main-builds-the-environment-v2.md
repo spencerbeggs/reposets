@@ -7,7 +7,7 @@ supersedes: cli-runtime-main-builds-the-environment.md
 tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
-  at: 2026-10-31T20:39:00Z
+  at: 2026-11-02T19:14:55Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -40,7 +40,7 @@ verified:
     at: 2026-10-31T20:40:08Z
 integrity:
   generated:
-    body: 3d17531bf2574534
+    body: ce89866fa6e0d14e
   verified:
     by: human:spencer
     at: 2026-10-31T20:40:08Z
@@ -52,7 +52,7 @@ integrity:
 ## Decision
 
 [`package/src/cli/index.ts`](../../package/src/cli/index.ts) runs the
-command tree through `CliAudience.run` under `@effected/cli`'s
+command tree through `CliAudience.run` under `@effected/cli-kit`'s
 `CliRuntime.main`, and hands `main` an `env` block so the kit builds the
 presentation environment itself:
 

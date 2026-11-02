@@ -1,6 +1,6 @@
 import { assert, describe, it } from "@effect/vitest";
-import { CliEnv, CliLogger, Render } from "@effected/cli";
-import { CliUiTest } from "@effected/cli/ui/testing";
+import { CliEnv, CliLogger, Render } from "@effected/cli-kit";
+import { CliUiTest } from "@effected/cli-kit/ui/testing";
 import { Console, Effect, Layer, PubSub } from "effect";
 import type { SyncProgressState } from "../../src/cli/views/sync-progress-model.js";
 import { initialSyncProgress, reduceSyncProgress, syncSummaryBlock } from "../../src/cli/views/sync-progress-model.js";

@@ -1,7 +1,7 @@
-import type { Cancelled, CliTheme } from "@effected/cli";
-import { CliInteractive, CliMessage, Doc } from "@effected/cli";
-import type { Screen } from "@effected/cli/ui";
-import { CliUi, Select, TextInput } from "@effected/cli/ui";
+import type { Cancelled, CliTheme } from "@effected/cli-kit";
+import { CliInteractive, CliMessage, Doc } from "@effected/cli-kit";
+import type { Screen } from "@effected/cli-kit/ui";
+import { CliUi, Select, TextInput } from "@effected/cli-kit/ui";
 import { AppDirs } from "@effected/xdg";
 import { Effect, Option } from "effect";
 import { CliError, Command, Flag } from "effect/cli";

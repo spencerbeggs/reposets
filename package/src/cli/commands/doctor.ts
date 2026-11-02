@@ -1,6 +1,6 @@
 import { AppStore } from "@effected/app";
-import type { Block, InlineInput } from "@effected/cli";
-import { CliMessage, Doc, Fmt, SchemaIssueRenderer, Status } from "@effected/cli";
+import type { Block, InlineInput } from "@effected/cli-kit";
+import { CliMessage, Doc, Fmt, SchemaIssueRenderer, Status } from "@effected/cli-kit";
 import type { ConfigReadError } from "@effected/config-file";
 import { GitHubClient } from "@effected/github";
 import { Toml } from "@effected/toml";

@@ -7,7 +7,7 @@ bounds: ../interfaces/cli.md
 tags: [security, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:04:28Z
+  at: 2026-11-02T19:14:55Z
 sources:
   - id: cli-credentials
     resource: ../../package/src/cli/commands/credentials.ts
@@ -17,7 +17,7 @@ sources:
     resource: ../../package/__test__/cli/credentials.test.ts
 integrity:
   generated:
-    body: aee06419f07b5236
+    body: bac22854c6136f91
 ---
 
 # A token pasted into a credentials name prompt is visible until Enter
@@ -25,7 +25,7 @@ integrity:
 **When it happens.** An interactive `reposets credentials create` asks for
 whatever its flags left out: the profile name, the account or organization
 name, and the token reference. Each is a `TextInput` from
-`@effected/cli/ui`.[^effected-cli] Only the reference prompt is masked. If
+`@effected/cli-kit/ui`.[^effected-cli] Only the reference prompt is masked. If
 a person pastes a real token into the profile, username or organization
 prompt, it is on screen, in plain text, until they press
 Enter.[^cli-credentials]

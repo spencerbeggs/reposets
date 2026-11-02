@@ -1,5 +1,5 @@
-import { Fmt } from "@effected/cli";
-import { DocView, Styled, useGlyphs } from "@effected/cli/ui";
+import { Fmt } from "@effected/cli-kit";
+import { DocView, Styled, useGlyphs } from "@effected/cli-kit/ui";
 import { Box, Text } from "ink";
 import type { ReactElement } from "react";
 import type { SyncProgressState } from "./sync-progress-model.js";

@@ -7,11 +7,11 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-31T20:39:00Z
+  at: 2026-11-02T19:14:55Z
 tags: [architecture, effect, github]
 integrity:
   generated:
-    body: 81fdb98058c9b19b
+    body: 62c2b06392ec4535
 ---
 
 # reposets (package)
@@ -28,7 +28,7 @@ not in the platform: `AppStore.layer` and `AppCache.layer` are bound once at
 module scope and attached with a per-command `Command.provide` to `sync` and
 `drift` (both databases) and `history` (`SyncJournalLive` over `store.db`
 only), so `init`, `list`, `validate`, `doctor`, `nuke` and `credentials`
-never open or create either file. The tree runs through `CliAudience.run` under `@effected/cli`'s
+never open or create either file. The tree runs through `CliAudience.run` under `@effected/cli-kit`'s
 `CliRuntime.main`, which installs the CLI logger, builds the audience,
 terminal, theme and `CliInteractive` environment, provides the platform
 layer inside failure reporting, and turns a usage error, a finding recorded
@@ -121,12 +121,12 @@ GitHub — the eight resource services and the libsodium sealed-box encryption
 secrets need before they can be written — is upstream in `@effected/github`.
 Everything at the CLI boundary — the runtime wrapper, the logger, the exit
 code cell, colour, the audience, `Doc` reports and `CliMessage` lines, the
-prompts and the live view (`@effected/cli/ui`), and the schema-issue
+prompts and the live view (`@effected/cli-kit/ui`), and the schema-issue
 renderers (`SchemaIssueRenderer`, `ConfigIssueRenderer`) that turn a decode
-failure into `unknown key` lines — is upstream in `@effected/cli`, with the
+failure into `unknown key` lines — is upstream in `@effected/cli-kit`, with the
 audience and terminal detection in `@effected/env`. `@effected/glob` and
 `@effected/walker` are direct dependencies only because they are required
-peers of `@effected/cli`. There is no `src/cli/logger.ts` and
+peers of `@effected/cli-kit`. There is no `src/cli/logger.ts` and
 no `src/lib/schema-issues.ts`.
 
 ### Invocation (`package/src/services/Invocation.ts`)
@@ -265,7 +265,7 @@ runtime dependencies that load only when a screen or the live view mounts.
 `selectedRepoCount` in `sync.ts` computes the view's denominator up front
 with the engine's own selection rule.
 
-### CLI runtime (`@effected/cli`)
+### CLI runtime (`@effected/cli-kit`)
 
 `CliRuntime.main` owns the process edge. Its default logger,
 `CliLogger.layer()`, drops Effect's timestamp, level and fiber id, strips
@@ -276,14 +276,14 @@ that succeeds, a `CliError.UserError` exits 64, and anything that escapes is
 rendered by the entrypoint's `render` callback and exits 1. The stream
 split and exit codes are specified in
 [`interfaces/cli.md`](../interfaces/cli.md). The testing side,
-`CliTest.sandbox` and `CliTest.run` from `@effected/cli/testing`, drives the
+`CliTest.sandbox` and `CliTest.run` from `@effected/cli-kit/testing`, drives the
 built dev bin in `package/__test__/cli/bin.e2e.test.ts` and asserts exit
 codes and stream placement. `@effect/vitest` is a devDependency for that
 suite, and `package/__test__/utils/capture.ts` provides a capturing `Console`
 and the agent audience, so unit tests assert plain, deterministic text and
 which stream a line landed on through the same `CliLogger` routing the bin
 uses. Prompt flows and the handler's live view are driven with
-`CliUiTest.session` from `@effected/cli/ui/testing`, whose `transcript`,
+`CliUiTest.session` from `@effected/cli-kit/ui/testing`, whose `transcript`,
 `written`, and per-stream `stdoutWritten`/`stderrWritten` and
 `stdoutTranscript`/`stderrTranscript` hold every line written above a live
 frame as well as the frame. A test that must see a prompt's `clear: true`

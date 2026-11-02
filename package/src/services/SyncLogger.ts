@@ -1,5 +1,5 @@
-import type { CoreStatusName } from "@effected/cli";
-import { CliLog, CliTheme, Fmt, Status } from "@effected/cli";
+import type { CoreStatusName } from "@effected/cli-kit";
+import { CliLog, CliTheme, Fmt, Status } from "@effected/cli-kit";
 import { Audience } from "@effected/env";
 import { Console, Context, Effect, Layer, PubSub, Ref } from "effect";
 import type { Decision } from "../sync/decide.js";
