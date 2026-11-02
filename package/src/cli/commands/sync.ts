@@ -1,7 +1,7 @@
-import type { CliLinks, CliTheme } from "@effected/cli";
-import { CliExit, CliInteractive, CliMessage, Doc } from "@effected/cli";
-import type { LiveOptions } from "@effected/cli/ui";
-import { CliUi } from "@effected/cli/ui";
+import type { CliLinks, CliTheme } from "@effected/cli-kit";
+import { CliExit, CliInteractive, CliMessage, Doc } from "@effected/cli-kit";
+import type { LiveOptions } from "@effected/cli-kit/ui";
+import { CliUi } from "@effected/cli-kit/ui";
 import type { ConfigReadError } from "@effected/config-file";
 import type { Audience, TerminalEnv } from "@effected/env";
 import {

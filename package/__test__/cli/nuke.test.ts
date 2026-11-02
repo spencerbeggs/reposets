@@ -1,7 +1,7 @@
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assert, describe, it } from "@effect/vitest";
-import { CliUiTest } from "@effected/cli/ui/testing";
+import { CliUiTest } from "@effected/cli-kit/ui/testing";
 import { Effect, Exit, Option } from "effect";
 import { nukeHandler } from "../../src/cli/commands/nuke.js";
 import { on, runOutcome } from "../utils/capture.js";

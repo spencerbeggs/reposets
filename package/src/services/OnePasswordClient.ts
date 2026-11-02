@@ -1,4 +1,4 @@
-import { Fmt } from "@effected/cli";
+import { Fmt } from "@effected/cli-kit";
 import { Config, Context, Data, Effect, Layer, Option, Redacted } from "effect";
 
 /**

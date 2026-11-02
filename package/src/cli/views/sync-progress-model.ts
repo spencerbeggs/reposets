@@ -1,5 +1,5 @@
-import type { Block } from "@effected/cli";
-import { Doc, Status } from "@effected/cli";
+import type { Block } from "@effected/cli-kit";
+import { Doc, Status } from "@effected/cli-kit";
 import type { SyncEvent, SyncRunSummary } from "../../services/SyncLogger.js";
 
 /**

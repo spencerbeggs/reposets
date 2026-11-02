@@ -1,5 +1,5 @@
-import type { LiveOptions } from "@effected/cli/ui";
-import { CliUi } from "@effected/cli/ui";
+import type { LiveOptions } from "@effected/cli-kit/ui";
+import { CliUi } from "@effected/cli-kit/ui";
 import type { SyncEvent } from "../../services/SyncLogger.js";
 import type { SyncProgressState } from "./sync-progress-model.js";
 import { initialSyncProgress, isSyncRunEnd, isSyncRunStart, reduceSyncProgress } from "./sync-progress-model.js";

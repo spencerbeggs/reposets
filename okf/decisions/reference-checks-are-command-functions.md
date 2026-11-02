@@ -1,13 +1,13 @@
 ---
 type: Decision
 title: Reference checks are functions commands call
-description: danglingReferences, undefinedCredentialLabels and orgOnlyViolations are pure functions validate and sync call, not a config-spec validate callback, so decode failures keep one issue shape for @effected/cli's renderers.
+description: danglingReferences, undefinedCredentialLabels and orgOnlyViolations are pure functions validate and sync call, not a config-spec validate callback, so decode failures keep one issue shape for @effected/cli-kit's renderers.
 status: stable
 supersedes: reference-checks-live-on-commands.md
 tags: [architecture, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-09-27T17:39:49Z
+  at: 2026-11-02T19:14:55Z
 sources:
   - id: config-refs
     resource: ../../package/src/lib/config-refs.ts
@@ -30,7 +30,7 @@ verified:
     at: 2026-10-28T23:24:10Z
 integrity:
   generated:
-    body: 7a1a257678eea498
+    body: 50223635c6c2fa20
   verified:
     by: human:spencer
     at: 2026-10-28T23:24:10Z
@@ -50,7 +50,7 @@ them.[^config-refs][^credential-labels][^org-only] Do not register them on
 callback.
 
 A decode failure is a `ConfigValidationError` whose `issue` is a
-schema-issue tree. `@effected/cli`'s `ConfigIssueRenderer` and
+schema-issue tree. `@effected/cli-kit`'s `ConfigIssueRenderer` and
 `SchemaIssueRenderer` walk that tree into `unknown key at …` lines and
 deduplicate a union's repeated branch lines.[^effected-cli] The entrypoint's
 `render` and `doctor` both use them.[^cli-index] A spec-level `validate`
@@ -72,7 +72,7 @@ credential.[^sync-command]
 This supersedes
 [reference-checks-live-on-commands](reference-checks-live-on-commands.md).
 The decision is unchanged. That concept justified it by a renderer in this
-repository, and schema-issue rendering now lives in `@effected/cli`. A
+repository, and schema-issue rendering now lives in `@effected/cli-kit`. A
 prior design registered an equivalent check, `validateConfigRefs`, as the
 spec's own `validate` callback, so a dangling reference failed the *load*
 for every command. That check was dropped during the v4 rebuild, and its
@@ -97,7 +97,7 @@ absence became
   a user who runs only `list` or `doctor` against a broken config gets no
   warning from them.
 - The union-line dedupe is upstream behaviour. No test in this repository
-  pins it, so a regression would show up in `@effected/cli`, not here.
+  pins it, so a regression would show up in `@effected/cli-kit`, not here.
 
 [^config-refs]: `package/src/lib/config-refs.ts`
 [^org-only]: `package/src/lib/org-only.ts`

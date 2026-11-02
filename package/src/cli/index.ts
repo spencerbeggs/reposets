@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 import { NodeCrypto, NodeRuntime, NodeServices } from "@effect/platform-node";
 import { App, AppCache, AppStore } from "@effected/app";
-import type { FailureDetails } from "@effected/cli";
-import { CliAudience, CliRuntime, ConfigIssueRenderer, Fmt } from "@effected/cli";
+import type { FailureDetails } from "@effected/cli-kit";
+import { CliAudience, CliRuntime, ConfigIssueRenderer, Fmt } from "@effected/cli-kit";
 import type { ConfigValidationError } from "@effected/config-file";
 import { Effect, Layer, Predicate } from "effect";
 import { Command } from "effect/cli";

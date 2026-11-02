@@ -1,5 +1,5 @@
-import type { CliEnvTestOptions } from "@effected/cli";
-import { CliEnv, CliLogger } from "@effected/cli";
+import type { CliEnvTestOptions } from "@effected/cli-kit";
+import { CliEnv, CliLogger } from "@effected/cli-kit";
 import { Console, Effect } from "effect";
 import { describe, expect, it } from "vitest";
 import type { SyncLoggerShape } from "../../src/services/SyncLogger.js";

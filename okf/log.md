@@ -1,5 +1,16 @@
 # Log
 
+## 2026-11-02
+
+* Updated A token pasted into a credentials name prompt is visible until Enter
+* Updated Adopt @effected/cli-kit's interactive kit
+* Updated CliRuntime.main builds the audience environment over App.layerDirs
+* Updated Effect patterns
+* Updated Reference checks are functions commands call
+* Updated The reposets command line
+* Updated reposets
+* Updated workspace
+
 ## 2026-10-31
 
 * Updated CliRuntime.main builds the audience environment over App.layerDirs

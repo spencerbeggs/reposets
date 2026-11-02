@@ -1,6 +1,6 @@
-import type { Block, TokenName } from "@effected/cli";
-import { CliInteractive, CliMessage, Doc, Fmt, Status } from "@effected/cli";
-import { CliUi, Select } from "@effected/cli/ui";
+import type { Block, TokenName } from "@effected/cli-kit";
+import { CliInteractive, CliMessage, Doc, Fmt, Status } from "@effected/cli-kit";
+import { CliUi, Select } from "@effected/cli-kit/ui";
 import { Effect, Option } from "effect";
 import { CliError, Command, Flag } from "effect/cli";
 import type { ChangeAction, ChangeRecord, RunSummary } from "../../store/SyncJournal.js";

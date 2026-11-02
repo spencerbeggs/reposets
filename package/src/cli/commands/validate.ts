@@ -1,5 +1,5 @@
-import type { Block } from "@effected/cli";
-import { CliExit, CliMessage, Doc, Status } from "@effected/cli";
+import type { Block } from "@effected/cli-kit";
+import { CliExit, CliMessage, Doc, Status } from "@effected/cli-kit";
 import { Effect } from "effect";
 import { Command } from "effect/cli";
 import { danglingReferences } from "../../lib/config-refs.js";

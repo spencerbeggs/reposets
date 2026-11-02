@@ -7,7 +7,7 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-28T23:43:19Z
+  at: 2026-11-02T19:14:55Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -51,7 +51,7 @@ sources:
     resource: ../../docs/02-commands.md
 integrity:
   generated:
-    body: a3997de4f6460dbc
+    body: 131ca7213c3f992d
 ---
 
 # The reposets command line
@@ -61,7 +61,7 @@ on the v4 line, where the old `@effect/cli` package does not exist. One
 subcommand file lives under `package/src/cli/commands/`, and
 [`package/src/cli/index.ts`](../../package/src/cli/index.ts) registers them
 on the root command via `Command.withSubcommands`. It runs the tree through
-`CliAudience.run(cli, { version })` wrapped in `@effected/cli`'s
+`CliAudience.run(cli, { version })` wrapped in `@effected/cli-kit`'s
 `CliRuntime.main`, which owns failure reporting, the logger, the audience
 and the exit code.[^cli-index][^effected-cli] How output is drawn for each
 audience, and when a command may ask a question, is
@@ -528,7 +528,7 @@ report.[^cli-doctor]
 Both renderers deduplicate a union's repeated branch lines, so one wrong
 key in a three-member union prints one `unknown key` line, not three. That
 dedupe is the kit's behaviour. No test in this repository pins it any
-more, and a regression would surface upstream in `@effected/cli`, not
+more, and a regression would surface upstream in `@effected/cli-kit`, not
 here.[^effected-cli]
 
 ## Exit codes

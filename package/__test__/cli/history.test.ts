@@ -1,7 +1,7 @@
 import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { AppTest } from "@effected/app/testing";
-import type { CliEnvTestOptions } from "@effected/cli";
-import { CliLogger } from "@effected/cli";
+import type { CliEnvTestOptions } from "@effected/cli-kit";
+import { CliLogger } from "@effected/cli-kit";
 import { Store } from "@effected/store";
 import { Console, Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";

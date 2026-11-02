@@ -7,11 +7,11 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-10-31T20:39:00Z
+  at: 2026-11-02T19:14:55Z
 tags: [architecture, dx, deps]
 integrity:
   generated:
-    body: 8f55838ac2e56088
+    body: 805d4743db408c89
 ---
 
 # workspace
@@ -23,23 +23,16 @@ This is a pnpm workspace orchestrated by Turbo with exactly one package,
 pnpm `configDependencies` — `@effected/pnpm-plugin-effected` and
 `@savvy-web/pnpm-plugin-silk` — loaded before the workspace resolves rather
 than as ordinary dependencies. They supply the catalogs the package
-resolves through: one `catalog:effected`, from the `0.20.0` effected
+resolves through: one `catalog:effected`, from the `0.21.0` effected
 plugin, for `effect`, every `@effect/*` package and every `@effected/*`
 package, and `catalog:silk` for `ink` and `react`, which the CLI loads only
 when a screen or the live view mounts. The effected plugin holds the Effect
-family to one minor (`~4.1.1`, not a caret) and derives an override pinning
-`effect` and each `@effect/*` satellite to `4.1.1` across the graph, so a
-new Effect minor arrives only with a new plugin release.
+family to one minor (`~4.1.2`, not a caret) and derives an override pinning
+`effect` and each `@effect/*` satellite to `4.1.2` across the graph, so a
+new Effect minor arrives only with a new plugin release. The whole graph,
+build toolchain included, resolves exactly one `effect`.
 
-The root `.pnpmfile.cjs` is a temporary bridge. The build toolchain
-(`@savvy-web/*`, `@okfit/*`, `@vitest-agent/*`) still loads published
-`@effected/*` packages built on Effect 4.0.x, which import the `Crypto`
-module Effect 4.1 removed; its `readPackage` hook moves those packages, and
-the tools that load them, onto npm aliases of `effect@4.0.7` the plugin's
-override cannot rewrite. It leaves this repository's own package and the
-4.1 kit it ships on alone. Delete it once every tool has republished on an
-`@effected` release built on Effect 4.1, at which point no lockfile
-`packages:` entry names `effect@4.0.7`. `pnpm-workspace.yaml` also pins
+`pnpm-workspace.yaml` also pins
 `tsdown` and `@tsdown/exe` to `0.23.2`: `tsdown` 0.23.4 narrowed
 `rolldown-plugin-dts` to `^0.28.8`, which cannot find TypeScript 7, and the
 bundler's `^0.23.2` would otherwise resolve it.
@@ -50,7 +43,7 @@ bundler's `^0.23.2` would otherwise resolve it.
 each pinned to what the lockfile installs. `.repos/effect` is pinned to
 `effect@4.1.1` and is the authority for core APIs, `effect/cli` included.
 `.repos/effected` is pinned to the `@effected/pnpm-plugin-effected@0.20.0`
-tag, the kit release that pins `@effected/cli` 0.25.0. Both are re-pinned
+tag, the kit release that pins `@effected/cli-kit` 0.25.0. Both are re-pinned
 whenever the lockfile's `effect` or the effected plugin moves.
 
 ## Build: `@savvy-web/bundler`

@@ -1,4 +1,4 @@
-import { Fmt } from "@effected/cli";
+import { Fmt } from "@effected/cli-kit";
 import type { Repo } from "@effected/github";
 import { DeploymentEnvironment } from "@effected/github";
 import { Effect, Option } from "effect";

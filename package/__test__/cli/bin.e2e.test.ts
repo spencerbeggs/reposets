@@ -2,8 +2,8 @@ import { existsSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { NodeServices } from "@effect/platform-node";
 import { assert, describe, layer } from "@effect/vitest";
-import type { Sandbox } from "@effected/cli/testing";
-import { CliTest } from "@effected/cli/testing";
+import type { Sandbox } from "@effected/cli-kit/testing";
+import { CliTest } from "@effected/cli-kit/testing";
 import { Effect, FileSystem, Path } from "effect";
 
 /**

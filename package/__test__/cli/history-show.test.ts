@@ -1,9 +1,9 @@
 import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { assert, describe, it } from "@effect/vitest";
 import { AppTest } from "@effected/app/testing";
-import { CliLogger } from "@effected/cli";
-import type { CliUiTestSession } from "@effected/cli/ui/testing";
-import { CliUiTest } from "@effected/cli/ui/testing";
+import { CliLogger } from "@effected/cli-kit";
+import type { CliUiTestSession } from "@effected/cli-kit/ui/testing";
+import { CliUiTest } from "@effected/cli-kit/ui/testing";
 import { Store } from "@effected/store";
 import { Effect, Exit, Fiber, Layer, Option } from "effect";
 import { CliError } from "effect/cli";

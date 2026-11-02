@@ -1,5 +1,5 @@
 import { AppTest } from "@effected/app/testing";
-import { CliEnv, CliLogger } from "@effected/cli";
+import { CliEnv, CliLogger } from "@effected/cli-kit";
 import {
 	CodeScanning,
 	DeploymentEnvironment,

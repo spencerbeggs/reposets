@@ -5,20 +5,20 @@ description: How Effect v4 idioms are used consistently across this codebase —
 stale_after: 2027-03-16T00:00:00Z
 generated:
   by: okfit/claude-code
-  at: 2026-10-27T16:42:53Z
+  at: 2026-11-02T19:14:55Z
 tags: [effect, architecture]
 integrity:
   generated:
-    body: 4fcb31a7a3fb27e0
+    body: 3ae46cf7bacf74a2
 ---
 
 # Effect patterns
 
 Build on **`effect/cli`, from core**. `@effect/cli` does not exist on
-the Effect v4 line — do not reach for it. `@effected/cli` is a different
+the Effect v4 line — do not reach for it. `@effected/cli-kit` is a different
 package: the kit's boundary layer over core's CLI (`CliRuntime`, `CliLogger`,
 `CliExit`, `CliAudience`, `CliMessage`, `Doc`, `CliInteractive`, `CliTest`,
-and the prompts and live view in `@effected/cli/ui`), and the entrypoint
+and the prompts and live view in `@effected/cli-kit/ui`), and the entrypoint
 runs under its `CliRuntime.main`.
 
 Define a service as a `Context.Service` class, never a bare `Context.Tag`.
@@ -126,7 +126,7 @@ throws or returns a Promise in `Effect.try`/`Effect.tryPromise`, never a bare
 `Effect.tryPromise` for the SDK call. Each `catch` maps to the tagged error
 the surrounding service already defines, never to a raw `Error` re-thrown.
 
-Turn a foreign failure into text with `Fmt.describe` from `@effected/cli`
+Turn a foreign failure into text with `Fmt.describe` from `@effected/cli-kit`
 (its message, or a safe rendering of anything else), never
 `error instanceof Error ? error.message : String(error)` or
 `error.message ?? String(error)`. Read an error's `cause` chain with
