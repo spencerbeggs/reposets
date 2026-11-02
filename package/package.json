@@ -73,7 +73,7 @@
 		"@effect/vitest": "catalog:effected",
 		"@effected/memfs": "catalog:effected",
 		"@effected/schemastore-cli": "catalog:effected",
-		"@savvy-web/bundler": "^2.7.0",
+		"@savvy-web/bundler": "^2.7.3",
 		"@types/node": "catalog:build",
 		"@types/react": "catalog:silk",
 		"typescript": "catalog:build"

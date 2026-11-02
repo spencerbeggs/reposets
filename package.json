@@ -36,9 +36,9 @@
 	},
 	"devDependencies": {
 		"@effected/plugin": "catalog:effected",
-		"@okfit/plugin": "^0.5.26",
-		"@savvy-web/silk": "^4.5.3",
-		"@vitest-agent/plugin": "^6.0.1",
+		"@okfit/plugin": "^0.5.29",
+		"@savvy-web/silk": "^4.5.6",
+		"@vitest-agent/plugin": "^6.0.5",
 		"reposets": "workspace:*"
 	},
 	"engines": {
@@ -47,13 +47,13 @@
 	"devEngines": {
 		"packageManager": {
 			"name": "pnpm",
-			"version": "12.16.1",
+			"version": "12.17.0",
 			"onFail": "download"
 		},
 		"runtime": [
 			{
 				"name": "node",
-				"version": "26.12.1",
+				"version": "26.13.0",
 				"onFail": "ignore"
 			}
 		]
