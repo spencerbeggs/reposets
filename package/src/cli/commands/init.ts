@@ -2,6 +2,7 @@ import type { CliTheme } from "@effected/cli-kit";
 import { CliExit, CliMessage } from "@effected/cli-kit";
 import { CliUi, Select } from "@effected/cli-kit/ui";
 import type { Audience } from "@effected/env";
+import { AtomicFile } from "@effected/files";
 import { AppDirs } from "@effected/xdg";
 import { Effect, FileSystem, Option, Path } from "effect";
 import { Command, Flag } from "effect/cli";
@@ -187,12 +188,18 @@ export const initHandler = (project: boolean | undefined) =>
 		 * for a file and did not get one — so it is reported on stderr and the
 		 * run exits 1 through `CliExit`. The remaining files are still attempted:
 		 * one unwritable path should not hide what else did or did not happen.
+		 *
+		 * Written with `CliMessage.failure` rather than `Effect.logError` so no log
+		 * level can hide the one line that explains the exit code.
 		 */
-		const failed = (target: string): Effect.Effect<void, never, CliExit> =>
-			Effect.logError(`Could not write: ${target}`).pipe(Effect.andThen(CliExit.set(1)));
+		const failed = (target: string): Effect.Effect<void, never, CliExit | CliTheme | Audience> =>
+			CliMessage.failure(`Could not write: ${target}`).pipe(Effect.andThen(CliExit.set(1)));
 
 		/** Write a file unless it is already there; report either way. */
-		const scaffold = (name: string, contents: string): Effect.Effect<void, never, CliExit | CliTheme | Audience> =>
+		const scaffold = (
+			name: string,
+			contents: string,
+		): Effect.Effect<void, never, CliExit | CliTheme | Audience | FileSystem.FileSystem | Path.Path> =>
 			Effect.gen(function* () {
 				const target = path.join(targetDir, name);
 				const exists = yield* fs.exists(target).pipe(Effect.orElseSucceed(() => false));
@@ -200,7 +207,9 @@ export const initHandler = (project: boolean | undefined) =>
 					yield* CliMessage.info(`Already exists: ${target}`);
 					return;
 				}
-				const written = yield* fs.writeFileString(target, contents).pipe(Effect.option);
+				// Atomic because `exists` above trusts whatever is there: a partial file
+				// left by a crash would read as `Already exists` on every later run.
+				const written = yield* AtomicFile.write(target, contents).pipe(Effect.option);
 				yield* written._tag === "Some" ? CliMessage.success(`Created: ${target}`) : failed(target);
 			});
 
@@ -212,15 +221,17 @@ export const initHandler = (project: boolean | undefined) =>
 		const existing = yield* fs.readFileString(gitignorePath).pipe(Effect.orElseSucceed(() => undefined));
 
 		if (existing === undefined) {
-			const written = yield* fs.writeFileString(gitignorePath, `${CREDENTIALS_FILENAME}\n`).pipe(Effect.option);
+			const written = yield* AtomicFile.write(gitignorePath, `${CREDENTIALS_FILENAME}\n`).pipe(Effect.option);
 			yield* written._tag === "Some"
 				? CliMessage.success(`Created .gitignore with ${CREDENTIALS_FILENAME}`)
 				: failed(gitignorePath);
 		} else if (!existing.includes(CREDENTIALS_FILENAME)) {
 			const separator = existing.endsWith("\n") ? "" : "\n";
-			const written = yield* fs
-				.writeFileString(gitignorePath, `${existing}${separator}${CREDENTIALS_FILENAME}\n`)
-				.pipe(Effect.option);
+			// The one file here that is rewritten rather than created, and it is the
+			// user's: atomic, a crash leaves the old contents or the new, whole.
+			const written = yield* AtomicFile.write(gitignorePath, `${existing}${separator}${CREDENTIALS_FILENAME}\n`).pipe(
+				Effect.option,
+			);
 			yield* written._tag === "Some"
 				? CliMessage.success(`Added ${CREDENTIALS_FILENAME} to .gitignore`)
 				: failed(gitignorePath);

@@ -32,13 +32,15 @@ verified:
     at: 2026-10-03T18:13:55Z
   - by: human:spencer
     at: 2026-10-28T23:24:10Z
+  - by: human:spencer
+    at: 2026-11-05T22:56:44Z
 integrity:
   generated:
     body: e66a9c01f34fa43f
   verified:
     by: human:spencer
-    at: 2026-10-28T23:24:10Z
-    content: 2c05d9bcca451867
+    at: 2026-11-05T22:56:44Z
+    content: e7bb0c8ad7cc8817
 ---
 
 # Adopt @effected/cli-kit's interactive kit

@@ -8,7 +8,7 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, ci, observability, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-10-03T18:11:28Z
+  at: 2026-11-05T22:58:29Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -22,7 +22,7 @@ sources:
     resource: ../../package/src/cli/commands/sync.ts
 integrity:
   generated:
-    body: 7f18adabfb0614a1
+    body: 6078fed01501a1e1
 ---
 
 # --log-level none still prints the report
@@ -47,6 +47,7 @@ report, the `list`, `validate`, `doctor` and `history` documents, and the
 [adopt-interactive-cli-kit-v2](../decisions/adopt-interactive-cli-kit-v2.md),
 a finding that exits 1 is a `CliMessage.failure` line on stderr, not a
 log call, so it prints too: "No config found", "No groups configured",
+`init`'s "Could not write", `nuke`'s "could not remove",
 the dangling-reference block, `validate`'s `✗ Invalid:` and `doctor`'s
 early stops.[^cli-sync][^effected-cli] Two more things print whatever the
 level is. A usage error's message is printed by `Command.runWith`'s
@@ -56,7 +57,7 @@ formatter, not the logger. A failure that escapes a command is rendered by
 What `--log-level` does filter is every `Effect.log*` level, all of which
 the kit's logger sends to stderr: sync's per-resource error lines and its
 `✗ Sync complete with N errors:` block, `init`'s next-steps hint, and
-`nuke`'s `could not remove` lines.[^sync-logger]
+`nuke`'s `could not remove empty directory` warning.[^sync-logger]
 
 **What to do instead.** To quiet the report, redirect stdout:
 `reposets sync > /dev/null` keeps failures visible on stderr and the exit

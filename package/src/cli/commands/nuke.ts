@@ -473,7 +473,9 @@ export const nukeHandler = (
 			for (const file of target.paths) {
 				const outcome = yield* fs.remove(file).pipe(Effect.result);
 				if (outcome._tag === "Failure") {
-					yield* Effect.logError(`could not remove ${file} — ${Fmt.describe(outcome.failure)}`);
+					// `CliMessage.failure`, not `Effect.logError`: the closing summary
+					// points back at these lines, so no log level may hide them.
+					yield* CliMessage.failure(`could not remove ${file} — ${Fmt.describe(outcome.failure)}`);
 					continue;
 				}
 				yield* CliMessage.success(`removed ${file}`);

@@ -7,7 +7,7 @@ resource: ../../package/src/schemas/hosted.ts
 tags: [docs, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T19:01:24Z
+  at: 2026-11-05T22:58:29Z
 sources:
   - id: hosted
     resource: ../../package/src/schemas/hosted.ts
@@ -25,7 +25,7 @@ sources:
     resource: ../../schemas/catalogs/reposets.json
 integrity:
   generated:
-    body: 8e38f07c83a69aed
+    body: 20b88965653e2b41
 ---
 
 # Published JSON schemas for reposets.config.toml and reposets.credentials.toml
@@ -75,7 +75,7 @@ served from GitHub raw on `main`.
 
 ## Build and check
 
-- `pnpm --filter reposets schema:build` (`schemastore build
+- `pnpm --filter reposets schema:build` (`effected schema build
   lib/configs/schemastore.config.ts`) writes both documents, the slice and
   the merged catalog. `outputDir: "../../../schemas"` resolves against the
   config file's own directory, so a root-level and a filtered run write the

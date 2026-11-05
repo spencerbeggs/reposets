@@ -1,5 +1,18 @@
 # Log
 
+## 2026-11-05
+
+* Updated "unchanged" means the file already matches, not that the schema did not change
+* Updated --log-level none still prints the report
+* Updated Adopt @effected/cli-kit's interactive kit
+* Updated CliRuntime.main builds the audience environment over App.layerDirs
+* Updated Published JSON schemas for reposets.config.toml and reposets.credentials.toml
+* Updated Reference checks are functions commands call
+* Updated Repository subsystems reposets does not manage
+* Updated Running the test suite rewrites the published JSON schemas
+* Updated The reposets command line
+* Updated workspace
+
 ## 2026-11-02
 
 * Updated A token pasted into a credentials name prompt is visible until Enter

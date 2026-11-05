@@ -44,8 +44,8 @@
 		"build:dev": "node savvy.build.ts --target dev",
 		"build:prod": "node savvy.build.ts --target prod",
 		"prepare": "node savvy.build.ts --target dev",
-		"schema:build": "schemastore build lib/configs/schemastore.config.ts",
-		"schema:check": "schemastore check lib/configs/schemastore.config.ts",
+		"schema:build": "effected schema build lib/configs/schemastore.config.ts",
+		"schema:check": "effected schema check lib/configs/schemastore.config.ts",
 		"types:check": "tsc --noEmit"
 	},
 	"dependencies": {
@@ -55,6 +55,7 @@
 		"@effected/cli-kit": "catalog:effected",
 		"@effected/config-file": "catalog:effected",
 		"@effected/env": "catalog:effected",
+		"@effected/files": "catalog:effected",
 		"@effected/github": "catalog:effected",
 		"@effected/glob": "catalog:effected",
 		"@effected/jsonc": "catalog:effected",
@@ -72,7 +73,7 @@
 	"devDependencies": {
 		"@effect/vitest": "catalog:effected",
 		"@effected/memfs": "catalog:effected",
-		"@effected/schemastore-cli": "catalog:effected",
+		"@effected/plugin": "catalog:effected",
 		"@savvy-web/bundler": "^2.7.3",
 		"@types/node": "catalog:build",
 		"@types/react": "catalog:silk",

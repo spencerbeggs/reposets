@@ -1,5 +1,5 @@
 import type { Cancelled, CliTheme } from "@effected/cli-kit";
-import { CliInteractive, CliMessage, Doc } from "@effected/cli-kit";
+import { CliExit, CliInteractive, CliMessage, Doc, Fmt } from "@effected/cli-kit";
 import type { Screen } from "@effected/cli-kit/ui";
 import { CliUi, Select, TextInput } from "@effected/cli-kit/ui";
 import { AppDirs } from "@effected/xdg";
@@ -132,6 +132,27 @@ const ENV_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/;
  */
 const refuse = (message: string): Effect.Effect<never, CliError.UserError> =>
 	Effect.fail(new CliError.UserError({ cause: message }));
+
+/**
+ * Save the credentials file, answering with the path it was written to.
+ *
+ * @remarks
+ * A file the user cannot write is a finding about this machine rather than a
+ * bug or a usage mistake, so it is one failure line and exit 1 through
+ * `CliExit`, not the kit's error tag and span trail. `None` means it was
+ * reported: the handler ends there, without claiming success. Any other save
+ * failure still escapes, because it means reposets produced a bad document.
+ */
+const saveCredentials = (credentialsFile: ReposetsCredentialsFile["Service"], credentials: Credentials) =>
+	credentialsFile.save(credentials).pipe(
+		Effect.map(Option.some),
+		Effect.catchTag("ConfigFileWriteError", (error) =>
+			CliMessage.failure(`Could not write: ${error.path} — ${Fmt.describe(error.cause)}`).pipe(
+				Effect.andThen(CliExit.set(1)),
+				Effect.as(Option.none<string>()),
+			),
+		),
+	);
 
 /** How a profile's `github_token` is sourced, for display. Never a value. */
 const describeSource = (source: CredentialSource): string => ("op" in source ? `op ${source.op}` : `env ${source.env}`);
@@ -367,14 +388,15 @@ export const createHandler = (input: {
 						});
 
 		const record: CredentialProfile = { ...actsAs, github_token };
-		const path = yield* credentialsFile.save({
+		const saved = yield* saveCredentials(credentialsFile, {
 			profiles: { ...existing.profiles, [profile]: record },
 		});
+		if (Option.isNone(saved)) return;
 
 		const { owner, ownerType } = profileOwner(record);
 		yield* CliMessage.success(
 			`Created profile '${profile}' (${ownerType === "User" ? "username" : "org"}: ${owner}, ` +
-				`github_token: ${describeSource(github_token)}) in ${path}.`,
+				`github_token: ${describeSource(github_token)}) in ${saved.value}.`,
 		);
 	});
 
@@ -496,9 +518,10 @@ export const deleteHandler = (profile: string | undefined) =>
 		}
 
 		const { [name]: _removed, ...remaining } = credentials.profiles;
-		const path = yield* credentialsFile.save({ profiles: remaining });
+		const saved = yield* saveCredentials(credentialsFile, { profiles: remaining });
+		if (Option.isNone(saved)) return;
 
-		yield* CliMessage.success(`Deleted profile '${name}' from ${path}.`);
+		yield* CliMessage.success(`Deleted profile '${name}' from ${saved.value}.`);
 	});
 
 const deleteCommand = Command.make("delete", { profile: profileFlag }, ({ profile }) =>

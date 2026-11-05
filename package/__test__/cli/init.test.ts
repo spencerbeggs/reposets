@@ -1,4 +1,4 @@
-import { appendFileSync, existsSync, readFileSync } from "node:fs";
+import { appendFileSync, chmodSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { assert, describe, it } from "@effect/vitest";
 import { CliUiTest } from "@effected/cli-kit/ui/testing";
@@ -101,6 +101,64 @@ describe("init, interactive", () => {
 			assert.isFalse(existsSync(inXdg()));
 		}).pipe(Effect.scoped),
 	);
+});
+
+/**
+ * An existing `.gitignore` is the one file `init` rewrites rather than creates,
+ * and it is the user's, so a crash mid-write must not leave it truncated. A new
+ * inode is the observable sign of a temp-then-rename write.
+ */
+describe("init, new files", () => {
+	it("get the mode a plain write would give them, with no temp file left", async () => {
+		const outcome = await runOutcome(init(true));
+		assert.strictEqual(outcome.exitCode, 0);
+		const expected = 0o666 & ~process.umask();
+		for (const name of ["reposets.config.toml", "reposets.credentials.toml", ".gitignore"]) {
+			assert.strictEqual(statSync(join(temp.dir(), name)).mode & 0o777, expected, name);
+		}
+		assert.deepStrictEqual(
+			readdirSync(temp.dir()).filter((name) => name.endsWith(".tmp")),
+			[],
+		);
+	});
+});
+
+describe("init, an existing .gitignore", () => {
+	const gitignore = (): string => join(temp.dir(), ".gitignore");
+	const USER_LINES = "node_modules\ndist";
+
+	it("is replaced whole: the user's lines kept, the mode kept, no temp file left", async () => {
+		writeFileSync(gitignore(), USER_LINES);
+		chmodSync(gitignore(), 0o640);
+		const before = statSync(gitignore()).ino;
+
+		const outcome = await runOutcome(init(true));
+
+		assert.strictEqual(outcome.exitCode, 0);
+		assert.strictEqual(readFileSync(gitignore(), "utf-8"), `${USER_LINES}\nreposets.credentials.toml\n`);
+		assert.notStrictEqual(statSync(gitignore()).ino, before);
+		assert.strictEqual(statSync(gitignore()).mode & 0o777, 0o640);
+		assert.deepStrictEqual(
+			readdirSync(temp.dir()).filter((name) => name.endsWith(".tmp")),
+			[],
+		);
+	});
+
+	// Root ignores permission bits, so the failure would never happen under root.
+	it.skipIf(process.getuid?.() === 0)("in a read-only directory is left alone and the run exits 1", async () => {
+		writeFileSync(gitignore(), USER_LINES);
+		writeFileSync(inProject(), "");
+		writeFileSync(join(temp.dir(), "reposets.credentials.toml"), "");
+		chmodSync(temp.dir(), 0o555);
+		try {
+			const outcome = await runOutcome(init(true));
+			assert.strictEqual(outcome.exitCode, 1);
+			assert.include(on(outcome.lines, "stderr").join("\n"), `Could not write: ${gitignore()}`);
+			assert.strictEqual(readFileSync(gitignore(), "utf-8"), USER_LINES);
+		} finally {
+			chmodSync(temp.dir(), 0o755);
+		}
+	});
 });
 
 describe("init, the #:schema directive", () => {

@@ -2,8 +2,8 @@
  * The whole schema setup for reposets: `ConfigSchema` and `CredentialsSchema`
  * become the two published, versioned JSON Schema documents under the
  * repository root's `schemas/` directory, one per TOML file. Run via
- * `pnpm schema:build` / `pnpm schema:check` (`@effected/schemastore-cli`),
- * which turbo wires ahead of both builds.
+ * `pnpm schema:build` / `pnpm schema:check` (`effected schema`, from
+ * `@effected/plugin`), which turbo wires ahead of both builds.
  *
  * @remarks
  * Each entry's identity is a `HostedSchema` from `src/schemas/hosted.ts`, keyed
@@ -43,12 +43,12 @@
  * the only symptom is an editor that silently stops completing one of the two
  * files someone edits by hand.
  */
-import { defineConfig } from "@effected/schemastore";
+import { defineSchemastore } from "@effected/plugin";
 import { ConfigSchema } from "../../src/schemas/config.js";
 import { CredentialsSchema } from "../../src/schemas/credentials.js";
 import { configSchemaHost, credentialsSchemaHost } from "../../src/schemas/hosted.js";
 
-export default defineConfig({
+export default defineSchemastore({
 	name: "reposets",
 	outputDir: "../../../schemas",
 	schemas: {

@@ -7,7 +7,7 @@ bounds: ../modules/reposets.md
 tags: [github, architecture]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
+  at: 2026-11-05T22:58:29Z
 sources:
   - id: config-schema
     resource: ../../package/src/schemas/config.ts
@@ -15,7 +15,7 @@ sources:
     resource: ../../package/node_modules/@effected/github/GitHubRepository.js
 integrity:
   generated:
-    body: be12e99721d72a29
+    body: 2a393697c13e9199
 ---
 
 # Repository subsystems reposets does not manage
@@ -49,9 +49,9 @@ What the config genuinely has no shape for is a **per-repository value** — a d
 
 ## What each would take
 
-Every candidate below needs `@effected/github` to expose new surface before reposets can consume it; none of the eight resource services `sync` already merges (`GitHubRepository`, `Ruleset`, `RepositorySecurity`, `CodeScanning`, `DeploymentEnvironment`, `RepositorySecret`, `RepositoryVariable`, `WorkflowDispatch`) covers any of them.
+Every candidate below except topics needs `@effected/github` to expose new surface before reposets can consume it; none of the eight resource services `sync` already merges (`GitHubRepository`, `Ruleset`, `RepositorySecurity`, `CodeScanning`, `DeploymentEnvironment`, `RepositorySecret`, `RepositoryVariable`, `WorkflowDispatch`) covers any of them.
 
-- **Topics** needs two members on `GitHubRepository` — a `topics()` read and a `setTopics()` whole-list replace — filed as `effected#359`, open as of this writing. Because `PUT` replaces the whole set, the endpoint is already declarative and would cost no new concept in the config; the one caveat is that GitHub lowercases every topic name on write, so the applied-state baseline this tool records must come from the response rather than from the request the config sent, or every run after the first would report spurious drift.
+- **Topics** is available upstream: `GitHubRepository` has a `topics` read and a `setTopics` whole-list replace (`effected#359`). What remains is the config shape and the phase here. Because `PUT` replaces the whole set, the endpoint is already declarative and would cost no new concept in the config; the one caveat is that GitHub lowercases every topic name on write, so the applied-state baseline this tool records must come from the response rather than from the request the config sent, or every run after the first would report spurious drift.
 - **Actions default token permissions** — and the wider Actions-policy surface — is the highest-value gap here: `default_workflow_permissions = "read"` is a meaningful supply-chain control, it is per-repository, and nothing else in the tool sets it. It reads like a new phase beside `security` rather than an extension of an existing one, since it is several endpoints answering to one concept.
 - **Labels** need identity and deletion, so they follow the `secrets`/`variables` shape rather than the `settings` shape — the same three-way `CleanupScope` union already models exactly the reconcile labels would need.
 - **Autolinks, webhooks, deploy keys, Pages, custom properties** are each per-item create/update/delete against an endpoint family `@effected/github` does not expose today, and each needs its own new upstream service before a config shape is worth sketching.

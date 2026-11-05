@@ -7,7 +7,7 @@ stale_after: 2027-03-16T00:00:00Z
 tags: [testing, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-10-02T17:48:12Z
+  at: 2026-11-05T22:58:29Z
 sources:
   - id: vitest-setup
     resource: ../../vitest.setup.ts
@@ -15,7 +15,7 @@ sources:
     resource: ../../package/turbo.json
 integrity:
   generated:
-    body: 7c6aa02ddc4dff3c
+    body: 1b74c3efe17dec13
 ---
 
 # Running the test suite rewrites the published JSON schemas
@@ -36,7 +36,7 @@ before any test executes[^vitest-setup]. `build:dev` depends on
 `schema:build`[^turbo-json], which regenerates
 the root `schemas/**/*.json` from the current `ConfigSchema` and
 `CredentialsSchema` — so every `pnpm run test` invocation rewrites those
-four tracked files as a side effect, not a bug. `schemastore build`
+four tracked files as a side effect, not a bug. `effected schema build`
 writes them unformatted, and Biome's formatting rules apply to `*.json`,
 so the freshly-written files fail `pnpm run lint` until `pnpm run
 lint:fix` folds them back into the repository's format.

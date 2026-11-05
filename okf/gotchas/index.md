@@ -1,6 +1,6 @@
 # Gotcha
 
-* ["unchanged" means the file already matches, not that the schema did not change](schemastore-unchanged-means-file-matches.md) - schemastore build/check report unchanged by content comparison, which is easy to misread as a no-op schema edit.
+* ["unchanged" means the file already matches, not that the schema did not change](schemastore-unchanged-means-file-matches.md) - effected schema build/check report unchanged by content comparison, which is easy to misread as a no-op schema edit.
 * [--log-level none still prints the report](log-level-none-still-prints-reports.md) - --log-level none looks like the switch that silences a run, but it filters only Effect.log diagnostics; every report, outcome line and finding prints regardless.
 * [A ConfigProvider passed with Layer.provide reads the real environment](config-provider-hidden-by-provide.md) - A test that wires ConfigProvider.fromEnv under a service with Layer.provide looks isolated, but Config is read in the caller's fiber, so the reads silently fall back to the developer's own process environment.
 * [A Layer memoizes per provide, not by const identity](layer-memoizes-per-provide.md) - Two separate Effect.provide calls over the same layer value are two separate builds — for AppTest.layer, two separate in-memory databases.

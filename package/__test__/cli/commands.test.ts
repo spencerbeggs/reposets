@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { NodeServices } from "@effect/platform-node";
 import { App } from "@effected/app";
-import { ConfigProvider, Effect, Layer } from "effect";
+import { ConfigProvider, Effect, Layer, References } from "effect";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import {
 	createHandler,
@@ -829,6 +829,74 @@ describe("exit codes and streams", () => {
 		}
 	});
 
+	// An exit 1 with nothing on either stream is the failure this pins: no log
+	// level may hide the one line that explains the exit code.
+	it.skipIf(isRoot)("init that cannot write a file still says so under --log-level none", async () => {
+		const target = join(dir, "readonly");
+		mkdirSync(target);
+		chmodSync(target, 0o555);
+		try {
+			const outcome = await runOutcome(
+				initHandler(true).pipe(
+					Effect.provide(Invocation.layer({ cwd: target, version: "0.0.0-test" })),
+					Effect.provide(layers(undefined)),
+					Effect.provideService(References.MinimumLogLevel, "None"),
+				) as never,
+			);
+			expect(outcome.exitCode).toBe(1);
+			expect(on(outcome.lines, "stderr").join("\n")).toContain(
+				`Could not write: ${join(target, "reposets.config.toml")}`,
+			);
+		} finally {
+			chmodSync(target, 0o755);
+		}
+	});
+
+	// A file the user cannot write is their machine's state, not a bug in reposets:
+	// one line naming the file, not the kit's error tag and a span trail.
+	describe("credentials that cannot be saved", () => {
+		const CREDENTIALS = '[profiles.keep]\nusername = "a"\ngithub_token = { env = "A_TOKEN" }\n';
+		const file = (): string => join(dir, "reposets.credentials.toml");
+
+		const lockedRun = async (handler: Effect.Effect<void, unknown, never>) => {
+			writeFileSync(file(), CREDENTIALS);
+			chmodSync(file(), 0o400);
+			try {
+				return await runOutcome(provided(handler as never));
+			} finally {
+				chmodSync(file(), 0o600);
+			}
+		};
+
+		it.skipIf(isRoot)("credentials create says so on stderr and exits 1", async () => {
+			const outcome = await lockedRun(
+				createHandler({
+					profile: "added",
+					op: "op://V/i/f",
+					env: undefined,
+					username: "u",
+					org: undefined,
+				}) as never,
+			);
+			expect(outcome.exitCode).toBe(1);
+			const stderr = on(outcome.lines, "stderr").join("\n");
+			expect(stderr).toContain(`Could not write: ${file()}`);
+			expect(stderr).not.toContain("ConfigFileWriteError");
+			expect(on(outcome.lines, "stdout").join("\n")).not.toContain("Created profile");
+			expect(readFileSync(file(), "utf-8")).toBe(CREDENTIALS);
+		});
+
+		it.skipIf(isRoot)("credentials delete says so on stderr and exits 1", async () => {
+			const outcome = await lockedRun(deleteHandler("keep") as never);
+			expect(outcome.exitCode).toBe(1);
+			const stderr = on(outcome.lines, "stderr").join("\n");
+			expect(stderr).toContain(`Could not write: ${file()}`);
+			expect(stderr).not.toContain("ConfigFileWriteError");
+			expect(on(outcome.lines, "stdout").join("\n")).not.toContain("Deleted profile");
+			expect(readFileSync(file(), "utf-8")).toBe(CREDENTIALS);
+		});
+	});
+
 	it("nuke --force that removes everything exits 0", async () => {
 		writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
 		const outcome = await runOutcome(provided(nukeHandler(true) as never));
@@ -846,6 +914,30 @@ describe("exit codes and streams", () => {
 				nukeHandler(true).pipe(
 					Effect.provide(Invocation.layer({ cwd: locked, version: "0.0.0-test" })),
 					Effect.provide(layers(undefined)),
+				) as never,
+			);
+			expect(outcome.exitCode).toBe(1);
+			expect(on(outcome.lines, "stderr").join("\n")).toContain(
+				`could not remove ${join(locked, "reposets.config.toml")}`,
+			);
+		} finally {
+			chmodSync(locked, 0o755);
+		}
+	});
+
+	// The summary says "the failures are listed above", so no log level may hide
+	// the lines it points at.
+	it.skipIf(isRoot)("nuke --force that leaves a file behind still names it under --log-level none", async () => {
+		const locked = join(dir, "locked");
+		mkdirSync(locked);
+		writeFileSync(join(locked, "reposets.config.toml"), CONFIG);
+		chmodSync(locked, 0o555);
+		try {
+			const outcome = await runOutcome(
+				nukeHandler(true).pipe(
+					Effect.provide(Invocation.layer({ cwd: locked, version: "0.0.0-test" })),
+					Effect.provide(layers(undefined)),
+					Effect.provideService(References.MinimumLogLevel, "None"),
 				) as never,
 			);
 			expect(outcome.exitCode).toBe(1);
