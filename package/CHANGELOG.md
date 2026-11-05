@@ -1,5 +1,41 @@
 # reposets
 
+## 4.0.4
+
+### Bug Fixes
+
+- `reposets init` now always explains a failed write. `Could not write: <path>` was a log record, so `--log-level none` left a run that exited 1 with no output at all; it is now a failure line on stderr that no log level hides.
+- `reposets nuke` now always names a file it could not remove. Under `--log-level none` the `could not remove <path>` lines were hidden while the closing summary still said the failures were listed above; they are now failure lines on stderr.
+- `reposets init` now writes every file atomically, so a crash leaves an existing `.gitignore`'s old contents or the new, never a truncated file, and never a partial new file that later runs would report as `Already exists`. The file's directory must now be writable: in a read-only directory the run reports `Could not write` and exits 1 and an existing `.gitignore` is left unchanged.
+- `reposets credentials create` and `credentials delete` now report a credentials file they cannot write as one line, `Could not write: <path> — <reason>`, with exit 1, instead of the raw `ConfigFileWriteError`. [#256][#256]
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/app | dependency | updated | ^0.31.0 | ^0.31.1 |
+| @effected/cli-kit | dependency | updated | ^0.26.0 | ^0.27.0 |
+| @effected/config-file | dependency | updated | ^0.24.0 | ^0.25.0 |
+| @effected/env | dependency | updated | ^0.10.0 | ^0.11.0 |
+| @effected/github | dependency | updated | ^0.28.0 | ^0.29.0 |
+| @effected/glob | dependency | updated | ^0.18.0 | ^0.19.0 |
+| @effected/jsonc | dependency | updated | ^0.23.0 | ^0.24.0 |
+| @effected/schemastore | dependency | updated | ^0.29.0 | ^0.30.0 |
+| @effected/store | dependency | updated | ^0.23.0 | ^0.24.0 |
+| @effected/toml | dependency | updated | ^0.19.0 | ^0.19.1 |
+| @effected/walker | dependency | updated | ^0.25.0 | ^0.25.1 |
+| @effected/xdg | dependency | updated | ^0.19.0 | ^0.19.1 |
+| @effected/yaml | dependency | updated | ^0.28.0 | ^0.29.0 |
+| @effected/files | dependency | added | — | ^0.1.0 |
+
+[#256][#256]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/spencerbeggs) for their contributions!
+
+[#256]: https://github.com/spencerbeggs/reposets/pull/256
+
 ## 4.0.3
 
 ### Dependencies
