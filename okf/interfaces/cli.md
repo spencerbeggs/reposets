@@ -7,7 +7,7 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-11-05T22:58:29Z
+  at: 2026-11-05T23:09:28Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -51,7 +51,7 @@ sources:
     resource: ../../docs/02-commands.md
 integrity:
   generated:
-    body: a85eae40e0d178ab
+    body: e153c12910160318
 ---
 
 # The reposets command line
@@ -460,9 +460,13 @@ naming the versioned JSON Schema it was written against
 [json-schemas](json-schemas.md). A file
 it could not write, the `.gitignore` included, is a failure line on stderr,
 `Could not write: <path>`, which no log level hides. The remaining files are
-still attempted, and the run exits 1 through `CliExit`. An existing
-`.gitignore` is replaced atomically: a crash leaves the old contents or the
-new, whole, and its directory must be writable. The closing hint offers both a bare
+still attempted, and the run exits 1 through `CliExit`. Every file is written
+atomically: a crash leaves an existing `.gitignore`'s old contents or the new,
+whole, and never a partial new file. The target's directory must be writable.
+
+`credentials create` and `credentials delete` write the file the same way. One
+they cannot write is a failure line on stderr, `Could not write: <path> — <reason>`,
+with exit 1 through `CliExit` and no success line. The closing hint offers both a bare
 `reposets credentials create`, which asks for each value on a terminal, and
 the full flag form.
 

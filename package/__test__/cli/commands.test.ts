@@ -852,6 +852,51 @@ describe("exit codes and streams", () => {
 		}
 	});
 
+	// A file the user cannot write is their machine's state, not a bug in reposets:
+	// one line naming the file, not the kit's error tag and a span trail.
+	describe("credentials that cannot be saved", () => {
+		const CREDENTIALS = '[profiles.keep]\nusername = "a"\ngithub_token = { env = "A_TOKEN" }\n';
+		const file = (): string => join(dir, "reposets.credentials.toml");
+
+		const lockedRun = async (handler: Effect.Effect<void, unknown, never>) => {
+			writeFileSync(file(), CREDENTIALS);
+			chmodSync(file(), 0o400);
+			try {
+				return await runOutcome(provided(handler as never));
+			} finally {
+				chmodSync(file(), 0o600);
+			}
+		};
+
+		it.skipIf(isRoot)("credentials create says so on stderr and exits 1", async () => {
+			const outcome = await lockedRun(
+				createHandler({
+					profile: "added",
+					op: "op://V/i/f",
+					env: undefined,
+					username: "u",
+					org: undefined,
+				}) as never,
+			);
+			expect(outcome.exitCode).toBe(1);
+			const stderr = on(outcome.lines, "stderr").join("\n");
+			expect(stderr).toContain(`Could not write: ${file()}`);
+			expect(stderr).not.toContain("ConfigFileWriteError");
+			expect(on(outcome.lines, "stdout").join("\n")).not.toContain("Created profile");
+			expect(readFileSync(file(), "utf-8")).toBe(CREDENTIALS);
+		});
+
+		it.skipIf(isRoot)("credentials delete says so on stderr and exits 1", async () => {
+			const outcome = await lockedRun(deleteHandler("keep") as never);
+			expect(outcome.exitCode).toBe(1);
+			const stderr = on(outcome.lines, "stderr").join("\n");
+			expect(stderr).toContain(`Could not write: ${file()}`);
+			expect(stderr).not.toContain("ConfigFileWriteError");
+			expect(on(outcome.lines, "stdout").join("\n")).not.toContain("Deleted profile");
+			expect(readFileSync(file(), "utf-8")).toBe(CREDENTIALS);
+		});
+	});
+
 	it("nuke --force that removes everything exits 0", async () => {
 		writeFileSync(join(dir, "reposets.config.toml"), CONFIG);
 		const outcome = await runOutcome(provided(nukeHandler(true) as never));

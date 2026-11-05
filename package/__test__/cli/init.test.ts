@@ -108,6 +108,21 @@ describe("init, interactive", () => {
  * and it is the user's, so a crash mid-write must not leave it truncated. A new
  * inode is the observable sign of a temp-then-rename write.
  */
+describe("init, new files", () => {
+	it("get the mode a plain write would give them, with no temp file left", async () => {
+		const outcome = await runOutcome(init(true));
+		assert.strictEqual(outcome.exitCode, 0);
+		const expected = 0o666 & ~process.umask();
+		for (const name of ["reposets.config.toml", "reposets.credentials.toml", ".gitignore"]) {
+			assert.strictEqual(statSync(join(temp.dir(), name)).mode & 0o777, expected, name);
+		}
+		assert.deepStrictEqual(
+			readdirSync(temp.dir()).filter((name) => name.endsWith(".tmp")),
+			[],
+		);
+	});
+});
+
 describe("init, an existing .gitignore", () => {
 	const gitignore = (): string => join(temp.dir(), ".gitignore");
 	const USER_LINES = "node_modules\ndist";

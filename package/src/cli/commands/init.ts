@@ -196,7 +196,10 @@ export const initHandler = (project: boolean | undefined) =>
 			CliMessage.failure(`Could not write: ${target}`).pipe(Effect.andThen(CliExit.set(1)));
 
 		/** Write a file unless it is already there; report either way. */
-		const scaffold = (name: string, contents: string): Effect.Effect<void, never, CliExit | CliTheme | Audience> =>
+		const scaffold = (
+			name: string,
+			contents: string,
+		): Effect.Effect<void, never, CliExit | CliTheme | Audience | FileSystem.FileSystem | Path.Path> =>
 			Effect.gen(function* () {
 				const target = path.join(targetDir, name);
 				const exists = yield* fs.exists(target).pipe(Effect.orElseSucceed(() => false));
@@ -204,7 +207,9 @@ export const initHandler = (project: boolean | undefined) =>
 					yield* CliMessage.info(`Already exists: ${target}`);
 					return;
 				}
-				const written = yield* fs.writeFileString(target, contents).pipe(Effect.option);
+				// Atomic because `exists` above trusts whatever is there: a partial file
+				// left by a crash would read as `Already exists` on every later run.
+				const written = yield* AtomicFile.write(target, contents).pipe(Effect.option);
 				yield* written._tag === "Some" ? CliMessage.success(`Created: ${target}`) : failed(target);
 			});
 
@@ -216,15 +221,14 @@ export const initHandler = (project: boolean | undefined) =>
 		const existing = yield* fs.readFileString(gitignorePath).pipe(Effect.orElseSucceed(() => undefined));
 
 		if (existing === undefined) {
-			const written = yield* fs.writeFileString(gitignorePath, `${CREDENTIALS_FILENAME}\n`).pipe(Effect.option);
+			const written = yield* AtomicFile.write(gitignorePath, `${CREDENTIALS_FILENAME}\n`).pipe(Effect.option);
 			yield* written._tag === "Some"
 				? CliMessage.success(`Created .gitignore with ${CREDENTIALS_FILENAME}`)
 				: failed(gitignorePath);
 		} else if (!existing.includes(CREDENTIALS_FILENAME)) {
 			const separator = existing.endsWith("\n") ? "" : "\n";
 			// The one file here that is rewritten rather than created, and it is the
-			// user's: an in-place write that dies midway truncates it. Atomic, a crash
-			// leaves the old contents or the new, whole.
+			// user's: atomic, a crash leaves the old contents or the new, whole.
 			const written = yield* AtomicFile.write(gitignorePath, `${existing}${separator}${CREDENTIALS_FILENAME}\n`).pipe(
 				Effect.option,
 			);
