@@ -2,6 +2,7 @@ import { NodeCrypto, NodeServices } from "@effect/platform-node";
 import { AppTest } from "@effected/app/testing";
 import type { CliEnvTestOptions } from "@effected/cli-kit";
 import { CliLogger } from "@effected/cli-kit";
+import { Sgr } from "@effected/env";
 import { Store } from "@effected/store";
 import { Console, Effect, Layer } from "effect";
 import { describe, expect, it } from "vitest";
@@ -350,8 +351,6 @@ describe("history output by audience", () => {
 	// the layout, the words and the glyphs are one document either way. Wide
 	// enough columns that the human render does not wrap.
 	const human: CliEnvTestOptions = { audience: "human", tty: true, color: "truecolor", columns: 400 };
-	// biome-ignore lint/suspicious/noControlCharactersInRegex: matching SGR escapes is the point.
-	const stripSgr = (value: string): string => value.replace(/\u001b\[[0-9;]*m/g, "");
 
 	const seed = (j: SyncJournal["Service"]) =>
 		Effect.gen(function* () {
@@ -396,7 +395,7 @@ describe("history output by audience", () => {
 			// The control: the human run really was painted, so the equality
 			// below is not two identical plain renders.
 			expect(painted).toContain("\u001b[");
-			expect(stripSgr(painted)).toBe(agent.map((line) => line.text).join("\n"));
+			expect(Sgr.strip(painted)).toBe(agent.map((line) => line.text).join("\n"));
 			expect(person.map((line) => line.stream)).toEqual(agent.map((line) => line.stream));
 		});
 	}

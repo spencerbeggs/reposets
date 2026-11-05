@@ -7,7 +7,7 @@ resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-11-02T19:14:55Z
+  at: 2026-11-05T22:58:29Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -51,7 +51,7 @@ sources:
     resource: ../../docs/02-commands.md
 integrity:
   generated:
-    body: 131ca7213c3f992d
+    body: a85eae40e0d178ab
 ---
 
 # The reposets command line
@@ -222,8 +222,8 @@ Three kinds of write reach the terminal, and each has fixed rules:
   every finding that exits 1 without a report of its own.
 - **Diagnostics** are `Effect.log*`, on stderr, because the kit's logger
   sends every level there: sync's per-resource error lines, `init`'s
-  next-steps hint and `Could not write:`, and `nuke`'s
-  `could not remove`.[^sync-logger][^cli-init][^cli-nuke]
+  next-steps hint, and `nuke`'s
+  `could not remove empty directory` warning.[^sync-logger][^cli-init][^cli-nuke]
 
 The `SyncLogger` report streams line by line to stdout rather than as one
 document. Each action line leads with a status glyph after its indent: `✓`
@@ -434,8 +434,8 @@ everything or answering No deletes nothing and exits 0.[^cli-nuke]
 
 Once confirmed, `nuke` attempts every chosen target even when one fails.
 Each removal prints `✓ removed <path>`, and a clean run ends `✓ Done. N
-files removed.` A target it could not remove is logged to stderr as
-`could not remove <path>`, a `✗ Removed N of M files` line follows, and
+files removed.` A target it could not remove is a failure line on stderr,
+`could not remove <path>`, which no log level hides; a `✗ Removed N of M files` line follows, and
 the run exits 1 through `CliExit` after the rest were tried. Every count —
 the confirmation's "Delete N files?" and both closing lines — is in files,
 the unit of the `removed` lines: a database's companions are listed and
@@ -458,9 +458,11 @@ scaffolded file opens with a `#:schema <url>` directive and a blank line,
 naming the versioned JSON Schema it was written against
 (`schemas/3.0/config.json` or `schemas/3.0/credentials.json` on `main`) — see
 [json-schemas](json-schemas.md). A file
-it could not write, the `.gitignore` included, is logged to stderr as
-`Could not write: <path>`. The remaining files are still attempted, and
-the run exits 1 through `CliExit`. The closing hint offers both a bare
+it could not write, the `.gitignore` included, is a failure line on stderr,
+`Could not write: <path>`, which no log level hides. The remaining files are
+still attempted, and the run exits 1 through `CliExit`. An existing
+`.gitignore` is replaced atomically: a crash leaves the old contents or the
+new, whole, and its directory must be writable. The closing hint offers both a bare
 `reposets credentials create`, which asks for each value on a terminal, and
 the full flag form.
 

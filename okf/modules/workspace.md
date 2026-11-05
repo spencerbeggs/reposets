@@ -7,11 +7,11 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-11-02T19:14:55Z
+  at: 2026-11-05T22:58:29Z
 tags: [architecture, dx, deps]
 integrity:
   generated:
-    body: 805d4743db408c89
+    body: 958a054f47fc3954
 ---
 
 # workspace
@@ -70,7 +70,7 @@ compiles:
   and `dist/prod/github/pkg` land for the two publish targets.
 - `types:check` — `tsc --noEmit`, cached on every `.ts`/`.mts`/`.cts` file
   under `src`, `lib`, and `__test__`.
-- `schema:build` — `schemastore build lib/configs/schemastore.config.ts`,
+- `schema:build` — `effected schema build lib/configs/schemastore.config.ts`,
   cached on `src/schemas/**` and the config file itself, outputting
   `$TURBO_ROOT$/schemas/**` — the repository root's `schemas/`, outside the
   package, which turbo stores and restores on a cache hit like any
