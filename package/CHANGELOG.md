@@ -1,5 +1,37 @@
 # reposets
 
+## 4.0.5
+
+### Bug Fixes
+
+- `init` no longer writes through a symlink. A dangling link at `reposets.config.toml` or `reposets.credentials.toml` is replaced by the scaffolded file instead of creating a file wherever it points. A `.gitignore` that is a symlink is left alone, neither read nor written, and `init` warns that the credentials file was not added to it. [#261][#261]
+
+### Build System
+
+- Builds with `effected package build` (`@effected/plugin`) instead of `@savvy-web/bundler`. The published package layout and CLI behavior are unchanged. [#261][#261]
+
+### Dependencies
+
+| Dependency | Type | Action | From | To |
+| --- | --- | --- | --- | --- |
+| @effected/app | dependency | updated | ^0.31.1 | ^0.31.2 |
+| @effected/cli-kit | dependency | updated | ^0.27.0 | ^0.27.1 |
+| @effected/config-file | dependency | updated | ^0.25.0 | ^0.26.0 |
+| @effected/files | dependency | updated | ^0.1.0 | ^0.2.0 |
+| @effected/github | dependency | updated | ^0.29.0 | ^0.30.0 |
+| @effected/glob | dependency | updated | ^0.19.0 | ^0.20.0 |
+| @effected/schemastore | dependency | updated | ^0.30.0 | ^0.31.0 |
+| @effected/walker | dependency | updated | ^0.25.1 | ^0.26.0 |
+| @effected/xdg | dependency | updated | ^0.19.1 | ^0.19.2 |
+
+[#261][#261]
+
+### Thanks
+
+Thanks to [@spencerbeggs](https://github.com/spencerbeggs) for their contributions!
+
+[#261]: https://github.com/spencerbeggs/reposets/pull/261
+
 ## 4.0.4
 
 ### Bug Fixes
