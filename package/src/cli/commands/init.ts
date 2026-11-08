@@ -209,7 +209,11 @@ export const initHandler = (project: boolean | undefined) =>
 				}
 				// Atomic because `exists` above trusts whatever is there: a partial file
 				// left by a crash would read as `Already exists` on every later run.
-				const written = yield* AtomicFile.write(target, contents).pipe(Effect.option);
+				// `exists` follows links, so the one link that reaches here is a dangling
+				// one. `--project` may run in a checkout nobody has reviewed, so the link
+				// is replaced rather than followed: a committed `reposets.config.toml ->
+				// ~/somewhere` must not create a file outside the checkout.
+				const written = yield* AtomicFile.write(target, contents, { links: "replace" }).pipe(Effect.option);
 				yield* written._tag === "Some" ? CliMessage.success(`Created: ${target}`) : failed(target);
 			});
 
@@ -218,10 +222,27 @@ export const initHandler = (project: boolean | undefined) =>
 
 		// Keep the credentials file out of version control.
 		const gitignorePath = path.join(targetDir, ".gitignore");
-		const existing = yield* fs.readFileString(gitignorePath).pipe(Effect.orElseSucceed(() => undefined));
+		// A linked `.gitignore` is left alone, read included: following it would
+		// append to a file outside the checkout, and replacing it would copy that
+		// file's contents into the checkout. Nothing here can tell a link the user
+		// made on purpose from one a cloned repository planted, so the user adds
+		// the line themselves.
+		const linked = yield* fs.lstat(gitignorePath).pipe(
+			Effect.map((info) => info.type === "SymbolicLink"),
+			Effect.orElseSucceed(() => false),
+		);
+		const existing = linked
+			? undefined
+			: yield* fs.readFileString(gitignorePath).pipe(Effect.orElseSucceed(() => undefined));
 
-		if (existing === undefined) {
-			const written = yield* AtomicFile.write(gitignorePath, `${CREDENTIALS_FILENAME}\n`).pipe(Effect.option);
+		if (linked) {
+			yield* CliMessage.warning(
+				`${gitignorePath} is a symbolic link, so ${CREDENTIALS_FILENAME} was not added to it; add it yourself`,
+			);
+		} else if (existing === undefined) {
+			const written = yield* AtomicFile.write(gitignorePath, `${CREDENTIALS_FILENAME}\n`, { links: "replace" }).pipe(
+				Effect.option,
+			);
 			yield* written._tag === "Some"
 				? CliMessage.success(`Created .gitignore with ${CREDENTIALS_FILENAME}`)
 				: failed(gitignorePath);
@@ -229,9 +250,9 @@ export const initHandler = (project: boolean | undefined) =>
 			const separator = existing.endsWith("\n") ? "" : "\n";
 			// The one file here that is rewritten rather than created, and it is the
 			// user's: atomic, a crash leaves the old contents or the new, whole.
-			const written = yield* AtomicFile.write(gitignorePath, `${existing}${separator}${CREDENTIALS_FILENAME}\n`).pipe(
-				Effect.option,
-			);
+			const written = yield* AtomicFile.write(gitignorePath, `${existing}${separator}${CREDENTIALS_FILENAME}\n`, {
+				links: "replace",
+			}).pipe(Effect.option);
 			yield* written._tag === "Some"
 				? CliMessage.success(`Added ${CREDENTIALS_FILENAME} to .gitignore`)
 				: failed(gitignorePath);
