@@ -3,11 +3,12 @@ title: Published JSON schemas for reposets.config.toml and reposets.credentials.
 description: The versioned JSON schemas under the root schemas/ directory that editors, the SchemaStore catalog and reposets init's "#:schema" line point at, and how they are built and checked.
 type: Interface
 kind: config
+status: stable
 resource: ../../package/src/schemas/hosted.ts
 tags: [docs, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-11-05T22:58:29Z
+  at: 2026-11-08T22:42:54Z
 sources:
   - id: hosted
     resource: ../../package/src/schemas/hosted.ts
@@ -25,7 +26,7 @@ sources:
     resource: ../../schemas/catalogs/reposets.json
 integrity:
   generated:
-    body: 20b88965653e2b41
+    body: fcb535efd1b457c8
 ---
 
 # Published JSON schemas for reposets.config.toml and reposets.credentials.toml
@@ -81,7 +82,7 @@ served from GitHub raw on `main`.
   config file's own directory, so a root-level and a filtered run write the
   same files. Turbo caches the task on `src/schemas/**` plus the config
   file and declares `$TURBO_ROOT$/schemas/**` as its output, so a cache hit
-  restores the root files; both `build:dev` and `build:prod` depend on
+  restores the root files; the package's `build` task depends on
   it[^turbo-json].
 - `pnpm --filter reposets schema:check` is the CI gate: uncached, it
   reports what a build would do and writes nothing[^turbo-json]. `0` when

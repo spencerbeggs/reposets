@@ -1,10 +1,7 @@
 {
 	"extends": ["//"],
 	"tasks": {
-		"build:dev": {
-			"dependsOn": ["$TURBO_EXTENDS$", "schema:build"]
-		},
-		"build:prod": {
+		"build": {
 			"dependsOn": ["$TURBO_EXTENDS$", "schema:build"]
 		},
 		"schema:build": {

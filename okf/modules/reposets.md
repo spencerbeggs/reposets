@@ -7,11 +7,11 @@ resource: ../../package
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-11-02T19:14:55Z
+  at: 2026-11-08T22:42:54Z
 tags: [architecture, effect, github]
 integrity:
   generated:
-    body: 62c2b06392ec4535
+    body: 9ac4c9e068e89e38
 ---
 
 # reposets (package)
@@ -133,7 +133,7 @@ no `src/lib/schema-issues.ts`.
 
 One immutable value, `{ cwd, version }`, built only in
 `package/src/cli/index.ts` from `process.cwd()` and the bundler-substituted
-version. That makes `index.ts` the only file under `package/src` that reads
+version (`0.0.0` on a source run, which the build has not substituted). That makes `index.ts` the only file under `package/src` that reads
 `process`. `nuke`, `init` and `doctor` read from it, so a test hands them a
 different directory with `Invocation.layer(...)`. The environment is not
 here: every environment variable is read through Effect's `Config` from the
@@ -260,8 +260,9 @@ module only when a run first draws, so importing `sync.ts` loads neither
 React nor Ink. It is a module of its own because the JSX module imports the
 model, and a lazy import back into the model would still be an import
 cycle Biome's `noImportCycles` reports. Command modules contain no JSX. `package/tsconfig.json` and the root
-`tsconfig.json` set `"jsx": "react-jsx"` for it, and `ink` and `react` are
-runtime dependencies that load only when a screen or the live view mounts.
+`tsconfig.json` set `"jsx": "react-jsx"` for it, and the module opens with
+`/** @jsxRuntime automatic */` so tsx compiles it the same way on a source
+run. `ink` and `react` are runtime dependencies that load only when a screen or the live view mounts.
 `selectedRepoCount` in `sync.ts` computes the view's denominator up front
 with the engine's own selection rule.
 
@@ -277,7 +278,7 @@ rendered by the entrypoint's `render` callback and exits 1. The stream
 split and exit codes are specified in
 [`interfaces/cli.md`](../interfaces/cli.md). The testing side,
 `CliTest.sandbox` and `CliTest.run` from `@effected/cli-kit/testing`, drives the
-built dev bin in `package/__test__/cli/bin.e2e.test.ts` and asserts exit
+built prod bin in `package/__test__/cli/bin.e2e.test.ts` and asserts exit
 codes and stream placement. `@effect/vitest` is a devDependency for that
 suite, and `package/__test__/utils/capture.ts` provides a capturing `Console`
 and the agent audience, so unit tests assert plain, deterministic text and

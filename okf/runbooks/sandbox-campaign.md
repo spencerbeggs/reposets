@@ -2,18 +2,19 @@
 title: Sandbox campaign
 description: How to activate the gitignored sandbox config and run reposets against four real, deliberately-varied repositories
 type: Runbook
+status: stable
 tags:
   - testing
   - github
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
+  at: 2026-11-08T22:42:54Z
 sources:
   - id: gitignore
     resource: "../../.gitignore"
 integrity:
   generated:
-    body: e35c93b4c52112a8
+    body: ff5f127092901dd0
 ---
 
 # Sandbox campaign
@@ -59,11 +60,7 @@ earlier.
    directory falls through to XDG. Confirm the working directory before
    concluding a config change did nothing.
 
-2. **Rebuild.** `pnpm exec reposets` runs `dist/dev/pkg`, so a source
-   change is invisible to the CLI until `pnpm --filter reposets
-   build:dev` has run.
-
-3. **Run the campaign, cheapest first** — each command catches what the
+2. **Run the campaign, cheapest first** — each command catches what the
    next would otherwise waste a round trip discovering:
 
    ```bash
@@ -80,7 +77,7 @@ earlier.
    tool invocations, so a `source` run once in an earlier command does
    not carry forward.
 
-4. **Watch for these, in the output of every step:**
+3. **Watch for these, in the output of every step:**
    - **The change count must match the printed list.** A summary naming
      more changes than lines actually shown means something is being
      hidden.
