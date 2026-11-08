@@ -13,20 +13,20 @@ import { Effect, FileSystem, Path } from "effect";
  * The handler suites pin what each command prints and which code it asks for.
  * Whether that becomes the right process exit code, with each line on the right
  * stream, is a property of the built artifact wired through `CliRuntime.main`
- * and the real Node platform layer — so these spawn `dist/dev/pkg/bin/reposets.js`
- * with `CliTest`.
+ * and the real Node platform layer — so these spawn the npm target's
+ * `dist/prod/npm/pkg/bin/reposets.js` with `CliTest`.
  *
  * `CliTest.sandbox` mints a temp directory with a fresh `HOME` and
  * `XDG_*_HOME`, and passes nothing else from the host environment except the
  * `PATH` given here — so no run can read or write the developer's real config,
  * credentials or state database, and nothing here sets a `process.env` key.
  *
- * The root `globalSetup` builds the dev target before any suite runs. If the
+ * The root `globalSetup` runs the build before any suite runs. If the
  * bin is still missing (a build failure, or a filtered run that skipped setup),
  * the suite is skipped with that reason rather than failing on a spawn error
  * that names nothing useful.
  */
-const BIN = fileURLToPath(new URL("../../dist/dev/pkg/bin/reposets.js", import.meta.url));
+const BIN = fileURLToPath(new URL("../../dist/prod/npm/pkg/bin/reposets.js", import.meta.url));
 const BUILT = existsSync(BIN);
 
 /** A config with one misspelled group key — strict decoding rejects it. */

@@ -38,12 +38,10 @@
 		".": "./src/index.ts"
 	},
 	"bin": {
-		"reposets": "./src/cli/index.ts"
+		"reposets": "./src/cli/bin.ts"
 	},
 	"scripts": {
-		"build:dev": "node savvy.build.ts --target dev",
-		"build:prod": "node savvy.build.ts --target prod",
-		"prepare": "node savvy.build.ts --target dev",
+		"build": "effected package build",
 		"schema:build": "effected schema build lib/configs/schemastore.config.ts",
 		"schema:check": "effected schema check lib/configs/schemastore.config.ts",
 		"types:check": "tsc --noEmit"
@@ -74,7 +72,6 @@
 		"@effect/vitest": "catalog:effected",
 		"@effected/memfs": "catalog:effected",
 		"@effected/plugin": "catalog:effected",
-		"@savvy-web/bundler": "^2.7.4",
 		"@types/node": "catalog:build",
 		"@types/react": "catalog:silk",
 		"typescript": "catalog:build"
@@ -84,8 +81,6 @@
 	},
 	"publishConfig": {
 		"access": "public",
-		"directory": "dist/dev/pkg",
-		"linkDirectory": true,
 		"targets": {
 			"npm": true,
 			"github": "@spencerbeggs/reposets"

@@ -7,7 +7,7 @@ supersedes: cli-runtime-main-builds-the-environment.md
 tags: [effect, dx, architecture]
 generated:
   by: okfit/claude-code
-  at: 2026-11-02T19:14:55Z
+  at: 2026-11-08T22:42:54Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -42,7 +42,7 @@ verified:
     at: 2026-11-05T22:56:44Z
 integrity:
   generated:
-    body: ce89866fa6e0d14e
+    body: c6d2b75e0abd14a3
   verified:
     by: human:spencer
     at: 2026-11-05T22:56:44Z
@@ -157,7 +157,7 @@ and the platform stopped carrying `App.layer`, because `App.layer` opens
 the state and cache databases for every command: `nuke` was deleting
 `store.db` while its own process held it open, which orphaned the file's
 `-wal` and `-shm` beside the next run's fresh database.[^cli-index][^cli-nuke]
-The e2e suite runs the built dev bin and pins each rule above by exit code
+The e2e suite runs the built prod bin and pins each rule above by exit code
 and by which stream carries which text.[^bin-e2e]
 
 ## Alternatives rejected

@@ -1,3 +1,4 @@
+/** @jsxRuntime automatic */
 import { Fmt } from "@effected/cli-kit";
 import { DocView, Styled, useGlyphs } from "@effected/cli-kit/ui";
 import { Box, Text } from "ink";

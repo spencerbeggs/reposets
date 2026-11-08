@@ -1,12 +1,9 @@
 autoInstallPeers: true
 configDependencies:
-  "@effected/pnpm-plugin-effected": 0.22.0
+  "@effected/pnpm-plugin-effected": 0.23.0
   "@savvy-web/pnpm-plugin-silk": 0.52.0
 minimumReleaseAgeExclude:
   - "@effected/pnpm-plugin-effected"
   - "@savvy-web/pnpm-plugin-silk"
-overrides:
-  "@tsdown/exe": 0.23.2
-  tsdown: 0.23.2
 packages:
   - package

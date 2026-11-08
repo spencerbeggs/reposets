@@ -3,11 +3,12 @@ type: Interface
 title: The reposets command line
 description: The command tree, flags, prompts, output channels and exit-code promises the reposets CLI makes to the people, agents and CI jobs that run it.
 kind: cli
+status: stable
 resource: ../../package/src/cli/index.ts
 tags: [dx, github, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-11-05T23:09:28Z
+  at: 2026-11-08T22:42:54Z
 sources:
   - id: cli-index
     resource: ../../package/src/cli/index.ts
@@ -51,7 +52,7 @@ sources:
     resource: ../../docs/02-commands.md
 integrity:
   generated:
-    body: e153c12910160318
+    body: a8c68a39f9a60e52
 ---
 
 # The reposets command line
@@ -115,7 +116,8 @@ interactive run only: when nobody can answer a prompt, the kit's
 `CliPrompt.gateWizard` drops it, and passing it is then an unrecognized
 flag (exit 64). `--version`
 prints the version the bundler substituted at build time, the same value
-`doctor` reports.[^cli-index]
+`doctor` reports; a source run through `pnpm exec reposets` is unbuilt and
+prints `v0.0.0`.[^cli-index]
 
 `--audience <human|agent|ci>` and its shorthands `--human`, `--agent` and
 `--ci` are shared flags (`Command.withSharedFlags(CliAudience.flags())`).
@@ -464,6 +466,15 @@ still attempted, and the run exits 1 through `CliExit`. Every file is written
 atomically: a crash leaves an existing `.gitignore`'s old contents or the new,
 whole, and never a partial new file. The target's directory must be writable.
 
+A symlink at one of those names never carries a write out of the target
+directory, since `--project` may run in a checkout nobody has reviewed. A
+dangling link at a scaffold name is replaced by the new file, and nothing
+is created where it pointed (a live one reads as `Already exists`). A
+`.gitignore` that is a symlink, live or dangling, is neither read nor
+written: the run prints a warning on stderr, `<path> is a symbolic link, so
+reposets.credentials.toml was not added to it; add it yourself`, and still
+exits 0.
+
 `credentials create` and `credentials delete` write the file the same way. One
 they cannot write is a failure line on stderr, `Could not write: <path> — <reason>`,
 with exit 1 through `CliExit` and no success line. The closing hint offers both a bare
@@ -559,7 +570,7 @@ mistake writes nothing to stdout.[^cli-index] A finding is not a failure:
 the command ran correctly and reports what it found, which is why it exits
 through `CliExit` rather than by failing. No file under `package/src` sets
 `process.exitCode`. `package/__test__/cli/bin.e2e.test.ts` runs the built
-dev bin and pins these codes and which stream each message lands
+prod bin and pins these codes and which stream each message lands
 on.[^bin-e2e] The reasoning is in
 [`cli-runtime-main-builds-the-environment-v2`](../decisions/cli-runtime-main-builds-the-environment-v2.md).
 

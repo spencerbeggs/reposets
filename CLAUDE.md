@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Design knowledge lives in the bundle
 
-This repository's design knowledge — architecture, service boundaries, config format, CLI behavior, decisions, gotchas, invariants — is an [OKF](https://github.com/spencerbeggs/okfit) bundle under `okf/`. Start at `okf/index.md`, which lists every subdirectory, and read `okf/project.md` for what this repository is and its non-goals. Load the concept relevant to the subsystem you are touching; do NOT load the whole bundle at once. The `mcp__plugin_okfit_mcp__*` tools (`list_concepts`, `get_concept`, `concept_neighbors`, `describe_vocabulary`, `validate_bundle`, `stale_report`) are the preferred way to browse it; `pnpm exec okfit validate .` is the shell fallback.
+This repository's design knowledge — architecture, service boundaries, config format, CLI behavior, decisions, gotchas, invariants — is an [OKF](https://github.com/spencerbeggs/okfit) bundle under `okf/`. Start at `okf/index.md`, which lists every subdirectory, and read `okf/project.md` for what this repository is and its non-goals. Load the concept relevant to the subsystem you are touching; do NOT load the whole bundle at once. The `mcp__plugin_okfit_mcp__*` tools (`list_concepts`, `get_concept`, `concept_neighbors`, `describe_vocabulary`, `validate_bundle`, `stale_report`) are the preferred way to browse it; `pnpm exec okfit validate` is the shell fallback.
 
 A first-turn shortlist:
 
@@ -16,17 +16,16 @@ A first-turn shortlist:
 - `okf/conventions/*` — imports, code style, Effect patterns, commits
 - `okf/runbooks/sandbox-campaign.md` — activating the gitignored sandbox config for live testing
 - `okf/gotchas/test-run-rewrites-schemas.md` — why `pnpm run lint` fails right after `pnpm run test`
-- `okf/gotchas/pnpm-exec-runs-the-dev-build.md` — why a source change looks invisible until rebuilt
 - `okf/gotchas/nul-bytes-hide-from-grep.md` — why a plain `grep` can silently miss a match in the store
 - `okf/gotchas/log-level-none-still-prints-reports.md` — why `--log-level none` does not silence a report
 
 ## Commands
 
 ```bash
-pnpm run build         # turbo build:dev + build:prod (schema:build runs first)
+pnpm run build         # turbo build: effected package build -> dist/prod (schema:build runs first)
 pnpm run typecheck     # turbo types:check across workspaces — the one that checks package/src and package/__test__
 pnpm run types:check   # tsc --noEmit at the repo root: root-level files only (vitest config, lib/configs), none of package/
-pnpm exec reposets     # run the CLI from the dev build (node_modules/reposets -> package/dist/dev/pkg)
+pnpm exec reposets     # run the CLI from current source via tsx (no rebuild; reports v0.0.0)
 pnpm run test          # vitest run; coverage is always on
 pnpm run test:watch
 pnpm run test:coverage
@@ -45,7 +44,7 @@ pnpm --filter reposets schema:check   # CI gate: 0 clean, 1 drift/stale/gate fai
 pnpm workspace monorepo orchestrated by Turbo. One package: `package/` (workspace name `reposets`).
 
 ```text
-package/src/cli/          # entrypoint (CliRuntime.main from @effected/cli), the --config global flag
+package/src/cli/          # bin.ts (source-run launcher), index.ts (CliRuntime.main from @effected/cli), the --config global flag
 package/src/cli/commands/ # one file per subcommand
 package/src/cli/views/    # the sync live view: a JSX-free model and the one .tsx module, loaded only when drawing
 package/src/services/     # ConfigFiles, CredentialResolver, Invocation, OnePasswordClient, SyncLogger
@@ -63,11 +62,11 @@ There is no `package/src/services/github/` and no `package/src/lib/crypto.ts`. E
 
 ## Build system
 
-`package/` builds with `@savvy-web/bundler`, driven by `package/savvy.build.ts` (`node savvy.build.ts --target dev|prod`). Turbo tasks, with `package/turbo.json` extending the root: `schema:build` (cached, both build tasks depend on it), `schema:check` (uncached CI gate), `build:dev` → `dist/dev/pkg/`, `build:prod` → `dist/prod/npm/pkg/` and `dist/prod/github/pkg/`, `types:check` → `tsc --noEmit`. Dual registry publishing (npm `reposets` and GitHub Packages `@spencerbeggs/reposets`) is detailed in `okf/modules/workspace.md`.
+`package/` builds with `effected package build` (`@effected/plugin`), no config file. Turbo tasks, with `package/turbo.json` extending the root: `schema:build` (cached, `build` depends on it), `schema:check` (uncached CI gate), `build` → `dist/prod/npm/pkg/` and `dist/prod/github/pkg/` (there is no dev build), `types:check` → `tsc --noEmit`. The bin is `package/src/cli/bin.ts`, which runs source through tsx; the built bin is `dist/prod/npm/pkg/bin/reposets.js`. Both, and dual registry publishing (npm `reposets` and GitHub Packages `@spencerbeggs/reposets`), are detailed in `okf/modules/workspace.md`.
 
 ## TypeScript
 
-TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround: `effect@4.1.1`'s declarations still reference a DOM-only type (`Transferable` in `rpc/RpcClient.d.ts`) that a Node-only `lib` lacks — remove it once an `effect` release ships without it (`tsc --noEmit --skipLibCheck false` in `package/` shows whether it still does).
+TypeScript 7 (the native compiler, invoked as `tsc`), no project references. Target `es2025`, module/resolution `nodenext`, strict, `exactOptionalPropertyTypes`, `verbatimModuleSyntax`. The root `skipLibCheck: true` is a **temporary** workaround: `effect`'s declarations (still true of 4.1.2) reference a DOM-only type (`Transferable` in `rpc/RpcClient.d.ts`) that a Node-only `lib` lacks — remove it once an `effect` release ships without it (`tsc --noEmit --skipLibCheck false` in `package/` shows whether it still does).
 
 ## reposets CLI
 

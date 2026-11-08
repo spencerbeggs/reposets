@@ -2,12 +2,13 @@
 title: Running the test suite rewrites the published JSON schemas
 description: pnpm run test regenerates schemas/**/*.json unformatted, which then fails lint until lint:fix runs.
 type: Gotcha
+status: stable
 resource: ../../vitest.setup.ts
 stale_after: 2027-03-16T00:00:00Z
 tags: [testing, dx]
 generated:
   by: okfit/claude-code
-  at: 2026-11-05T22:58:29Z
+  at: 2026-11-08T22:42:54Z
 sources:
   - id: vitest-setup
     resource: ../../vitest.setup.ts
@@ -15,7 +16,7 @@ sources:
     resource: ../../package/turbo.json
 integrity:
   generated:
-    body: 1b74c3efe17dec13
+    body: cd76dc0c568dfa25
 ---
 
 # Running the test suite rewrites the published JSON schemas
@@ -31,8 +32,8 @@ stray formatter ran against tracked files it should have left alone.
 
 ## What is actually true
 
-`vitest.setup.ts` runs `pnpm turbo run build:dev` as a global setup step
-before any test executes[^vitest-setup]. `build:dev` depends on
+`vitest.setup.ts` runs `pnpm turbo run build` as a global setup step
+before any test executes[^vitest-setup]. The package's `build` depends on
 `schema:build`[^turbo-json], which regenerates
 the root `schemas/**/*.json` from the current `ConfigSchema` and
 `CredentialsSchema` — so every `pnpm run test` invocation rewrites those
@@ -43,7 +44,7 @@ lint:fix` folds them back into the repository's format.
 
 This is expected, not a regression: the schema files are a build output
 that happens to be committed, and the test suite's global setup runs a
-full `build:dev` to make sure the package under test is current — it does
+full `build` to make sure the package under test is current — it does
 not special-case skipping the schema step.
 
 ## What to do about it

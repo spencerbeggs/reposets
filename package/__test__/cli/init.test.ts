@@ -1,4 +1,14 @@
-import { appendFileSync, chmodSync, existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import {
+	appendFileSync,
+	chmodSync,
+	existsSync,
+	lstatSync,
+	readFileSync,
+	readdirSync,
+	statSync,
+	symlinkSync,
+	writeFileSync,
+} from "node:fs";
 import { join } from "node:path";
 import { assert, describe, it } from "@effect/vitest";
 import { CliUiTest } from "@effected/cli-kit/ui/testing";
@@ -158,6 +168,53 @@ describe("init, an existing .gitignore", () => {
 		} finally {
 			chmodSync(temp.dir(), 0o755);
 		}
+	});
+});
+
+/**
+ * `init --project` writes into whatever directory it is run in, and that may be
+ * a checkout nobody has reviewed. A committed symlink at one of the names it
+ * writes must not carry the write, or the read, outside the checkout.
+ */
+describe("init, a symlinked target", () => {
+	const gitignore = (): string => join(temp.dir(), ".gitignore");
+	const outside = (): string => join(temp.home(), "outside.txt");
+	const OUTSIDE = "secret: do not copy\n";
+
+	it("a dangling link at the config name is replaced by the scaffold, and nothing is created where it points", async () => {
+		symlinkSync(outside(), inProject());
+
+		const outcome = await runOutcome(init(true));
+
+		assert.strictEqual(outcome.exitCode, 0);
+		assert.isFalse(existsSync(outside()));
+		assert.isFalse(lstatSync(inProject()).isSymbolicLink());
+		assert.include(readFileSync(inProject(), "utf-8"), "#:schema ");
+	});
+
+	it("a linked .gitignore is neither read nor written, and the run says so", async () => {
+		writeFileSync(outside(), OUTSIDE);
+		symlinkSync(outside(), gitignore());
+
+		const outcome = await runOutcome(init(true));
+
+		assert.strictEqual(outcome.exitCode, 0);
+		assert.strictEqual(readFileSync(outside(), "utf-8"), OUTSIDE);
+		assert.isTrue(lstatSync(gitignore()).isSymbolicLink());
+		assert.include(
+			on(outcome.lines, "stderr").join("\n"),
+			`${gitignore()} is a symbolic link, so reposets.credentials.toml was not added to it`,
+		);
+	});
+
+	it("a dangling .gitignore link creates nothing where it points", async () => {
+		symlinkSync(outside(), gitignore());
+
+		const outcome = await runOutcome(init(true));
+
+		assert.strictEqual(outcome.exitCode, 0);
+		assert.isFalse(existsSync(outside()));
+		assert.isTrue(lstatSync(gitignore()).isSymbolicLink());
 	});
 });
 
