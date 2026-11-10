@@ -66,14 +66,14 @@
 		"blakejs": "^1.2.1",
 		"effect": "catalog:effected",
 		"ink": "catalog:silk",
-		"react": "catalog:silk"
+		"react": "catalog:effected:build"
 	},
 	"devDependencies": {
 		"@effect/vitest": "catalog:effected",
 		"@effected/memfs": "catalog:effected",
 		"@effected/plugin": "catalog:effected",
 		"@types/node": "catalog:effected:build",
-		"@types/react": "catalog:silk",
+		"@types/react": "catalog:effected:build",
 		"typescript": "catalog:effected:build"
 	},
 	"engines": {
