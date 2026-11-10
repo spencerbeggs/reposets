@@ -36,9 +36,9 @@
 	},
 	"devDependencies": {
 		"@effected/plugin": "catalog:effected",
-		"@okfit/plugin": "^0.5.30",
+		"@okfit/plugin": "^0.5.32",
 		"@savvy-web/silk": "^5.0.0",
-		"@vitest-agent/plugin": "^6.0.6",
+		"@vitest-agent/plugin": "^6.0.9",
 		"reposets": "workspace:*",
 		"tsx": "catalog:effected:build"
 	},
@@ -48,7 +48,7 @@
 	"devEngines": {
 		"packageManager": {
 			"name": "pnpm",
-			"version": "12.18.0",
+			"version": "12.19.0",
 			"onFail": "download"
 		},
 		"runtime": [
