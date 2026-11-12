@@ -6,7 +6,7 @@ status: stable
 tags: [architecture, github, deps, effect]
 generated:
   by: okfit/claude-code
-  at: 2026-09-16T15:09:19Z
+  at: 2026-11-12T02:32:58Z
 sources:
   - id: sync-command
     resource: ../../package/src/cli/commands/sync.ts
@@ -19,20 +19,22 @@ verified:
     at: 2026-09-16T15:16:27Z
   - by: human:spencer
     at: 2026-10-28T23:24:10Z
+  - by: human:spencer
+    at: 2026-11-12T02:36:43Z
 integrity:
   generated:
-    body: b228913c1ab1852e
+    body: '971e865109150059'
   verified:
     by: human:spencer
-    at: 2026-10-28T23:24:10Z
-    content: ebf093e09e648649
+    at: 2026-11-12T02:36:43Z
+    content: 49ecb1b596790863
 ---
 
 # GitHub resource services live upstream, in `@effected/github`
 
 ## Context
 
-`package/package.json` pins `"@effected/github": "catalog:effected"`[^package-json]. Nothing under `package/src` wraps the GitHub API: there is no `package/src/services/github/` directory and no `package/src/lib/crypto.ts`. A previous design kept both in this repository; the v4 rebuild moved every GitHub resource service, and the libsodium sealed-box encryption used for secrets, upstream into `@effected/github` along with it.
+`package/package.json` pins `"@effected/github": "catalog:effected:exact"`[^package-json]. Nothing under `package/src` wraps the GitHub API: there is no `package/src/services/github/` directory and no `package/src/lib/crypto.ts`. A previous design kept both in this repository; the v4 rebuild moved every GitHub resource service, and the libsodium sealed-box encryption used for secrets, upstream into `@effected/github` along with it.
 
 ## Decision
 
