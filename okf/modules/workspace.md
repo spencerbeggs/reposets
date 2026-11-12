@@ -7,11 +7,11 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-11-12T02:32:58Z
+  at: 2026-11-12T02:38:14Z
 tags: [architecture, dx, deps]
 integrity:
   generated:
-    body: 5a2dad2e20b78027
+    body: 24ed6c9b7b56361b
 ---
 
 # workspace
@@ -33,8 +33,9 @@ version, so a kit patch reaches an installed `reposets` only through a
 `reposets` release. `package/__test__/manifest.test.ts` fails on any
 Effect-family dependency spelled otherwise. Dev-only dependencies stay on
 `catalog:effected`, since they never ship. The effected plugin holds the Effect
-family to one minor (`~4.1.2`, not a caret) and derives an override pinning
-`effect` and each `@effect/*` satellite to `4.1.2` across the graph, so a
+family to one exact version (`4.1.4`; its peers catalog gives `~4.1.0`) and
+derives an override pinning `effect` and each `@effect/*` satellite to
+`4.1.4` across the graph, so a
 new Effect minor arrives only with a new plugin release. The whole graph,
 build toolchain included, resolves exactly one `effect`.
 
@@ -42,7 +43,7 @@ build toolchain included, resolves exactly one `effect`.
 
 `.repos/config.json` vendors two upstreams as read-only reference source,
 each pinned to what the lockfile installs. `.repos/effect` is pinned to
-`effect@4.1.2` and is the authority for core APIs, `effect/cli` included.
+`effect@4.1.4` and is the authority for core APIs, `effect/cli` included.
 `.repos/effected` is pinned to the `@effected/pnpm-plugin-effected@0.23.0`
 tag. Both are re-pinned whenever the lockfile's `effect` or the effected
 plugin moves.
@@ -117,8 +118,8 @@ resolved against its own `tsconfig.json`'s directory, so the root's
 `vitest.setup.ts`, `lib/configs/`) and none of `package/`; `package/src`
 and `package/__test__` are checked by the package's `types:check`, which
 `pnpm run typecheck` runs through Turbo. `effect` resolves to
-`4.1.2` (`pnpm-lock.yaml`; the `@effected/pnpm-plugin-effected` catalog
-gives it `~4.1.2`), and the root `tsconfig.json`'s `skipLibCheck: true`
+`4.1.4` (`pnpm-lock.yaml`; the `@effected/pnpm-plugin-effected` catalog
+pins it exactly), and the root `tsconfig.json`'s `skipLibCheck: true`
 exists solely to route around a declaration file in that release that
 references a DOM-only type (`Transferable`, in `rpc/RpcClient.d.ts`) a
 Node-only `lib` lacks; it is meant to come out once an `effect` release

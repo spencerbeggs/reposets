@@ -2,7 +2,7 @@
 	"repos": {
 		"effect": {
 			"url": "https://github.com/Effect-TS/effect",
-			"ref": "effect@4.1.2",
+			"ref": "effect@4.1.4",
 			"purpose": "Effect v4 core pinned to the stable release this repo runs (the lockfile's resolution); the authority for v4 APIs including effect/cli. Re-pin whenever the lockfile's effect moves to a new 4.x.",
 			"sparse": [
 				"packages/effect/src",
