@@ -1,3 +1,4 @@
+import type { GitHubHostedSchemaInput } from "@effected/schemastore";
 import { HostedSchema } from "@effected/schemastore";
 
 /**
@@ -17,7 +18,7 @@ import { HostedSchema } from "@effected/schemastore";
 export const SCHEMA_VERSION = "3.0" as const;
 
 /**
- * Where the `reposets.config.toml` JSON Schema is hosted and which version is
+ * The input for where the `reposets.config.toml` JSON Schema is hosted and which version is
  * current.
  *
  * @remarks
@@ -30,34 +31,56 @@ export const SCHEMA_VERSION = "3.0" as const;
  * `schemas/<version>/config.json` (`appendVersion: false`, the version
  * directory alone names the version).
  *
+ * Exported as plain input rather than only as a built `HostedSchema` because
+ * `@effected/plugin` bundles its own `@effected/schemastore`: the schemastore
+ * config builds its host from this input with the plugin's `HostedSchema`, so
+ * the class it hands `defineSchemastore` is the plugin's copy, while runtime
+ * code keeps this package's copy. One input, two builds, the same `$id`.
+ *
  * @public
  */
-export const configSchemaHost = HostedSchema.github({
+export const configSchemaHostInput: GitHubHostedSchemaInput = {
 	repo: "spencerbeggs/reposets",
 	path: "schemas",
 	name: "config",
 	versions: [SCHEMA_VERSION],
 	appendVersion: false,
-});
+};
 
 /**
- * Where the `reposets.credentials.toml` JSON Schema is hosted and which
+ * The hosted `reposets.config.toml` schema, built from
+ * {@link configSchemaHostInput} with this package's `@effected/schemastore`.
+ *
+ * @public
+ */
+export const configSchemaHost = HostedSchema.github(configSchemaHostInput);
+
+/**
+ * The input for where the `reposets.credentials.toml` JSON Schema is hosted and which
  * version is current.
  *
  * @remarks
- * The credentials-file twin of {@link configSchemaHost}: same repository,
+ * The credentials-file twin of {@link configSchemaHostInput}: same repository,
  * directory, layout and version label, so the two documents always move
  * together.
  *
  * @public
  */
-export const credentialsSchemaHost = HostedSchema.github({
+export const credentialsSchemaHostInput: GitHubHostedSchemaInput = {
 	repo: "spencerbeggs/reposets",
 	path: "schemas",
 	name: "credentials",
 	versions: [SCHEMA_VERSION],
 	appendVersion: false,
-});
+};
+
+/**
+ * The hosted `reposets.credentials.toml` schema, built from
+ * {@link credentialsSchemaHostInput} with this package's `@effected/schemastore`.
+ *
+ * @public
+ */
+export const credentialsSchemaHost = HostedSchema.github(credentialsSchemaHostInput);
 
 /**
  * The `#:schema` directive `init` writes as the first line of a scaffolded

@@ -6,7 +6,7 @@
  * `@effected/plugin`), which turbo wires ahead of both builds.
  *
  * @remarks
- * Each entry's identity is a `HostedSchema` from `src/schemas/hosted.ts`, keyed
+ * Each entry's identity is a `HostedSchema` built from the input in `src/schemas/hosted.ts`, keyed
  * by its own `name` — the same values `reposets init` stamps as a `#:schema`
  * directive, so the `$id` written here and the URL a fresh config points at
  * cannot disagree. Both derive `schemas/<version>/<name>.json`
@@ -43,10 +43,16 @@
  * the only symptom is an editor that silently stops completing one of the two
  * files someone edits by hand.
  */
-import { defineSchemastore } from "@effected/plugin";
+import { HostedSchema, defineSchemastore } from "@effected/plugin";
 import { ConfigSchema } from "../../src/schemas/config.js";
 import { CredentialsSchema } from "../../src/schemas/credentials.js";
-import { configSchemaHost, credentialsSchemaHost } from "../../src/schemas/hosted.js";
+import { configSchemaHostInput, credentialsSchemaHostInput } from "../../src/schemas/hosted.js";
+
+// Built with the plugin's own HostedSchema: `@effected/plugin` bundles its
+// `@effected/schemastore`, whose class is nominally distinct from the one
+// runtime code imports. The shared input keeps both builds on the same `$id`.
+const configSchemaHost = HostedSchema.github(configSchemaHostInput);
+const credentialsSchemaHost = HostedSchema.github(credentialsSchemaHostInput);
 
 export default defineSchemastore({
 	name: "reposets",
