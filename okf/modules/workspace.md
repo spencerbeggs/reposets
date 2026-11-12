@@ -7,11 +7,11 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-11-12T02:38:14Z
+  at: 2026-11-12T02:40:05Z
 tags: [architecture, dx, deps]
 integrity:
   generated:
-    body: 24ed6c9b7b56361b
+    body: f1b86e2f87d8dfc9
 ---
 
 # workspace
@@ -44,7 +44,7 @@ build toolchain included, resolves exactly one `effect`.
 `.repos/config.json` vendors two upstreams as read-only reference source,
 each pinned to what the lockfile installs. `.repos/effect` is pinned to
 `effect@4.1.4` and is the authority for core APIs, `effect/cli` included.
-`.repos/effected` is pinned to the `@effected/pnpm-plugin-effected@0.23.0`
+`.repos/effected` is pinned to the `@effected/pnpm-plugin-effected@0.26.2`
 tag. Both are re-pinned whenever the lockfile's `effect` or the effected
 plugin moves.
 
