@@ -7,11 +7,11 @@ resource: ../..
 status: draft
 generated:
   by: okfit/claude-code
-  at: 2026-11-08T22:42:54Z
+  at: 2026-11-12T02:32:58Z
 tags: [architecture, dx, deps]
 integrity:
   generated:
-    body: 4990ed31f520af8a
+    body: 5a2dad2e20b78027
 ---
 
 # workspace
@@ -23,10 +23,16 @@ This is a pnpm workspace orchestrated by Turbo with exactly one package,
 pnpm `configDependencies` — `@effected/pnpm-plugin-effected` and
 `@savvy-web/pnpm-plugin-silk` — loaded before the workspace resolves rather
 than as ordinary dependencies. They supply the catalogs the package
-resolves through: one `catalog:effected`, from the `0.23.0` effected
-plugin, for `effect`, every `@effect/*` package and every `@effected/*`
-package, and `catalog:silk` for `ink` and `react`, which the CLI loads only
-when a screen or the live view mounts. The effected plugin holds the Effect
+resolves through: the effected plugin's catalogs for `effect`, every
+`@effect/*` package and every `@effected/*` package, and its
+`catalog:effected:build` for `ink` and `react`, which the CLI loads only
+when a screen or the live view mounts. Because `reposets` is a published
+CLI, it owns its kit closure: every Effect-family entry in `package/`'s
+`dependencies` is written `catalog:effected:exact`, which packs as a plain
+version, so a kit patch reaches an installed `reposets` only through a
+`reposets` release. `package/__test__/manifest.test.ts` fails on any
+Effect-family dependency spelled otherwise. Dev-only dependencies stay on
+`catalog:effected`, since they never ship. The effected plugin holds the Effect
 family to one minor (`~4.1.2`, not a caret) and derives an override pinning
 `effect` and each `@effect/*` satellite to `4.1.2` across the graph, so a
 new Effect minor arrives only with a new plugin release. The whole graph,
