@@ -4,6 +4,7 @@
 
 * Updated GitHub resource services live upstream, in @effected/github
 * Updated workspace
+* Updated CliRuntime.main builds the audience environment over App.layerDirs
 
 ## 2026-11-08
 

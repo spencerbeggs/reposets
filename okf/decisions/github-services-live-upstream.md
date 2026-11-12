@@ -19,13 +19,15 @@ verified:
     at: 2026-09-16T15:16:27Z
   - by: human:spencer
     at: 2026-10-28T23:24:10Z
+  - by: human:spencer
+    at: 2026-11-12T02:36:43Z
 integrity:
   generated:
     body: '971e865109150059'
   verified:
     by: human:spencer
-    at: 2026-10-28T23:24:10Z
-    content: ebf093e09e648649
+    at: 2026-11-12T02:36:43Z
+    content: 49ecb1b596790863
 ---
 
 # GitHub resource services live upstream, in `@effected/github`
