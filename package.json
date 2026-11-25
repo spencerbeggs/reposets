@@ -36,9 +36,9 @@
 	},
 	"devDependencies": {
 		"@effected/plugin": "catalog:effected",
-		"@okfit/plugin": "^0.5.40",
+		"@okfit/plugin": "^0.6.0",
 		"@savvy-web/silk": "^5.1.10",
-		"@vitest-agent/plugin": "^6.2.0",
+		"@vitest-agent/plugin": "^6.2.1",
 		"reposets": "workspace:*",
 		"tsx": "catalog:effected:build"
 	},
